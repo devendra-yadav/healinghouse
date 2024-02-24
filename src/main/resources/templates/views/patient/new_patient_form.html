@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="ISO-8859-1">
+	
+	<title th:text="#{healing.house.title}"></title>
+	<link rel="stylesheet" th:href="@{/cssandjs/bootstrap.min.css}"></link>
+	<script type="text/javascript" th:src="@{/cssandjs/bootstrap.bundle.min.js}"></script>
+	<style>
+	    .error {
+	        color: red;
+	    }
+	</style>
+	<script type="text/javascript">
+		function howDidYouFindUsCheckOthers(){
+			var howDidYouFindUs=document.getElementById('howDidYouFindUs').value;
+			if(howDidYouFindUs=='Others'){
+				document.getElementById('howDidYouFindUs_others').hidden="";
+				document.getElementById('howDidYouFindUs_others').value="";
+			}else{
+				document.getElementById('howDidYouFindUs_others').hidden="hidden";
+				document.getElementById('howDidYouFindUs_others').value="";
+			}
+		}
+	</script>
+	
+</head>
+<body>
+	<div th:insert="~{/fragments/header :: header}"></div>
+	<div class="container text-center">
+		<h2>Add New Patient</h2>
+		<hr/>
+		<form th:action="@{/patient/add_patient}" th:object="${patient}" th:method="post">
+			<div class="table mt-5">
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Name</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{name}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Date of birth</label>
+					</div>
+					<div class="col-4">
+						<input type="date" class="form-control" th:field="*{dateOfBirth}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('dateOfBirth')}" th:errors="*{dateOfBirth}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Mobile</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{mobile}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('mobile')}" th:errors="*{mobile}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Email</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{email}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('email')}" th:errors="*{email}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>How did you find us?</label>
+					</div>
+					<div class="col-4">
+						<select class="form-select" th:field="*{howDidYouFindUs}" id="howDidYouFindUs" th:onchange="howDidYouFindUsCheckOthers()">
+							<option selected value="">Select Option</option>
+							<option value="Google">Google</option>
+							<option value="Facebook">Facebook</option>
+							<option value="Instagram">Instagram</option>
+							<option value="Youtube">Youtube</option>
+							<option value="Whatsapp">Whatsapp</option>
+							<option value="Paper Ads">Paper Ads</option>
+							<option value="Online advertisements">Online advertisements</option>
+							<option value="Outdoor ads(board, flyers etc)">Outdoor ads(board, flyers etc)</option>
+							<option value="Friend reference">Friend reference</option>
+							<option value="Directly Found">Directly Found</option>
+							<option value="Others">Others</option>	
+						</select>
+						<input hidden="hidden" th:field="*{howDidYouFindUs}" class="form-control mt-1" type="text" id="howDidYouFindUs_others" placeholder="In what other way you found us?">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('howDidYouFindUs')}" th:errors="*{howDidYouFindUs}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Address Line 1</label>
+					</div>
+					<div class="col-4">
+						<input class="form-control" type="text" th:field="*{addressLine1}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('addressLine1')}" th:errors="*{addressLine1}" th:errorClass="error" />
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Address Line 2</label>
+					</div>
+					<div class="col-4">
+						<input class="form-control" type="text" th:field="*{addressLine2}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('addressLine2')}" th:errors="*{addressLine2}" th:errorClass="error" />
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>City</label>
+					</div>
+					<div class="col-4">
+						<input class="form-control" type="text" th:field="*{city}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('city')}" th:errors="*{city}" th:errorClass="error" />
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>State</label>
+					</div>
+					<div class="col-4">
+						<input class="form-control" type="text" th:field="*{state}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('state')}" th:errors="*{state}" th:errorClass="error" />
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Country</label>
+					</div>
+					<div class="col-4">
+						<input class="form-control" type="text" th:field="*{country}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('country')}" th:errors="*{country}" th:errorClass="error" />
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Remarks</label>
+					</div>
+					<div class="col-4">
+						<textarea rows="4" cols="30"  class="form-control" th:field="*{remarks}"/>
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('remarks')}" th:errors="*{remarks}" th:errorClass="error" />
+					</div>
+				</div>
+				
+			</div>
+			
+			<div class="row mb-5">
+				<div class="col-6">
+					<button type="submit" class="btn btn-secondary btn-lg">Submit</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</body>
+</html>
