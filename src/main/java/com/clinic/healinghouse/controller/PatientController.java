@@ -91,5 +91,23 @@ public class PatientController {
 	}
 	
 	
+	@GetMapping("/edit_patient_form/{patient_id}")
+	public String editPatientForm(@PathVariable("patient_id") Integer patientId,  Model model) {
+		Patient patient = patientService.findPatientById(patientId);
+		model.addAttribute("patient", patient);
+		return "patient/edit_patient_form";
+	}
+	
+	@PostMapping("/edit_patient")
+	public String editPatient(@ModelAttribute("patient") @Valid Patient patient, BindingResult bindingResult, Model model) {
+		logger.info("Request to edit patient came. "+patient);
+		if(bindingResult.hasErrors()) {
+			logger.warn("Some invalid inputs came in. "+bindingResult);
+			return "patient/edit_patient_form";
+		}
+		patient = patientService.updatePatient(patient);
+		logger.info("Patient updated : "+patient);
+		return "redirect:/patient/view_all_patients?recentlyEditedPatientId="+patient.getId();
+	}
 	
 }

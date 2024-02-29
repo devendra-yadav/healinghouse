@@ -28,10 +28,23 @@
 <body>
 	<div th:insert="~{/fragments/header :: header}"></div>
 	<div class="container text-center">
-		<h2>Add New Patient</h2>
+		<h2>Edit Patient</h2>
 		<hr/>
-		<form th:action="@{/patient/add_patient}" th:object="${patient}" th:method="post">
+		<form th:action="@{/patient/edit_patient}" th:object="${patient}" th:method="post">
 			<div class="table mt-5">
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Patient ID</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{id}" readonly="readonly">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('id')}" th:errors="*{id}" th:errorClass="error"></div>
+					</div>
+				</div>
+			
 				<div class="row mb-3">
 					<div class="col-2">
 						<label>Name</label>
@@ -111,8 +124,8 @@
 						<label>Registraion Date</label>
 					</div>
 					<div class="col-4">
-						<input class="form-control" type="datetime-local" th:field="*{firstVisitDate}" th:value="${#dates.format(#dates.createNow() , 'MM/dd/yyyy : HH:mm')}" > 	
-						<!-- <input class="form-control" type="datetime-local" th:field="*{firstVisitDate}" th:value="${#temporals.format(patient.firstVisitDate,'MM-dd-yyyy HH:mm')}" > -->
+						<input class="form-control" type="datetime-local" th:field="*{firstVisitDate}" th:value="${#temporals.format(patient.firstVisitDate,'dd-MMM-yyyy HH:mm')}" >
+						
 					</div>
 					
 				</div>

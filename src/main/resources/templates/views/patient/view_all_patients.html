@@ -71,8 +71,8 @@
 					<th class="col-1">Date Of Birth</th>
 					<th class="col-1">Mobile</th>
 					<th class="col-2">Email</th>
-					<th class="col-2">How did you find us?</th>
-					<th class="col-3">Address</th>
+					<th class="col-1">How did you find us?</th>
+					<th class="col-2">Address</th>
 					<th class="col-1">Registration Date</th>
 					<th class="col-2">Remarks</th>
 					<th class="col-2">Action</th>
@@ -85,13 +85,13 @@
 					<td class="col-1" th:text="${#temporals.format(patient.dateOfBirth,'dd-MMM-yyyy')}"></td>
 					<td class="col-1" th:text="${patient.mobile}"></td>
 					<td class="col-2" th:text="${patient.email}"></td>
-					<td class="col-2" th:text="${patient.howDidYouFindUs}"></td>
+					<td class="col-1" th:text="${patient.howDidYouFindUs}"></td>
 					<td class="col-2" th:text="${patient.addressLine1} +' ' + ${patient.addressLine2} +' ' + ${patient.city} +' ' + ${patient.state}  +' '+ ${patient.country}"></td>
 					
-					<td class="col-2" th:text="${#temporals.format(patient.firstVisitDate,'dd-MMM-yyyy HH:mm')}"></td>
+					<td class="col-1" th:text="${#temporals.format(patient.firstVisitDate,'dd-MMM-yyyy HH:mm')}"></td>
 					<td class="col-1" th:text="${patient.remarks}"></td>
 					<td class="col-2">
-						<a th:href="@{'/patient/edit_patient/'+${patient.id}}" class="btn btn-info">Edit</a>
+						<a th:href="@{'/patient/edit_patient_form/'+${patient.id}}" class="btn btn-info">Edit</a>
 						<a th:href="@{'/patient/delete_patient/'+${patient.id}}" class="btn btn-danger ml-2" th:onclick="deleteConfirmation([[${patient.name}]], [[${patient.id}]])">Delete</a>
 					</td>
 				</tr>

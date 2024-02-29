@@ -34,7 +34,7 @@ public class Patient {
 	private String howDidYouFindUs;
 	
 	@DateTimeFormat(pattern = "yyyy-MM-dd HH:mm")
-	private LocalDateTime firstVisitDate = LocalDateTime.now();
+	private LocalDateTime firstVisitDate;
 	private String addressLine1;
 	private String addressLine2;
 	private String city;
