@@ -33,9 +33,6 @@ public class PatientService {
 		if(howDidYouFindUs.equals(",") || howDidYouFindUs.equals(",,")) {
 			howDidYouFindUs = "";
 		}
-		
-		//If repitetive then remove 1 like Instagram, Instagram
-		
 
 		patientDto.setHowDidYouFindUs(howDidYouFindUs);
 
@@ -71,9 +68,17 @@ public class PatientService {
 			howDidYouFindUs = "";
 		}
 
+		//If repitetive then remove 1 like Instagram, Instagram
+		String[] howDidYouFindUsArray = howDidYouFindUs.split(",");
+
+		if(howDidYouFindUsArray.length==2 && howDidYouFindUsArray[0].equals(howDidYouFindUsArray[1])) {
+			howDidYouFindUs=howDidYouFindUsArray[0];
+		}
+
+
 		patient.setHowDidYouFindUs(howDidYouFindUs);
 		patient = patientRepository.save(patient);
-		
+
 		return patient;
 	}
 

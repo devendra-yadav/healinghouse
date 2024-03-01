@@ -23,14 +23,22 @@
 		<div class="container mt-3">
 			<div class="dropdown">
 			  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
-			    Patients
+			  	Patients
 			  </button>
 			  <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
 			    <li><a class="dropdown-item" th:href="@{/patient/new_patient_form}">New Patient</a></li>
 			    <li><a class="dropdown-item" th:href="@{/patient/view_all_patients}">View Patients</a></li>
 			  </ul>
 			  
-		</div>
+			  <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton1" data-bs-toggle="dropdown" aria-expanded="false">
+			    	Treatment
+			  	</button>
+			  	<ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
+			    	<li><a class="dropdown-item" th:href="@{/treatment/new_treatment_form}">New Treatment</a></li>
+			    	
+			  </ul>
+			</div>
+			
 		
 	</div>
 	

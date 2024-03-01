@@ -49,6 +49,11 @@ public class Patient {
 		this.email = patientDto.getEmail();
 		this.howDidYouFindUs = patientDto.getHowDidYouFindUs();
 		this.firstVisitDate = patientDto.getFirstVisitDate();
+		
+		if(firstVisitDate==null) {
+			firstVisitDate=LocalDateTime.now();
+		}
+		
 		this.addressLine1 = patientDto.getAddressLine1();
 		this.addressLine2 = patientDto.getAddressLine2();
 		this.city = patientDto.getCity();
