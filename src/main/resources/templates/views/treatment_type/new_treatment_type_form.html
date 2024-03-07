@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="ISO-8859-1">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title th:text="#{healing.house.title}"></title>
+	<link rel="stylesheet" th:href="@{/cssandjs/bootstrap.min.css}"></link>
+	<script type="text/javascript" th:src="@{/cssandjs/bootstrap.bundle.min.js}"></script>
+</head>
+<body>
+	<div th:insert="~{/fragments/header :: header}"></div>
+	<div class="container text-center">
+		<h2>Add New Treatment Type</h2>
+		<hr/>
+		
+		<div class="row justify-content-center mt-2">
+				<div class="alert alert-primary col-6" th:if="${recentlyAddedTreatmentType != null}">
+					Successfully added Treatment Type <a th:href="@{/treatment_type/view/{id}(id = ${recentlyAddedTreatmentType.id})}"><span th:text="${recentlyAddedTreatmentType.name}"/></a>
+					<button type="button" class="btn-close float-end" data-bs-dismiss="alert" aria-label="Close"></button>
+					<br>
+					<b>TreatmentType ID : <span th:text="${recentlyAddedTreatmentType.id}"/></b>
+				</div>
+		</div>
+		
+		<form th:action="@{/treatment_type/add_treatment_type}" th:method="post" th:object="${treatmentType}">
+			<div class="table mt-5">
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Name</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{name}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('name')}" th:errors="*{name}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Price</label>
+					</div>
+					<div class="col-4">
+						<input type="number" min="0" class="form-control" th:field="*{price}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('price')}" th:errors="*{price}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+				<div class="row mb-3">
+					<div class="col-2">
+						<label>Comments</label>
+					</div>
+					<div class="col-4">
+						<input type="text" class="form-control" th:field="*{comments}">
+					</div>
+					<div class="col-3">
+						<div th:if="${#fields.hasErrors('comments')}" th:errors="*{comments}" th:errorClass="error"></div>
+					</div>
+				</div>
+				
+			</div>
+			
+			<div class="row mb-5">
+				<div class="col-6">
+					<button type="submit" class="btn btn-secondary btn-lg">Submit</button>
+				</div>
+			</div>
+		</form>
+	</div>
+</body>
+</html>
