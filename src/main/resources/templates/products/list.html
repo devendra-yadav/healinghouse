@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Products')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Products</h4>
+        <a th:href="@{/products/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Product
+        </a>
+    </div>
+
+    <!-- Search + Category filter -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+        <form th:action="@{/products}" method="get" class="d-flex gap-2">
+            <input type="text" name="q" th:value="${q}" class="form-control form-control-sm"
+                   placeholder="Search by name…" style="width:220px;"/>
+            <button class="btn btn-sm btn-outline-secondary" type="submit">
+                <i class="bi bi-search"></i>
+            </button>
+            <a th:if="${q}" th:href="@{/products}" class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-x"></i>
+            </a>
+        </form>
+
+        <div class="d-flex flex-wrap gap-1">
+            <a th:href="@{/products}"
+               th:classappend="${selectedCategory == null} ? 'btn-success' : 'btn-outline-secondary'"
+               class="btn btn-sm">All</a>
+            <a th:each="cat : ${categories}"
+               th:href="@{/products(category=${cat})}"
+               th:text="${cat}"
+               th:classappend="${cat == selectedCategory} ? 'btn-success' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th class="text-end">Price (₹)</th>
+                            <th class="text-center">Stock</th>
+                            <th class="text-center">Reorder At</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${products.empty}">
+                            <td colspan="7" class="text-center text-muted py-4">No products found.</td>
+                        </tr>
+                        <tr th:each="p, stat : ${products}"
+                            th:classappend="${p.lowStock} ? 'table-warning'">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${p.name}"></span>
+                                <span th:if="${p.lowStock}"
+                                      class="badge bg-danger ms-1">Low Stock</span>
+                                <div th:if="${p.description}" class="text-muted small text-truncate"
+                                     style="max-width:320px;" th:text="${p.description}"></div>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill bg-info text-dark"
+                                      th:text="${p.category ?: 'Other'}"></span>
+                            </td>
+                            <td class="text-end fw-semibold"
+                                th:text="${p.price != null} ? |₹ ${#numbers.formatDecimal(p.price, 1, 2)}| : '—'"></td>
+                            <td class="text-center">
+                                <span th:text="${p.stockQuantity}"
+                                      th:classappend="${p.lowStock} ? 'text-danger fw-bold' : 'text-success fw-semibold'">
+                                </span>
+                            </td>
+                            <td class="text-center text-muted" th:text="${p.reorderLevel}"></td>
+                            <td class="text-center text-nowrap">
+                                <a th:href="@{/products/{id}/edit(id=${p.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-name=${p.name}, data-url=@{/products/{id}/delete(id=${p.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small d-flex justify-content-between">
+            <span th:text="${products.size()} + ' product(s)'"></span>
+            <span class="text-danger"
+                  th:if="${lowStockCount > 0}"
+                  th:text="${lowStockCount} + ' item(s) low on stock'">
+            </span>
+        </div>
+    </div>
+</main>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deactivate</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Deactivate product "' + btn.dataset.name + '"?';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

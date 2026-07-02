@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Appointments')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Appointments</h4>
+        <a th:href="@{/appointments/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Appointment
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <form th:action="@{/appointments}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Patient Name</label>
+                    <input type="text" name="patientName" class="form-control form-control-sm"
+                           th:value="${selectedPatientName}" placeholder="Search patient…">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Therapist</label>
+                    <select name="therapistId" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="t : ${therapists}"
+                                th:value="${t.id}" th:text="${t.fullName}"
+                                th:selected="${t.id == selectedTherapistId}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="s : ${statuses}"
+                                th:value="${s}" th:text="${s}"
+                                th:selected="${s.name() == selectedStatus}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm"
+                           th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm"
+                           th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a th:href="@{/appointments}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Date &amp; Time</th>
+                            <th>Patient</th>
+                            <th>Therapist</th>
+                            <th class="text-end">Grand Total (₹)</th>
+                            <th class="text-center">Payment</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${appointments.empty}">
+                            <td colspan="8" class="text-center text-muted py-4">
+                                No appointments found.
+                            </td>
+                        </tr>
+                        <tr th:each="a, stat : ${appointments}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td class="text-nowrap"
+                                th:text="${#temporals.format(a.appointmentDateTime, 'dd MMM yyyy, HH:mm')}">
+                            </td>
+                            <td th:text="${a.patient.fullName}"></td>
+                            <td th:text="${a.therapist.fullName}"></td>
+                            <td class="text-end fw-semibold"
+                                th:text="${a.grandTotal != null} ? |₹ ${#numbers.formatDecimal(a.grandTotal, 1, 2)}| : '—'">
+                            </td>
+                            <!-- Payment status badge -->
+                            <td class="text-center">
+                                <span th:switch="${a.paymentStatus}">
+                                    <span th:case="'PAID'"    class="badge bg-success">Paid</span>
+                                    <span th:case="'PARTIAL'" class="badge bg-warning text-dark">Partial</span>
+                                    <span th:case="'UNPAID'"  class="badge bg-danger">Unpaid</span>
+                                    <span th:case="*"         class="badge bg-light text-muted border">—</span>
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge"
+                                      th:text="${a.status}"
+                                      th:classappend="${a.status.name() == 'COMPLETED'} ? 'bg-success' :
+                                                      (${a.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
+                                                      (${a.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
+                                                                                            'bg-primary'))">
+                                </span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <!-- View -->
+                                <a th:href="@{/appointments/{id}(id=${a.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1"
+                                   title="View details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+
+                                <!-- SCHEDULED-only actions -->
+                                <span th:if="${a.status.name() == 'SCHEDULED'}">
+                                    <!-- Edit -->
+                                    <a th:href="@{/appointments/{id}/edit(id=${a.id})}"
+                                       class="btn btn-sm btn-outline-secondary me-1"
+                                       title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+
+                                    <!-- Complete -->
+                                    <form th:action="@{/appointments/{id}/complete(id=${a.id})}"
+                                          method="post" class="d-inline me-1">
+                                        <input type="hidden" name="returnUrl" value="/appointments">
+                                        <button type="submit" class="btn btn-sm btn-outline-success"
+                                                title="Mark Completed"
+                                                onclick="return confirm('Mark this appointment as completed?')">
+                                            <i class="bi bi-check-circle"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- No-Show -->
+                                    <form th:action="@{/appointments/{id}/no-show(id=${a.id})}"
+                                          method="post" class="d-inline me-1">
+                                        <input type="hidden" name="returnUrl" value="/appointments">
+                                        <button type="submit" class="btn btn-sm btn-outline-warning"
+                                                title="Mark No-Show"
+                                                onclick="return confirm('Mark this appointment as no-show?')">
+                                            <i class="bi bi-person-x"></i>
+                                        </button>
+                                    </form>
+
+                                    <!-- Cancel (opens modal for reason) -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Cancel"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#cancelModal"
+                                            th:attr="data-id=${a.id},
+                                                     data-patient=${a.patient.fullName},
+                                                     data-datetime=${#temporals.format(a.appointmentDateTime,'dd MMM yyyy HH:mm')}">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
+                                </span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <span th:text="${appointments.size()} + ' appointment(s)'"></span>
+        </div>
+    </div>
+</main>
+
+<!-- Cancel Appointment Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="bi bi-x-circle text-danger me-2"></i>Cancel Appointment
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="cancelForm" method="post">
+                <input type="hidden" name="returnUrl" value="/appointments">
+                <div class="modal-body">
+                    <p class="mb-2 text-muted small" id="cancelModalBody">
+                        Cancel this appointment?
+                    </p>
+                    <label class="form-label fw-semibold">Reason <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea name="cancelReason" class="form-control" rows="2"
+                              placeholder="Patient cancelled, rescheduled, etc."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">Back</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle me-1"></i>Confirm Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+document.getElementById('cancelModal').addEventListener('show.bs.modal', function(e) {
+    const btn = e.relatedTarget;
+    document.getElementById('cancelForm').action =
+        '/appointments/' + btn.dataset.id + '/cancel';
+    document.getElementById('cancelModalBody').textContent =
+        'Cancel appointment for ' + btn.dataset.patient +
+        ' on ' + btn.dataset.datetime + '?';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: head
+     Usage: <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+     ═══════════════════════════════════════════ -->
+<head th:fragment="head(pageTitle)">
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title th:text="${pageTitle} + ' — Healing House Clinic'">Healing House Clinic</title>
+
+    <!-- Bootstrap 5 -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"/>
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
+    <!-- Clinic theme -->
+    <link rel="stylesheet" th:href="@{/css/clinic.css}"/>
+</head>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: navbar
+     Usage: <nav th:replace="~{fragments/layout :: navbar(${pageTitle})}"/>
+     ═══════════════════════════════════════════ -->
+<nav th:fragment="navbar(activePage)" class="navbar navbar-expand-lg navbar-hh shadow-sm">
+    <div class="container-fluid px-4">
+
+        <!-- Brand -->
+        <a class="navbar-brand" th:href="@{/}">
+            <i class="bi bi-heart-pulse-fill me-2"></i>Healing House Clinic
+        </a>
+
+        <button class="navbar-toggler" type="button"
+                data-bs-toggle="collapse" data-bs-target="#mainNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="mainNav">
+            <ul class="navbar-nav ms-auto gap-1">
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Dashboard'} ? 'active'"
+                       th:href="@{/}">
+                        <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Patients'} ? 'active'"
+                       th:href="@{/patients}">
+                        <i class="bi bi-people me-1"></i>Patients
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Therapists'} ? 'active'"
+                       th:href="@{/therapists}">
+                        <i class="bi bi-person-badge me-1"></i>Therapists
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Services'} ? 'active'"
+                       th:href="@{/services}">
+                        <i class="bi bi-clipboard2-heart me-1"></i>Services
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Products'} ? 'active'"
+                       th:href="@{/products}">
+                        <i class="bi bi-bag-heart me-1"></i>Products
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Appointments'} ? 'active'"
+                       th:href="@{/appointments}">
+                        <i class="bi bi-calendar2-check me-1"></i>Appointments
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Reports'} ? 'active'"
+                       th:href="@{/reports}">
+                        <i class="bi bi-bar-chart-line me-1"></i>Reports
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: footer
+     Usage: <footer th:replace="~{fragments/layout :: footer}"/>
+     ═══════════════════════════════════════════ -->
+<footer th:fragment="footer" class="py-3 mt-auto text-center">
+    <div class="container">
+        <span>&copy; 2026 Healing House Clinic &mdash; All rights reserved.</span>
+    </div>
+</footer>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: scripts
+     Usage: <th:block th:replace="~{fragments/layout :: scripts}"/>
+     ═══════════════════════════════════════════ -->
+<th:block th:fragment="scripts">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</th:block>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: alerts
+     Usage: <th:block th:replace="~{fragments/layout :: alerts}"/>
+     ═══════════════════════════════════════════ -->
+<th:block th:fragment="alerts">
+    <div th:if="${successMessage}" class="alert alert-success alert-dismissible fade show mb-3" role="alert">
+        <i class="bi bi-check-circle-fill me-2"></i>
+        <span th:text="${successMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${errorMessage}" class="alert alert-danger alert-dismissible fade show mb-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <span th:text="${errorMessage}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</th:block>
+
+</html>

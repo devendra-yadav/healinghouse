@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <h4 class="section-header mb-4">Reports</h4>
+    <div class="coming-soon-card">
+        <i class="bi bi-bar-chart-line fs-1 text-secondary mb-3 d-block"></i>
+        <h5 class="text-muted">Coming in Phase 3</h5>
+        <p class="text-muted mb-0">Daily, weekly, monthly reports and therapist earnings calculations will be available here.</p>
+    </div>
+</main>
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

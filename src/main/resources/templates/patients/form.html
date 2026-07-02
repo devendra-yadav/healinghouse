@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Patients')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/patients}">Patients</a></li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0" th:text="${pageTitle}"></h5>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/patients/save}" th:object="${patient}" method="post">
+                        <input type="hidden" th:field="*{id}"/>
+                        <input type="hidden" th:field="*{active}"/>
+
+                        <!-- Row 1: Name + Phone -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-7">
+                                <label class="form-label fw-semibold">Full Name <span class="text-danger">*</span></label>
+                                <input type="text" th:field="*{fullName}" class="form-control"
+                                       th:classappend="${#fields.hasErrors('fullName')} ? 'is-invalid'"
+                                       placeholder="e.g. Rahul Sharma"/>
+                                <div class="invalid-feedback" th:errors="*{fullName}"></div>
+                            </div>
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold">Phone</label>
+                                <input type="tel" th:field="*{phone}" class="form-control"
+                                       placeholder="e.g. 9876543210"/>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Email + Gender + DOB -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-5">
+                                <label class="form-label fw-semibold">Email</label>
+                                <input type="email" th:field="*{email}" class="form-control"
+                                       placeholder="optional"/>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-semibold">Gender</label>
+                                <select th:field="*{gender}" class="form-select">
+                                    <option value="">— Select —</option>
+                                    <option th:each="g : ${genders}" th:value="${g}"
+                                            th:text="${#strings.capitalize(#strings.toLowerCase(g.name()))}">
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Date of Birth</label>
+                                <input type="date" th:field="*{dateOfBirth}" class="form-control"/>
+                                <div class="form-text">Used to calculate age automatically.</div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Address -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Address</label>
+                            <input type="text" th:field="*{address}" class="form-control"
+                                   placeholder="optional"/>
+                        </div>
+
+                        <!-- Row 4: Medical History + Allergies -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Medical History</label>
+                                <textarea th:field="*{medicalHistory}" class="form-control"
+                                          rows="3" placeholder="optional"></textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Allergies</label>
+                                <textarea th:field="*{allergies}" class="form-control"
+                                          rows="3" placeholder="optional"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Row 5: Notes -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Notes</label>
+                            <textarea th:field="*{notes}" class="form-control"
+                                      rows="2" placeholder="optional"></textarea>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-flex gap-2 justify-content-end border-top pt-3">
+                            <a th:href="@{/patients}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-hh">
+                                <i class="bi bi-check-lg me-1"></i>Save Patient
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

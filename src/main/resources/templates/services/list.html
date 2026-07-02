@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Services')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Services / Treatments</h4>
+        <a th:href="@{/services/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Service
+        </a>
+    </div>
+
+    <!-- Category filter chips -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <a th:href="@{/services}"
+           th:classappend="${selectedCategory == null} ? 'btn-success' : 'btn-outline-secondary'"
+           class="btn btn-sm">All</a>
+        <a th:each="cat : ${categories}"
+           th:href="@{/services(category=${cat})}"
+           th:text="${cat}"
+           th:classappend="${cat == selectedCategory} ? 'btn-success' : 'btn-outline-secondary'"
+           class="btn btn-sm">
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Service Name</th>
+                            <th>Category</th>
+                            <th class="text-end">Duration</th>
+                            <th class="text-end">Price (₹)</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${services.empty}">
+                            <td colspan="6" class="text-center text-muted py-4">No services found.</td>
+                        </tr>
+                        <tr th:each="s, stat : ${services}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${s.name}"></span>
+                                <div th:if="${s.description}" class="text-muted small text-truncate"
+                                     style="max-width:320px;" th:text="${s.description}"></div>
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill bg-success bg-opacity-75"
+                                      th:text="${s.category ?: 'Other'}"></span>
+                            </td>
+                            <td class="text-end"
+                                th:text="${s.durationMinutes != null ? s.durationMinutes + ' min' : '—'}"></td>
+                            <td class="text-end fw-semibold"
+                                th:text="${s.price != null} ? |₹ ${#numbers.formatDecimal(s.price, 1, 2)}| : '—'"></td>
+                            <td class="text-center text-nowrap">
+                                <a th:href="@{/services/{id}/edit(id=${s.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-name=${s.name}, data-url=@{/services/{id}/delete(id=${s.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <span th:text="${services.size()} + ' service(s)'"></span>
+        </div>
+    </div>
+</main>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deactivate</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Deactivate service "' + btn.dataset.name + '"?';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

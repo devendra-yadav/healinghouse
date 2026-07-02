@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Therapists</h4>
+        <a th:href="@{/therapists/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-person-plus me-1"></i>New Therapist
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Specialization</th>
+                            <th>Phone</th>
+                            <th class="text-end">Monthly Salary (₹)</th>
+                            <th class="text-end">Commission</th>
+                            <th class="text-end">Bonus Threshold</th>
+                            <th class="text-end">Bonus Amount (₹)</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${therapists.empty}">
+                            <td colspan="9" class="text-center text-muted py-4">No therapists found.</td>
+                        </tr>
+                        <tr th:each="t, stat : ${therapists}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${t.fullName}"></span>
+                                <span th:if="${t.owner}"
+                                      class="badge bg-success ms-1" title="Owner — no payout calculation">Owner</span>
+                            </td>
+                            <td th:text="${t.specialization ?: '—'}"></td>
+                            <td th:text="${t.phone ?: '—'}"></td>
+                            <td class="text-end"
+                                th:text="${t.fixedMonthlySalary != null && t.fixedMonthlySalary.signum() > 0}
+                                          ? |₹ ${#numbers.formatDecimal(t.fixedMonthlySalary, 1, 2)}| : '—'">
+                            </td>
+                            <td class="text-end"
+                                th:text="${t.commissionRate != null && t.commissionRate.signum() > 0}
+                                          ? |${#numbers.formatDecimal(t.commissionRate.movePointRight(2), 1, 2)}%| : '—'">
+                            </td>
+                            <td class="text-end"
+                                th:text="${t.performanceBonusThreshold != null ? t.performanceBonusThreshold + ' services' : '—'}">
+                            </td>
+                            <td class="text-end"
+                                th:text="${t.performanceBonusAmount != null && t.performanceBonusAmount.signum() > 0}
+                                          ? |₹ ${#numbers.formatDecimal(t.performanceBonusAmount, 1, 2)}| : '—'">
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:href="@{/therapists/{id}/edit(id=${t.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-name=${t.fullName}, data-url=@{/therapists/{id}/delete(id=${t.id})}">
+                                    <i class="bi bi-person-dash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <span th:text="${therapists.size()} + ' therapist(s)'"></span>
+        </div>
+    </div>
+</main>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deactivate</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Deactivate therapist "' + btn.dataset.name + '"?';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

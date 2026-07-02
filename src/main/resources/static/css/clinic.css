@@ -1,0 +1,111 @@
+/* Healing House Clinic — Calming Green Theme */
+
+:root {
+    --hh-green-dark:  #2d6a4f;
+    --hh-green-mid:   #40916c;
+    --hh-green-light: #74c69d;
+    --hh-green-pale:  #d8f3dc;
+    --hh-accent:      #1b4332;
+    --hh-text-light:  #f8fffe;
+}
+
+body {
+    background-color: #f4faf6;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #2c3e50;
+}
+
+/* ── Navbar ── */
+.navbar-hh {
+    background-color: var(--hh-green-dark);
+}
+
+.navbar-hh .navbar-brand {
+    color: var(--hh-text-light) !important;
+    font-weight: 700;
+    font-size: 1.3rem;
+    letter-spacing: 0.5px;
+}
+
+.navbar-hh .nav-link {
+    color: #cdefd8 !important;
+    font-size: 0.93rem;
+    padding: 0.5rem 0.85rem;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.navbar-hh .nav-link:hover,
+.navbar-hh .nav-link.active {
+    background-color: var(--hh-green-mid);
+    color: #fff !important;
+}
+
+.navbar-hh .navbar-toggler {
+    border-color: var(--hh-green-light);
+}
+
+/* ── KPI Cards ── */
+.card-kpi {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    transition: transform 0.15s;
+}
+
+.card-kpi:hover {
+    transform: translateY(-3px);
+}
+
+.card-kpi .card-icon {
+    font-size: 2.2rem;
+    opacity: 0.85;
+}
+
+/* ── Section headings ── */
+.section-header {
+    border-left: 4px solid var(--hh-green-mid);
+    padding-left: 0.6rem;
+    color: var(--hh-green-dark);
+    font-weight: 600;
+}
+
+/* ── Footer ── */
+footer {
+    background-color: var(--hh-green-dark);
+    color: #cdefd8;
+    font-size: 0.82rem;
+}
+
+/* ── Quick action buttons ── */
+.btn-hh {
+    background-color: var(--hh-green-mid);
+    border-color: var(--hh-green-mid);
+    color: #fff;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-hh:hover {
+    background-color: var(--hh-green-dark);
+    border-color: var(--hh-green-dark);
+    color: #fff;
+}
+
+/* ── Tables ── */
+.table thead {
+    background-color: var(--hh-green-pale);
+    color: var(--hh-accent);
+}
+
+/* ── Placeholder coming-soon boxes ── */
+.coming-soon-card {
+    border: 2px dashed var(--hh-green-light);
+    border-radius: 12px;
+    background: #f0faf4;
+    color: #555;
+    text-align: center;
+    padding: 3rem 1rem;
+}

@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Appointments')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <!-- ── Page header ──────────────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="section-header mb-0">
+                Appointment <span class="text-muted">#</span><span th:text="${appointment.id}"></span>
+            </h4>
+            <span class="badge fs-6 fw-semibold"
+                  th:text="${appointment.status}"
+                  th:classappend="${appointment.status.name() == 'COMPLETED'} ? 'bg-success' :
+                                  (${appointment.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
+                                  (${appointment.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
+                                                                                  'bg-primary'))">
+            </span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <!-- Status actions — SCHEDULED only -->
+            <span th:if="${appointment.status.name() == 'SCHEDULED'}" class="d-flex gap-2">
+                <a th:href="@{/appointments/{id}/edit(id=${appointment.id})}"
+                   class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-pencil me-1"></i>Edit
+                </a>
+                <form th:action="@{/appointments/{id}/complete(id=${appointment.id})}" method="post">
+                    <button type="submit" class="btn btn-success btn-sm"
+                            onclick="return confirm('Mark this appointment as completed?')">
+                        <i class="bi bi-check-circle me-1"></i>Complete
+                    </button>
+                </form>
+                <form th:action="@{/appointments/{id}/no-show(id=${appointment.id})}" method="post">
+                    <button type="submit" class="btn btn-warning btn-sm"
+                            onclick="return confirm('Mark this patient as no-show?')">
+                        <i class="bi bi-person-x me-1"></i>No-Show
+                    </button>
+                </form>
+                <button type="button" class="btn btn-danger btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#cancelModal">
+                    <i class="bi bi-x-circle me-1"></i>Cancel
+                </button>
+            </span>
+            <a th:href="@{/appointments}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back
+            </a>
+        </div>
+    </div>
+
+    <!-- Cancel reason banner -->
+    <div th:if="${appointment.status.name() == 'CANCELLED' and appointment.cancelReason != null}"
+         class="alert alert-danger py-2 mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        <strong>Cancellation reason:</strong>
+        <span th:text="${appointment.cancelReason}"></span>
+    </div>
+
+    <!-- ── Row 1: Patient info + Appointment info ───────────────────────── -->
+    <div class="row g-3 mb-3">
+
+        <!-- Patient card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 fw-semibold">
+                    <i class="bi bi-person me-1"></i>Patient
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold mb-2" th:text="${appointment.patient.fullName}"></h6>
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr th:if="${appointment.patient.phone}">
+                                <td class="text-muted ps-0" style="width:110px">
+                                    <i class="bi bi-telephone me-1"></i>Phone
+                                </td>
+                                <td th:text="${appointment.patient.phone}"></td>
+                            </tr>
+                            <tr th:if="${appointment.patient.email}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-envelope me-1"></i>Email
+                                </td>
+                                <td th:text="${appointment.patient.email}"></td>
+                            </tr>
+                            <tr th:if="${appointment.patient.gender}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-person-fill me-1"></i>Gender
+                                </td>
+                                <td th:text="${appointment.patient.gender}"></td>
+                            </tr>
+                            <tr th:if="${appointment.patient.dateOfBirth}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-calendar3 me-1"></i>DOB
+                                </td>
+                                <td>
+                                    <span th:text="${#temporals.format(appointment.patient.dateOfBirth, 'dd MMM yyyy')}"></span>
+                                    <span th:if="${appointment.patient.age != null}"
+                                          class="text-muted ms-1"
+                                          th:text="'(' + ${appointment.patient.age} + ' yrs)'">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr th:if="${appointment.patient.address}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-geo-alt me-1"></i>Address
+                                </td>
+                                <td th:text="${appointment.patient.address}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Medical history & allergies in collapsed section -->
+                    <div th:if="${appointment.patient.medicalHistory != null or appointment.patient.allergies != null}"
+                         class="border-top pt-2 mt-2 small">
+                        <div th:if="${appointment.patient.medicalHistory}">
+                            <span class="text-muted fw-semibold">Medical History: </span>
+                            <span th:text="${appointment.patient.medicalHistory}"></span>
+                        </div>
+                        <div th:if="${appointment.patient.allergies}" class="mt-1">
+                            <span class="text-muted fw-semibold">Allergies: </span>
+                            <span class="text-danger" th:text="${appointment.patient.allergies}"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointment meta card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 fw-semibold">
+                    <i class="bi bi-calendar2-check me-1"></i>Appointment Details
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted ps-0" style="width:130px">
+                                    <i class="bi bi-clock me-1"></i>Date &amp; Time
+                                </td>
+                                <td class="fw-semibold"
+                                    th:text="${#temporals.format(appointment.appointmentDateTime, 'dd MMM yyyy, HH:mm')}">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-person-badge me-1"></i>Therapist
+                                </td>
+                                <td class="fw-semibold">
+                                    <span th:text="${appointment.therapist.fullName}"></span>
+                                    <span th:if="${appointment.therapist.specialization}"
+                                          class="text-muted fw-normal ms-1"
+                                          th:text="'· ' + ${appointment.therapist.specialization}">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr th:if="${appointment.therapist.phone}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-telephone me-1"></i>Therapist Phone
+                                </td>
+                                <td th:text="${appointment.therapist.phone}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-bookmark me-1"></i>Booked On
+                                </td>
+                                <td th:text="${appointment.createdAt != null}
+                                             ? ${#temporals.format(appointment.createdAt, 'dd MMM yyyy, HH:mm')}
+                                             : '—'">
+                                </td>
+                            </tr>
+                            <tr th:if="${appointment.completedAt}">
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-check-circle-fill text-success me-1"></i>Completed
+                                </td>
+                                <td class="text-success fw-semibold"
+                                    th:text="${#temporals.format(appointment.completedAt, 'dd MMM yyyy, HH:mm')}">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Row 2: Services table ─────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-scissors me-1"></i>Services
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Service</th>
+                        <th class="text-center">Duration</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Rate</th>
+                        <th class="text-end pe-3">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:if="${appointment.serviceLines.empty}">
+                        <td colspan="5" class="text-center text-muted py-3 ps-3">
+                            No services recorded.
+                        </td>
+                    </tr>
+                    <tr th:each="sl : ${appointment.serviceLines}">
+                        <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
+                        <td class="text-center text-muted small"
+                            th:text="${sl.service.durationMinutes != null
+                                       ? sl.service.durationMinutes + ' min' : '—'}">
+                        </td>
+                        <td class="text-center" th:text="${sl.quantity}"></td>
+                        <td class="text-end text-muted small"
+                            th:text="${sl.priceAtTime != null}
+                                      ? |₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|
+                                      : '—'">
+                        </td>
+                        <td class="text-end pe-3 fw-semibold"
+                            th:text="${sl.lineTotal != null}
+                                      ? |₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}|
+                                      : '—'">
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="table-light border-top border-2">
+                        <td colspan="4" class="text-end fw-semibold ps-3 py-2">Services Total</td>
+                        <td class="text-end pe-3 fw-bold py-2"
+                            th:text="${appointment.totalServiceAmount != null}
+                                      ? |₹ ${#numbers.formatDecimal(appointment.totalServiceAmount, 1, 2)}|
+                                      : '₹0.00'">
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Row 3: Products table (only if used) ──────────────────────────── -->
+    <div th:if="${!appointment.productLines.empty}" class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-box-seam me-1"></i>Products
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0 align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-3">Product</th>
+                        <th class="text-center">Qty</th>
+                        <th class="text-end">Rate</th>
+                        <th class="text-end pe-3">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="pl : ${appointment.productLines}">
+                        <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
+                        <td class="text-center" th:text="${pl.quantity}"></td>
+                        <td class="text-end text-muted small"
+                            th:text="${pl.priceAtTime != null}
+                                      ? |₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|
+                                      : '—'">
+                        </td>
+                        <td class="text-end pe-3 fw-semibold"
+                            th:text="${pl.lineTotal != null}
+                                      ? |₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}|
+                                      : '—'">
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr class="table-light border-top border-2">
+                        <td colspan="3" class="text-end fw-semibold ps-3 py-2">Products Total</td>
+                        <td class="text-end pe-3 fw-bold py-2"
+                            th:text="${appointment.totalProductAmount != null}
+                                      ? |₹ ${#numbers.formatDecimal(appointment.totalProductAmount, 1, 2)}|
+                                      : '₹0.00'">
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- ── Row 4: Notes + Payment summary ────────────────────────────────── -->
+    <div class="row g-3 mb-4">
+
+        <!-- Notes -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header py-2 fw-semibold">
+                    <i class="bi bi-journal-text me-1"></i>Notes
+                </div>
+                <div class="card-body">
+                    <p th:if="${appointment.notes}"
+                       class="mb-0 text-break" style="white-space:pre-wrap"
+                       th:text="${appointment.notes}">
+                    </p>
+                    <p th:unless="${appointment.notes}"
+                       class="mb-0 text-muted fst-italic">
+                        No notes recorded.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment summary -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100 border-success">
+                <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center"
+                     style="background:rgba(45,106,79,.08)">
+                    <span><i class="bi bi-receipt me-1"></i>Payment Summary</span>
+                    <span th:switch="${appointment.paymentStatus}">
+                        <span th:case="'PAID'"    class="badge bg-success">Paid in Full</span>
+                        <span th:case="'PARTIAL'" class="badge bg-warning text-dark">Partially Paid</span>
+                        <span th:case="'UNPAID'"  class="badge bg-danger">Unpaid</span>
+                    </span>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <tbody>
+                            <tr>
+                                <td class="ps-3 text-muted">Services Total</td>
+                                <td class="pe-3 text-end"
+                                    th:text="${appointment.totalServiceAmount != null}
+                                              ? |₹ ${#numbers.formatDecimal(appointment.totalServiceAmount, 1, 2)}|
+                                              : '₹0.00'">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted">Products Total</td>
+                                <td class="pe-3 text-end"
+                                    th:text="${appointment.totalProductAmount != null}
+                                              ? |₹ ${#numbers.formatDecimal(appointment.totalProductAmount, 1, 2)}|
+                                              : '₹0.00'">
+                                </td>
+                            </tr>
+                            <tr class="border-top border-2 table-active">
+                                <td class="ps-3 fw-bold">Grand Total</td>
+                                <td class="pe-3 text-end fw-bold fs-5 text-success"
+                                    th:text="${appointment.grandTotal != null}
+                                              ? |₹ ${#numbers.formatDecimal(appointment.grandTotal, 1, 2)}|
+                                              : '₹0.00'">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="ps-3 text-muted">
+                                    Amount Paid
+                                    <span th:if="${appointment.paymentMethod}"
+                                          class="badge bg-secondary ms-1"
+                                          th:text="${appointment.paymentMethod}">
+                                    </span>
+                                </td>
+                                <td class="pe-3 text-end text-success fw-semibold"
+                                    th:text="${appointment.amountPaid != null}
+                                              ? |₹ ${#numbers.formatDecimal(appointment.amountPaid, 1, 2)}|
+                                              : '₹0.00'">
+                                </td>
+                            </tr>
+                            <tr class="border-top">
+                                <td class="ps-3 text-muted">Balance Due</td>
+                                <td class="pe-3 text-end fw-bold"
+                                    th:classappend="${appointment.balanceDue.signum() > 0} ? 'text-danger' : 'text-muted'"
+                                    th:text="|₹ ${#numbers.formatDecimal(appointment.balanceDue, 1, 2)}|">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<!-- ── Cancel Modal ──────────────────────────────────────────────────────── -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="bi bi-x-circle text-danger me-2"></i>Cancel Appointment
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/appointments/{id}/cancel(id=${appointment.id})}" method="post">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">
+                        Cancel appointment for
+                        <strong th:text="${appointment.patient.fullName}"></strong>
+                        on
+                        <strong th:text="${#temporals.format(appointment.appointmentDateTime, 'dd MMM yyyy, HH:mm')}"></strong>?
+                        <br>Product stock used in this appointment will be restored.
+                    </p>
+                    <label class="form-label fw-semibold">
+                        Reason <span class="text-muted fw-normal">(optional)</span>
+                    </label>
+                    <textarea name="cancelReason" class="form-control" rows="2"
+                              placeholder="Patient cancelled, rescheduled, etc."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary"
+                            data-bs-dismiss="modal">Back</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle me-1"></i>Confirm Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

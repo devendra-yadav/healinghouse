@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Appointments')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0" th:text="${pageTitle}">New Appointment</h4>
+        <a th:href="${cancelUrl}" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+    </div>
+
+    <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
+
+        <!-- ── Patient / Therapist / DateTime ─────────────────────────────── -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            Patient <span class="text-danger">*</span>
+                        </label>
+                        <select name="patientId" class="form-select" required>
+                            <option value="">— Select Patient —</option>
+                            <option th:each="p : ${patients}"
+                                    th:value="${p.id}"
+                                    th:text="${p.fullName}"
+                                    th:selected="${p.id == form.patientId}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            Therapist <span class="text-danger">*</span>
+                        </label>
+                        <select name="therapistId" class="form-select" required>
+                            <option value="">— Select Therapist —</option>
+                            <option th:each="t : ${therapists}"
+                                    th:value="${t.id}"
+                                    th:text="${t.fullName + (t.specialization != null ? ' · ' + t.specialization : '')}"
+                                    th:selected="${t.id == form.therapistId}">
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-semibold">
+                            Date &amp; Time <span class="text-danger">*</span>
+                        </label>
+                        <input type="datetime-local" name="appointmentDateTime"
+                               class="form-control"
+                               th:value="${form.appointmentDateTime != null}
+                                          ? ${#temporals.format(form.appointmentDateTime, 'yyyy-MM-dd''T''HH:mm')}
+                                          : ${defaultDateTime}"
+                               required>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Services ───────────────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span class="fw-semibold">
+                    <i class="bi bi-scissors me-1"></i>Services
+                    <span class="text-danger">*</span>
+                </span>
+                <button type="button" class="btn btn-sm btn-hh" onclick="addServiceRow()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Service
+                </button>
+            </div>
+            <div class="card-body pb-1">
+                <!-- Column headers (shown when rows exist) -->
+                <div id="serviceHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                    <div class="col-5">Service</div>
+                    <div class="col-2 text-center">Qty</div>
+                    <div class="col-2">Rate</div>
+                    <div class="col-2 text-end">Subtotal</div>
+                    <div class="col-1"></div>
+                </div>
+                <div id="servicesContainer"></div>
+                <div id="servicesEmpty" class="text-muted small text-center py-3">
+                    <i class="bi bi-info-circle me-1"></i>Click "Add Service" to add at least one service.
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-end py-2 bg-transparent">
+                <span class="text-muted small me-2">Services Total:</span>
+                <span class="fw-semibold" id="displayServiceTotal">₹0.00</span>
+            </div>
+        </div>
+
+        <!-- ── Products ───────────────────────────────────────────────────── -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                <span class="fw-semibold">
+                    <i class="bi bi-box-seam me-1"></i>Products
+                    <span class="text-muted fw-normal small">(optional)</span>
+                </span>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addProductRow()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Product
+                </button>
+            </div>
+            <div class="card-body pb-1">
+                <div id="productHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                    <div class="col-4">Product</div>
+                    <div class="col-2 text-center">Qty</div>
+                    <div class="col-2">Stock</div>
+                    <div class="col-2">Rate</div>
+                    <div class="col-1 text-end">Subtotal</div>
+                    <div class="col-1"></div>
+                </div>
+                <div id="productsContainer"></div>
+                <div id="productsEmpty" class="text-muted small text-center py-3">
+                    <i class="bi bi-info-circle me-1"></i>No products added.
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-end py-2 bg-transparent">
+                <span class="text-muted small me-2">Products Total:</span>
+                <span class="fw-semibold" id="displayProductTotal">₹0.00</span>
+            </div>
+        </div>
+
+        <!-- ── Notes + Payment + Summary ─────────────────────────────────── -->
+        <div class="row g-3 mb-3">
+            <!-- Left: notes + payment -->
+            <div class="col-md-7">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column gap-3">
+                        <div>
+                            <label class="form-label fw-semibold">Notes</label>
+                            <textarea name="notes" class="form-control" rows="3"
+                                      placeholder="Treatment notes, observations…"
+                                      th:text="${form.notes}"></textarea>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Payment Method</label>
+                                <select name="paymentMethod" class="form-select">
+                                    <option value="">— Select —</option>
+                                    <option th:each="pm : ${paymentMethods}"
+                                            th:value="${pm}"
+                                            th:text="${pm}"
+                                            th:selected="${pm.name() == form.paymentMethod}">
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label fw-semibold">Amount Paid (₹)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" name="amountPaid" id="amountPaidInput"
+                                           class="form-control" min="0" step="0.01"
+                                           th:value="${form.amountPaid != null ? form.amountPaid : 0}"
+                                           oninput="updateBalance()">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: summary totals -->
+            <div class="col-md-5">
+                <div class="card shadow-sm h-100 border-success">
+                    <div class="card-header py-2 fw-semibold"
+                         style="background:rgba(45,106,79,.08)">
+                        <i class="bi bi-receipt me-1"></i>Summary
+                    </div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <tbody>
+                                <tr>
+                                    <td class="ps-3 text-muted">Services</td>
+                                    <td class="pe-3 text-end fw-semibold"
+                                        id="summaryServiceTotal">₹0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="ps-3 text-muted">Products</td>
+                                    <td class="pe-3 text-end fw-semibold"
+                                        id="summaryProductTotal">₹0.00</td>
+                                </tr>
+                                <tr class="table-active border-top border-2">
+                                    <td class="ps-3 fw-bold">Grand Total</td>
+                                    <td class="pe-3 text-end fw-bold fs-5 text-success"
+                                        id="summaryGrandTotal">₹0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="ps-3 text-muted">Amount Paid</td>
+                                    <td class="pe-3 text-end"
+                                        id="summaryAmountPaid">₹0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="ps-3 text-muted">Balance Due</td>
+                                    <td class="pe-3 text-end fw-semibold text-danger"
+                                        id="summaryBalance">₹0.00</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Action buttons ─────────────────────────────────────────────── -->
+        <div class="d-flex justify-content-end gap-2 mb-4">
+            <a th:href="${cancelUrl}" class="btn btn-outline-secondary">Cancel</a>
+            <button type="submit" class="btn btn-hh px-4">
+                <i class="bi bi-check2-circle me-1"></i>
+                <span th:text="${editMode} ? 'Update Appointment' : 'Save Appointment'">Save Appointment</span>
+            </button>
+        </div>
+
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+
+<!-- Inject service + product catalog data for JS price lookup -->
+<script th:inline="javascript">
+/*<![CDATA[*/
+const SERVICE_DATA = /*[[${serviceData}]]*/ [];
+const PRODUCT_DATA = /*[[${productData}]]*/ [];
+/*]]>*/
+</script>
+
+<!-- Edit mode: inject existing line items for pre-population -->
+<th:block th:if="${editMode}">
+<script th:inline="javascript">
+/*<![CDATA[*/
+const EDIT_SERVICE_LINES = /*[[${existingServiceLines}]]*/ [];
+const EDIT_PRODUCT_LINES = /*[[${existingProductLines}]]*/ [];
+/*]]>*/
+</script>
+</th:block>
+
+<script>
+// ── Lookup maps ────────────────────────────────────────────────────────────
+const serviceMap = {};
+SERVICE_DATA.forEach(s => { serviceMap[s.id] = s; });
+const productMap = {};
+PRODUCT_DATA.forEach(p => { productMap[p.id] = p; });
+
+// Monotonically increasing counters — ensures unique field names even after row deletion
+let sIdx = 0, pIdx = 0;
+
+// ── Number formatter ──────────────────────────────────────────────────────
+function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+}
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Build <option> HTML for a dataset ────────────────────────────────────
+function buildOptions(data, idField, nameField) {
+    return data.map(d =>
+        `<option value="${d[idField]}">${escHtml(d[nameField])}</option>`
+    ).join('');
+}
+
+// ── Service rows ──────────────────────────────────────────────────────────
+function addServiceRow(preselectId, preselectQty) {
+    const i = sIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center service-row';
+    row.innerHTML =
+        `<div class="col-5">
+            <select class="form-select form-select-sm s-select"
+                    name="serviceLines[${i}].serviceId" required
+                    onchange="onServiceChange(this)">
+                <option value="">— Service —</option>
+                ${buildOptions(SERVICE_DATA, 'id', 'name')}
+            </select>
+         </div>
+         <div class="col-2">
+            <input type="number" class="form-control form-control-sm s-qty"
+                   name="serviceLines[${i}].quantity"
+                   value="1" min="1" oninput="updateTotals()">
+         </div>
+         <div class="col-2 s-rate text-muted small">—</div>
+         <div class="col-2 text-end fw-semibold s-subtotal">₹0.00</div>
+         <div class="col-1 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'service-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('servicesContainer').appendChild(row);
+    if (preselectId) {
+        const sel = row.querySelector('.s-select');
+        sel.value = String(preselectId);
+        onServiceChange(sel);
+        if (preselectQty) row.querySelector('.s-qty').value = preselectQty;
+        updateTotals();
+    }
+    toggleUI();
+}
+
+function onServiceChange(sel) {
+    const row = sel.closest('.service-row');
+    const s = serviceMap[sel.value];
+    row.querySelector('.s-rate').textContent = s ? fmt(s.price) + ' ea.' : '—';
+    updateTotals();
+}
+
+// ── Product rows ──────────────────────────────────────────────────────────
+function addProductRow(preselectId, preselectQty) {
+    const i = pIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center product-row';
+    row.innerHTML =
+        `<div class="col-4">
+            <select class="form-select form-select-sm p-select"
+                    name="productLines[${i}].productId"
+                    onchange="onProductChange(this)">
+                <option value="">— Product —</option>
+                ${buildOptions(PRODUCT_DATA, 'id', 'name')}
+            </select>
+         </div>
+         <div class="col-2">
+            <input type="number" class="form-control form-control-sm p-qty"
+                   name="productLines[${i}].quantity"
+                   value="1" min="1" oninput="onProductQty(this)">
+         </div>
+         <div class="col-2">
+            <span class="p-stock badge bg-secondary">—</span>
+         </div>
+         <div class="col-2 p-rate text-muted small">—</div>
+         <div class="col-1 text-end fw-semibold p-subtotal">₹0.00</div>
+         <div class="col-1 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'product-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('productsContainer').appendChild(row);
+    if (preselectId) {
+        const sel = row.querySelector('.p-select');
+        sel.value = String(preselectId);
+        onProductChange(sel);
+        if (preselectQty) row.querySelector('.p-qty').value = preselectQty;
+        updateTotals();
+    }
+    toggleUI();
+}
+
+function onProductChange(sel) {
+    const row  = sel.closest('.product-row');
+    const p    = productMap[sel.value];
+    const badge = row.querySelector('.p-stock');
+    const qty   = row.querySelector('.p-qty');
+    if (p) {
+        badge.textContent = 'Stock: ' + p.stock;
+        badge.className   = 'p-stock badge ' +
+            (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
+        row.querySelector('.p-rate').textContent = fmt(p.price) + ' ea.';
+        qty.max = p.stock;
+        if (p.stock === 0) qty.value = 0;
+    } else {
+        badge.textContent = '—';
+        badge.className   = 'p-stock badge bg-secondary';
+        row.querySelector('.p-rate').textContent = '—';
+        qty.removeAttribute('max');
+    }
+    updateTotals();
+}
+
+function onProductQty(input) {
+    const row = input.closest('.product-row');
+    const p   = productMap[row.querySelector('.p-select').value];
+    if (p && parseInt(input.value) > p.stock) {
+        input.value = p.stock;
+        input.classList.add('is-invalid');
+        setTimeout(() => input.classList.remove('is-invalid'), 1500);
+    }
+    updateTotals();
+}
+
+// ── Remove row ─────────────────────────────────────────────────────────────
+function removeRow(btn, cls) {
+    btn.closest('.' + cls).remove();
+    toggleUI();
+    updateTotals();
+}
+
+// ── Live totals ────────────────────────────────────────────────────────────
+function updateTotals() {
+    let sTotal = 0;
+    document.querySelectorAll('.service-row').forEach(row => {
+        const sId = row.querySelector('.s-select').value;
+        const qty = parseInt(row.querySelector('.s-qty').value) || 0;
+        const line = (sId && serviceMap[sId]) ? serviceMap[sId].price * qty : 0;
+        row.querySelector('.s-subtotal').textContent = fmt(line);
+        sTotal += line;
+    });
+
+    let pTotal = 0;
+    document.querySelectorAll('.product-row').forEach(row => {
+        const pId = row.querySelector('.p-select').value;
+        const qty = parseInt(row.querySelector('.p-qty').value) || 0;
+        const line = (pId && productMap[pId]) ? productMap[pId].price * qty : 0;
+        row.querySelector('.p-subtotal').textContent = fmt(line);
+        pTotal += line;
+    });
+
+    const grand = sTotal + pTotal;
+    set('displayServiceTotal',  fmt(sTotal));
+    set('displayProductTotal',  fmt(pTotal));
+    set('summaryServiceTotal',  fmt(sTotal));
+    set('summaryProductTotal',  fmt(pTotal));
+    set('summaryGrandTotal',    fmt(grand));
+    updateBalance();
+}
+
+function updateBalance() {
+    const grand = parseRaw('summaryGrandTotal');
+    const paid  = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+    set('summaryAmountPaid', fmt(paid));
+    set('summaryBalance',    fmt(Math.max(0, grand - paid)));
+}
+
+// ── Toggle empty-state labels and column headers ───────────────────────────
+function toggleUI() {
+    const sRows = document.querySelectorAll('.service-row').length;
+    const pRows = document.querySelectorAll('.product-row').length;
+    toggle('servicesEmpty',  sRows === 0);
+    toggle('serviceHeader',  sRows > 0);
+    toggle('productsEmpty',  pRows === 0);
+    toggle('productHeader',  pRows > 0);
+}
+
+// ── Submit: re-index rows and validate ────────────────────────────────────
+document.getElementById('appointmentForm').addEventListener('submit', function(e) {
+    let si = 0;
+    document.querySelectorAll('.service-row').forEach(row => {
+        const sel = row.querySelector('.s-select');
+        const qty = row.querySelector('.s-qty');
+        if (sel.value) {
+            sel.name = `serviceLines[${si}].serviceId`;
+            qty.name = `serviceLines[${si}].quantity`;
+            si++;
+        } else {
+            sel.disabled = true;
+            qty.disabled = true;
+        }
+    });
+
+    let pi = 0;
+    document.querySelectorAll('.product-row').forEach(row => {
+        const sel = row.querySelector('.p-select');
+        const qty = row.querySelector('.p-qty');
+        if (sel.value) {
+            sel.name = `productLines[${pi}].productId`;
+            qty.name = `productLines[${pi}].quantity`;
+            pi++;
+        } else {
+            sel.disabled = true;
+            qty.disabled = true;
+        }
+    });
+
+    if (si === 0) {
+        e.preventDefault();
+        const el = document.getElementById('servicesEmpty');
+        el.classList.remove('d-none');
+        el.innerHTML =
+            '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>' +
+            '<span class="text-danger fw-semibold">Please add at least one service before saving.</span>';
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+});
+
+// ── Tiny helpers ──────────────────────────────────────────────────────────
+function set(id, val) { document.getElementById(id).textContent = val; }
+function toggle(id, show) {
+    document.getElementById(id).classList.toggle('d-none', !show);
+}
+function parseRaw(id) {
+    return parseFloat(document.getElementById(id).textContent.replace(/[₹,]/g, '')) || 0;
+}
+
+// ── Edit mode: pre-populate rows from existing appointment data ────────────
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof EDIT_SERVICE_LINES !== 'undefined') {
+        EDIT_SERVICE_LINES.forEach(function (sl) {
+            addServiceRow(sl.serviceId, sl.quantity);
+        });
+    }
+    if (typeof EDIT_PRODUCT_LINES !== 'undefined') {
+        EDIT_PRODUCT_LINES.forEach(function (pl) {
+            addProductRow(pl.productId, pl.quantity);
+        });
+    }
+    // Sync the amount-paid summary from the pre-filled input value
+    updateBalance();
+});
+</script>
+
+</body>
+</html>
