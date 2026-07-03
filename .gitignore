@@ -7,7 +7,7 @@ target/
 CLAUDE.md
 app.log
 .mvn
-requirements
+#requirements
 
 ### STS ###
 .apt_generated

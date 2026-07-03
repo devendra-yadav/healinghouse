@@ -22,7 +22,7 @@
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-success"><i class="bi bi-calendar2-check"></i></span>
                     <div>
-                        <div class="fw-semibold fs-4">—</div>
+                        <div class="fw-semibold fs-4" th:text="${todayAppointments.size()}">—</div>
                         <small class="text-muted">Today's Appointments</small>
                     </div>
                 </div>
@@ -84,9 +84,50 @@
         <!-- Today's appointments list -->
         <div class="col-12 col-lg-6">
             <h6 class="section-header mb-3">Today's Appointments</h6>
-            <div class="coming-soon-card">
+            <div th:if="${todayAppointments.empty}" class="coming-soon-card">
                 <i class="bi bi-calendar2 fs-2 text-secondary mb-2 d-block"></i>
-                <span class="text-muted">Appointment data will appear here in Phase 2.</span>
+                <span class="text-muted">No appointments scheduled for today.</span>
+            </div>
+            <div th:unless="${todayAppointments.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Patient</th>
+                                    <th>Therapist</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="a : ${todayAppointments}">
+                                    <td class="text-nowrap"
+                                        th:text="${#temporals.format(a.appointmentDateTime, 'HH:mm')}">
+                                    </td>
+                                    <td th:text="${a.patient.fullName}"></td>
+                                    <td th:text="${a.therapist.fullName}"></td>
+                                    <td class="text-center">
+                                        <span class="badge"
+                                              th:text="${a.status}"
+                                              th:classappend="${a.status.name() == 'COMPLETED'} ? 'bg-success' :
+                                                              (${a.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
+                                                              (${a.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
+                                                                                                    'bg-primary'))">
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <a th:href="@{/appointments/{id}(id=${a.id})}"
+                                           class="btn btn-sm btn-outline-primary" title="View details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
