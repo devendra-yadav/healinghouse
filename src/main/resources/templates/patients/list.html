@@ -60,8 +60,12 @@
                             <td th:text="${p.gender != null ? #strings.capitalize(#strings.toLowerCase(p.gender.name())) : '—'}"></td>
                             <td th:text="${p.email ?: '—'}"></td>
                             <td class="text-center text-nowrap">
+                                <a th:href="@{/patients/{id}(id=${p.id})}"
+                                   class="btn btn-sm btn-outline-secondary me-1" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                                 <a th:href="@{/patients/{id}/edit(id=${p.id})}"
-                                   class="btn btn-sm btn-outline-primary me-1">
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
                                 <button type="button" class="btn btn-sm btn-outline-danger"

@@ -27,6 +27,12 @@ public class AppointmentSpec {
                         : cb.equal(root.get("therapist").get("id"), therapistId);
     }
 
+    public static Specification<Appointment> hasPatientId(Long patientId) {
+        return (root, query, cb) ->
+                patientId == null ? cb.conjunction()
+                        : cb.equal(root.get("patient").get("id"), patientId);
+    }
+
     public static Specification<Appointment> patientNameContains(String name) {
         return (root, query, cb) -> {
             if (!StringUtils.hasText(name)) return cb.conjunction();

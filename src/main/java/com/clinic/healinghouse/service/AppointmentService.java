@@ -57,6 +57,17 @@ public class AppointmentService {
                                            LocalDate dateFrom,
                                            LocalDate dateTo,
                                            String patientName) {
+        return findByFilters(status, therapistId, dateFrom, dateTo, patientName, null);
+    }
+
+    /** Same as above, additionally scoped to a single patient (used by the Patient Detail history table). */
+    @Transactional(readOnly = true)
+    public List<Appointment> findByFilters(AppointmentStatus status,
+                                           Long therapistId,
+                                           LocalDate dateFrom,
+                                           LocalDate dateTo,
+                                           String patientName,
+                                           Long patientId) {
         LocalDateTime start = dateFrom != null ? dateFrom.atStartOfDay()      : null;
         LocalDateTime end   = dateTo   != null ? dateTo.atTime(LocalTime.MAX) : null;
 
@@ -65,7 +76,8 @@ public class AppointmentService {
                 .and(AppointmentSpec.hasStatus(status))
                 .and(AppointmentSpec.hasTherapistId(therapistId))
                 .and(AppointmentSpec.betweenDates(start, end))
-                .and(AppointmentSpec.patientNameContains(patientName));
+                .and(AppointmentSpec.patientNameContains(patientName))
+                .and(AppointmentSpec.hasPatientId(patientId));
 
         return appointmentRepository.findAll(spec, DATE_DESC);
     }

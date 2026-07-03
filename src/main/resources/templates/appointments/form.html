@@ -18,6 +18,7 @@
     </div>
 
     <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
+        <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
 
         <!-- ── Patient / Therapist / DateTime ─────────────────────────────── -->
         <div class="card shadow-sm mb-3">
