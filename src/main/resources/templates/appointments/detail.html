@@ -27,7 +27,7 @@
         <div class="d-flex align-items-center gap-2">
             <!-- Status actions — SCHEDULED only -->
             <span th:if="${appointment.status.name() == 'SCHEDULED'}" class="d-flex gap-2">
-                <a th:href="@{/appointments/{id}/edit(id=${appointment.id})}"
+                <a th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"
                    class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
@@ -48,8 +48,11 @@
                     <i class="bi bi-x-circle me-1"></i>Cancel
                 </button>
             </span>
+            <a th:if="${returnUrl}" th:href="${returnUrl}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Patient
+            </a>
             <a th:href="@{/appointments}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back
+                <i class="bi bi-arrow-left me-1"></i>Back to Appointments
             </a>
         </div>
     </div>
@@ -198,6 +201,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Service</th>
+                        <th>Therapist</th>
                         <th class="text-center">Duration</th>
                         <th class="text-center">Qty</th>
                         <th class="text-end">Rate</th>
@@ -206,12 +210,31 @@
                 </thead>
                 <tbody>
                     <tr th:if="${appointment.serviceLines.empty}">
-                        <td colspan="5" class="text-center text-muted py-3 ps-3">
+                        <td colspan="6" class="text-center text-muted py-3 ps-3">
                             No services recorded.
                         </td>
                     </tr>
                     <tr th:each="sl : ${appointment.serviceLines}">
                         <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
+                        <td>
+                            <form method="post"
+                                  th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
+                                  class="d-flex align-items-center gap-1">
+                                <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                                <select name="therapistId" class="form-select form-select-sm"
+                                        style="min-width:150px" onchange="this.form.submit()">
+                                    <option th:each="t : ${therapists}"
+                                            th:value="${t.id}"
+                                            th:text="${t.fullName}"
+                                            th:selected="${t.id == sl.therapist.id}">
+                                    </option>
+                                </select>
+                                <span th:if="${sl.therapist.id != appointment.therapist.id}"
+                                      class="badge bg-info text-dark" title="Different from main therapist">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </span>
+                            </form>
+                        </td>
                         <td class="text-center text-muted small"
                             th:text="${sl.service.durationMinutes != null
                                        ? sl.service.durationMinutes + ' min' : '—'}">
@@ -231,7 +254,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="table-light border-top border-2">
-                        <td colspan="4" class="text-end fw-semibold ps-3 py-2">Services Total</td>
+                        <td colspan="5" class="text-end fw-semibold ps-3 py-2">Services Total</td>
                         <td class="text-end pe-3 fw-bold py-2"
                             th:text="${appointment.totalServiceAmount != null}
                                       ? |₹ ${#numbers.formatDecimal(appointment.totalServiceAmount, 1, 2)}|
@@ -253,6 +276,7 @@
                 <thead class="table-light">
                     <tr>
                         <th class="ps-3">Product</th>
+                        <th>Therapist</th>
                         <th class="text-center">Qty</th>
                         <th class="text-end">Rate</th>
                         <th class="text-end pe-3">Subtotal</th>
@@ -261,6 +285,25 @@
                 <tbody>
                     <tr th:each="pl : ${appointment.productLines}">
                         <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
+                        <td>
+                            <form method="post"
+                                  th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
+                                  class="d-flex align-items-center gap-1">
+                                <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                                <select name="therapistId" class="form-select form-select-sm"
+                                        style="min-width:150px" onchange="this.form.submit()">
+                                    <option th:each="t : ${therapists}"
+                                            th:value="${t.id}"
+                                            th:text="${t.fullName}"
+                                            th:selected="${t.id == pl.therapist.id}">
+                                    </option>
+                                </select>
+                                <span th:if="${pl.therapist.id != appointment.therapist.id}"
+                                      class="badge bg-info text-dark" title="Different from main therapist">
+                                    <i class="bi bi-arrow-left-right"></i>
+                                </span>
+                            </form>
+                        </td>
                         <td class="text-center" th:text="${pl.quantity}"></td>
                         <td class="text-end text-muted small"
                             th:text="${pl.priceAtTime != null}
@@ -276,7 +319,7 @@
                 </tbody>
                 <tfoot>
                     <tr class="table-light border-top border-2">
-                        <td colspan="3" class="text-end fw-semibold ps-3 py-2">Products Total</td>
+                        <td colspan="4" class="text-end fw-semibold ps-3 py-2">Products Total</td>
                         <td class="text-end pe-3 fw-bold py-2"
                             th:text="${appointment.totalProductAmount != null}
                                       ? |₹ ${#numbers.formatDecimal(appointment.totalProductAmount, 1, 2)}|

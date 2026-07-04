@@ -21,11 +21,13 @@ import java.util.List;
 @Transactional
 public class AppointmentService {
 
-    private final AppointmentRepository        appointmentRepository;
-    private final PatientRepository            patientRepository;
-    private final TherapistRepository          therapistRepository;
-    private final ClinicServiceRepository      clinicServiceRepository;
-    private final ProductRepository            productRepository;
+    private final AppointmentRepository            appointmentRepository;
+    private final PatientRepository                patientRepository;
+    private final TherapistRepository              therapistRepository;
+    private final ClinicServiceRepository          clinicServiceRepository;
+    private final ProductRepository                productRepository;
+    private final AppointmentServiceLineRepository appointmentServiceLineRepository;
+    private final AppointmentProductLineRepository appointmentProductLineRepository;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
@@ -57,6 +59,17 @@ public class AppointmentService {
                                            LocalDate dateFrom,
                                            LocalDate dateTo,
                                            String patientName) {
+        return findByFilters(status, therapistId, dateFrom, dateTo, patientName, null);
+    }
+
+    /** Same as above, additionally scoped to a single patient (used by the Patient Detail history table). */
+    @Transactional(readOnly = true)
+    public List<Appointment> findByFilters(AppointmentStatus status,
+                                           Long therapistId,
+                                           LocalDate dateFrom,
+                                           LocalDate dateTo,
+                                           String patientName,
+                                           Long patientId) {
         LocalDateTime start = dateFrom != null ? dateFrom.atStartOfDay()      : null;
         LocalDateTime end   = dateTo   != null ? dateTo.atTime(LocalTime.MAX) : null;
 
@@ -65,7 +78,8 @@ public class AppointmentService {
                 .and(AppointmentSpec.hasStatus(status))
                 .and(AppointmentSpec.hasTherapistId(therapistId))
                 .and(AppointmentSpec.betweenDates(start, end))
-                .and(AppointmentSpec.patientNameContains(patientName));
+                .and(AppointmentSpec.patientNameContains(patientName))
+                .and(AppointmentSpec.hasPatientId(patientId));
 
         return appointmentRepository.findAll(spec, DATE_DESC);
     }
@@ -141,6 +155,7 @@ public class AppointmentService {
                     AppointmentServiceLine.builder()
                             .appointment(appointment)
                             .service(cs)
+                            .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                             .priceAtTime(cs.getPrice())
                             .quantity(qty)
                             .build());
@@ -171,6 +186,7 @@ public class AppointmentService {
                     AppointmentProductLine.builder()
                             .appointment(appointment)
                             .product(product)
+                            .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                             .quantity(qty)
                             .priceAtTime(product.getPrice())
                             .lineTotal(lineTotal)
@@ -279,6 +295,7 @@ public class AppointmentService {
                         AppointmentServiceLine.builder()
                                 .appointment(existing)
                                 .service(cs)
+                                .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                                 .priceAtTime(cs.getPrice())
                                 .quantity(qty)
                                 .build());
@@ -302,6 +319,7 @@ public class AppointmentService {
                         AppointmentProductLine.builder()
                                 .appointment(existing)
                                 .product(product)
+                                .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                                 .quantity(qty)
                                 .priceAtTime(product.getPrice())
                                 .lineTotal(lineTotal)
@@ -318,7 +336,43 @@ public class AppointmentService {
         return appointmentRepository.save(existing);
     }
 
+    // ── Per-line therapist reassignment ──────────────────────────────────────
+    // Allowed regardless of appointment status: only the line's therapist changes,
+    // price/quantity/stock are untouched, so commission/revenue recalculates live
+    // even for COMPLETED appointments.
+
+    public AppointmentServiceLine reassignServiceLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+        AppointmentServiceLine line = appointmentServiceLineRepository.findById(lineId)
+                .orElseThrow(() -> new EntityNotFoundException("Service line not found: " + lineId));
+        if (!line.getAppointment().getId().equals(appointmentId)) {
+            throw new IllegalArgumentException("Service line does not belong to this appointment.");
+        }
+        Therapist therapist = therapistRepository.findById(newTherapistId)
+                .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        line.setTherapist(therapist);
+        return appointmentServiceLineRepository.save(line);
+    }
+
+    public AppointmentProductLine reassignProductLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+        AppointmentProductLine line = appointmentProductLineRepository.findById(lineId)
+                .orElseThrow(() -> new EntityNotFoundException("Product line not found: " + lineId));
+        if (!line.getAppointment().getId().equals(appointmentId)) {
+            throw new IllegalArgumentException("Product line does not belong to this appointment.");
+        }
+        Therapist therapist = therapistRepository.findById(newTherapistId)
+                .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        line.setTherapist(therapist);
+        return appointmentProductLineRepository.save(line);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** Resolves a line's therapist: the explicitly chosen one, or the appointment's main therapist as default. */
+    private Therapist resolveLineTherapist(Long lineTherapistId, Therapist defaultTherapist) {
+        if (lineTherapistId == null) return defaultTherapist;
+        return therapistRepository.findById(lineTherapistId)
+                .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
+    }
 
     private void restoreProductStock(Appointment appt) {
         for (AppointmentProductLine pl : appt.getProductLines()) {

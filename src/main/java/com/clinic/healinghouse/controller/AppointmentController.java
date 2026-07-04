@@ -91,9 +91,13 @@ public class AppointmentController {
 
     // ── Detail ────────────────────────────────────────────────────────────
     @GetMapping("/{id}")
-    public String detail(@PathVariable Long id, Model model, RedirectAttributes ra) {
+    public String detail(@PathVariable Long id,
+                         @RequestParam(required = false) String returnUrl,
+                         Model model, RedirectAttributes ra) {
         try {
             model.addAttribute("appointment", appointmentService.getById(id));
+            model.addAttribute("therapists", therapistService.findAll());
+            model.addAttribute("returnUrl", returnUrl);
             model.addAttribute("pageTitle", "Appointment Details");
             return "appointments/detail";
         } catch (Exception e) {
@@ -105,7 +109,9 @@ public class AppointmentController {
 
     // ── Edit form ─────────────────────────────────────────────────────────
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable Long id, Model model, RedirectAttributes ra) {
+    public String editForm(@PathVariable Long id,
+                           @RequestParam(required = false) String returnUrl,
+                           Model model, RedirectAttributes ra) {
         try {
             Appointment appt = appointmentService.getById(id);
             populateFormModel(model);
@@ -113,15 +119,17 @@ public class AppointmentController {
             List<Map<String, Object>> existingServiceLines = appt.getServiceLines().stream()
                     .map(sl -> {
                         Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("serviceId", sl.getService().getId());
-                        m.put("quantity",  sl.getQuantity());
+                        m.put("serviceId",   sl.getService().getId());
+                        m.put("quantity",    sl.getQuantity());
+                        m.put("therapistId", sl.getTherapist().getId());
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
                     .map(pl -> {
                         Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("productId", pl.getProduct().getId());
-                        m.put("quantity",  pl.getQuantity());
+                        m.put("productId",   pl.getProduct().getId());
+                        m.put("quantity",    pl.getQuantity());
+                        m.put("therapistId", pl.getTherapist().getId());
                         return m;
                     }).toList();
 
@@ -131,7 +139,8 @@ public class AppointmentController {
             model.addAttribute("existingProductLines", existingProductLines);
             model.addAttribute("editMode",   true);
             model.addAttribute("formAction", "/appointments/" + id + "/update");
-            model.addAttribute("cancelUrl",  "/appointments/" + id);
+            model.addAttribute("returnUrl",  returnUrl);
+            model.addAttribute("cancelUrl",  (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id);
             model.addAttribute("pageTitle",  "Edit Appointment #" + id);
             return "appointments/form";
         } catch (Exception e) {
@@ -145,16 +154,20 @@ public class AppointmentController {
     @PostMapping("/{id}/update")
     public String update(@PathVariable Long id,
                          @ModelAttribute("form") AppointmentForm form,
+                         @RequestParam(required = false) String returnUrl,
                          RedirectAttributes ra) {
+        String suffix = (returnUrl != null && !returnUrl.isBlank())
+                ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
+                : "";
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
-            return "redirect:/appointments/" + id;
+            return "redirect:/appointments/" + id + suffix;
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please try again.";
             ra.addFlashAttribute("errorMessage", msg);
-            return "redirect:/appointments/" + id + "/edit";
+            return "redirect:/appointments/" + id + "/edit" + suffix;
         }
     }
 
@@ -199,6 +212,43 @@ public class AppointmentController {
         return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
     }
 
+    // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    @PostMapping("/{id}/service-lines/{lineId}/reassign-therapist")
+    public String reassignServiceLineTherapist(@PathVariable Long id,
+                                               @PathVariable Long lineId,
+                                               @RequestParam Long therapistId,
+                                               @RequestParam(required = false) String returnUrl,
+                                               RedirectAttributes ra) {
+        try {
+            appointmentService.reassignServiceLineTherapist(id, lineId, therapistId);
+            ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    @PostMapping("/{id}/product-lines/{lineId}/reassign-therapist")
+    public String reassignProductLineTherapist(@PathVariable Long id,
+                                               @PathVariable Long lineId,
+                                               @RequestParam Long therapistId,
+                                               @RequestParam(required = false) String returnUrl,
+                                               RedirectAttributes ra) {
+        try {
+            appointmentService.reassignProductLineTherapist(id, lineId, therapistId);
+            ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    private String returnUrlSuffix(String returnUrl) {
+        return (returnUrl != null && !returnUrl.isBlank())
+                ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
+                : "";
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
     private void populateFormModel(Model model) {
         List<Map<String, Object>> serviceData = treatmentService.findAll().stream()
@@ -221,10 +271,19 @@ public class AppointmentController {
                     return m;
                 }).toList();
 
+        List<Map<String, Object>> therapistData = therapistService.findAll().stream()
+                .map(t -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",   t.getId());
+                    m.put("name", t.getFullName());
+                    return m;
+                }).toList();
+
         model.addAttribute("patients",       patientService.findAll());
         model.addAttribute("therapists",     therapistService.findAll());
         model.addAttribute("serviceData",    serviceData);
         model.addAttribute("productData",    productData);
+        model.addAttribute("therapistData",  therapistData);
         model.addAttribute("paymentMethods", PaymentMethod.values());
         model.addAttribute("defaultDateTime",
                 LocalDateTime.now().withSecond(0).withNano(0)

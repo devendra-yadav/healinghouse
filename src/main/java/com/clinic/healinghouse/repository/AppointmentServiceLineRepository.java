@@ -15,10 +15,13 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
 
     List<AppointmentServiceLine> findByAppointment(Appointment appointment);
 
-    // Total services revenue for a therapist in a date range (completed appts only)
+    // Total services revenue for a therapist in a date range (completed appts only).
+    // Scoped to the line's own therapist (who actually performed it), not the
+    // appointment's main therapist — a single appointment can have lines performed
+    // by different therapists.
     @Query("SELECT COALESCE(SUM(sl.priceAtTime * sl.quantity), 0) " +
            "FROM AppointmentServiceLine sl " +
-           "WHERE sl.appointment.therapist = :therapist " +
+           "WHERE sl.therapist = :therapist " +
            "AND sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
     BigDecimal sumServiceRevenueByTherapistAndDateRange(
@@ -29,7 +32,7 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
     // Count of individual services performed (for bonus threshold check)
     @Query("SELECT COALESCE(SUM(sl.quantity), 0) " +
            "FROM AppointmentServiceLine sl " +
-           "WHERE sl.appointment.therapist = :therapist " +
+           "WHERE sl.therapist = :therapist " +
            "AND sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
     long countServicesPerformedByTherapistAndDateRange(

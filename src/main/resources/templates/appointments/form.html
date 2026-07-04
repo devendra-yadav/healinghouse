@@ -18,6 +18,7 @@
     </div>
 
     <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
+        <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
 
         <!-- ── Patient / Therapist / DateTime ─────────────────────────────── -->
         <div class="card shadow-sm mb-3">
@@ -40,7 +41,8 @@
                         <label class="form-label fw-semibold">
                             Therapist <span class="text-danger">*</span>
                         </label>
-                        <select name="therapistId" class="form-select" required>
+                        <select name="therapistId" id="mainTherapistSelect" class="form-select" required
+                                onchange="onMainTherapistChange()">
                             <option value="">— Select Therapist —</option>
                             <option th:each="t : ${therapists}"
                                     th:value="${t.id}"
@@ -78,10 +80,11 @@
             <div class="card-body pb-1">
                 <!-- Column headers (shown when rows exist) -->
                 <div id="serviceHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
-                    <div class="col-5">Service</div>
-                    <div class="col-2 text-center">Qty</div>
+                    <div class="col-4">Service</div>
+                    <div class="col-3">Therapist</div>
+                    <div class="col-1 text-center">Qty</div>
                     <div class="col-2">Rate</div>
-                    <div class="col-2 text-end">Subtotal</div>
+                    <div class="col-1 text-end">Subtotal</div>
                     <div class="col-1"></div>
                 </div>
                 <div id="servicesContainer"></div>
@@ -108,8 +111,9 @@
             </div>
             <div class="card-body pb-1">
                 <div id="productHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
-                    <div class="col-4">Product</div>
-                    <div class="col-2 text-center">Qty</div>
+                    <div class="col-3">Product</div>
+                    <div class="col-2">Therapist</div>
+                    <div class="col-1 text-center">Qty</div>
                     <div class="col-2">Stock</div>
                     <div class="col-2">Rate</div>
                     <div class="col-1 text-end">Subtotal</div>
@@ -225,8 +229,9 @@
 <!-- Inject service + product catalog data for JS price lookup -->
 <script th:inline="javascript">
 /*<![CDATA[*/
-const SERVICE_DATA = /*[[${serviceData}]]*/ [];
-const PRODUCT_DATA = /*[[${productData}]]*/ [];
+const SERVICE_DATA   = /*[[${serviceData}]]*/ [];
+const PRODUCT_DATA   = /*[[${productData}]]*/ [];
+const THERAPIST_DATA  = /*[[${therapistData}]]*/ [];
 /*]]>*/
 </script>
 
@@ -270,12 +275,12 @@ function buildOptions(data, idField, nameField) {
 }
 
 // ── Service rows ──────────────────────────────────────────────────────────
-function addServiceRow(preselectId, preselectQty) {
+function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
     const i = sIdx++;
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center service-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-4">
             <select class="form-select form-select-sm s-select"
                     name="serviceLines[${i}].serviceId" required
                     onchange="onServiceChange(this)">
@@ -283,13 +288,21 @@ function addServiceRow(preselectId, preselectQty) {
                 ${buildOptions(SERVICE_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-3">
+            <select class="form-select form-select-sm line-therapist-select"
+                    name="serviceLines[${i}].therapistId"
+                    onchange="onLineTherapistChange(this)">
+                <option value="">— Therapist —</option>
+                ${buildOptions(THERAPIST_DATA, 'id', 'name')}
+            </select>
+         </div>
+         <div class="col-1">
             <input type="number" class="form-control form-control-sm s-qty"
                    name="serviceLines[${i}].quantity"
                    value="1" min="1" oninput="updateTotals()">
          </div>
          <div class="col-2 s-rate text-muted small">—</div>
-         <div class="col-2 text-end fw-semibold s-subtotal">₹0.00</div>
+         <div class="col-1 text-end fw-semibold s-subtotal">₹0.00</div>
          <div class="col-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'service-row')">
@@ -297,6 +310,7 @@ function addServiceRow(preselectId, preselectQty) {
             </button>
          </div>`;
     document.getElementById('servicesContainer').appendChild(row);
+    initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
     if (preselectId) {
         const sel = row.querySelector('.s-select');
         sel.value = String(preselectId);
@@ -315,12 +329,12 @@ function onServiceChange(sel) {
 }
 
 // ── Product rows ──────────────────────────────────────────────────────────
-function addProductRow(preselectId, preselectQty) {
+function addProductRow(preselectId, preselectQty, preselectTherapistId) {
     const i = pIdx++;
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center product-row';
     row.innerHTML =
-        `<div class="col-4">
+        `<div class="col-3">
             <select class="form-select form-select-sm p-select"
                     name="productLines[${i}].productId"
                     onchange="onProductChange(this)">
@@ -329,6 +343,14 @@ function addProductRow(preselectId, preselectQty) {
             </select>
          </div>
          <div class="col-2">
+            <select class="form-select form-select-sm line-therapist-select"
+                    name="productLines[${i}].therapistId"
+                    onchange="onLineTherapistChange(this)">
+                <option value="">— Therapist —</option>
+                ${buildOptions(THERAPIST_DATA, 'id', 'name')}
+            </select>
+         </div>
+         <div class="col-1">
             <input type="number" class="form-control form-control-sm p-qty"
                    name="productLines[${i}].quantity"
                    value="1" min="1" oninput="onProductQty(this)">
@@ -345,6 +367,7 @@ function addProductRow(preselectId, preselectQty) {
             </button>
          </div>`;
     document.getElementById('productsContainer').appendChild(row);
+    initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
     if (preselectId) {
         const sel = row.querySelector('.p-select');
         sel.value = String(preselectId);
@@ -385,6 +408,30 @@ function onProductQty(input) {
         setTimeout(() => input.classList.remove('is-invalid'), 1500);
     }
     updateTotals();
+}
+
+// ── Line therapist: defaults to main therapist, follows it until overridden ─
+function initLineTherapistSelect(sel, preselectTherapistId) {
+    if (preselectTherapistId) {
+        // Edit mode: this line's persisted therapist — do not auto-follow main.
+        sel.value = String(preselectTherapistId);
+        sel.dataset.followsMain = 'false';
+    } else {
+        const mainVal = document.getElementById('mainTherapistSelect').value;
+        if (mainVal) sel.value = mainVal;
+        sel.dataset.followsMain = 'true';
+    }
+}
+
+function onLineTherapistChange(sel) {
+    sel.dataset.followsMain = 'false';
+}
+
+function onMainTherapistChange() {
+    const mainVal = document.getElementById('mainTherapistSelect').value;
+    document.querySelectorAll('.line-therapist-select').forEach(sel => {
+        if (sel.dataset.followsMain === 'true') sel.value = mainVal;
+    });
 }
 
 // ── Remove row ─────────────────────────────────────────────────────────────
@@ -444,29 +491,35 @@ function toggleUI() {
 document.getElementById('appointmentForm').addEventListener('submit', function(e) {
     let si = 0;
     document.querySelectorAll('.service-row').forEach(row => {
-        const sel = row.querySelector('.s-select');
-        const qty = row.querySelector('.s-qty');
+        const sel  = row.querySelector('.s-select');
+        const qty  = row.querySelector('.s-qty');
+        const ther = row.querySelector('.line-therapist-select');
         if (sel.value) {
-            sel.name = `serviceLines[${si}].serviceId`;
-            qty.name = `serviceLines[${si}].quantity`;
+            sel.name  = `serviceLines[${si}].serviceId`;
+            qty.name  = `serviceLines[${si}].quantity`;
+            ther.name = `serviceLines[${si}].therapistId`;
             si++;
         } else {
-            sel.disabled = true;
-            qty.disabled = true;
+            sel.disabled  = true;
+            qty.disabled  = true;
+            ther.disabled = true;
         }
     });
 
     let pi = 0;
     document.querySelectorAll('.product-row').forEach(row => {
-        const sel = row.querySelector('.p-select');
-        const qty = row.querySelector('.p-qty');
+        const sel  = row.querySelector('.p-select');
+        const qty  = row.querySelector('.p-qty');
+        const ther = row.querySelector('.line-therapist-select');
         if (sel.value) {
-            sel.name = `productLines[${pi}].productId`;
-            qty.name = `productLines[${pi}].quantity`;
+            sel.name  = `productLines[${pi}].productId`;
+            qty.name  = `productLines[${pi}].quantity`;
+            ther.name = `productLines[${pi}].therapistId`;
             pi++;
         } else {
-            sel.disabled = true;
-            qty.disabled = true;
+            sel.disabled  = true;
+            qty.disabled  = true;
+            ther.disabled = true;
         }
     });
 
@@ -494,12 +547,12 @@ function parseRaw(id) {
 document.addEventListener('DOMContentLoaded', function () {
     if (typeof EDIT_SERVICE_LINES !== 'undefined') {
         EDIT_SERVICE_LINES.forEach(function (sl) {
-            addServiceRow(sl.serviceId, sl.quantity);
+            addServiceRow(sl.serviceId, sl.quantity, sl.therapistId);
         });
     }
     if (typeof EDIT_PRODUCT_LINES !== 'undefined') {
         EDIT_PRODUCT_LINES.forEach(function (pl) {
-            addProductRow(pl.productId, pl.quantity);
+            addProductRow(pl.productId, pl.quantity, pl.therapistId);
         });
     }
     // Sync the amount-paid summary from the pre-filled input value
