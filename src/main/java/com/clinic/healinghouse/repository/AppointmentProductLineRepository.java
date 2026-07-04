@@ -15,10 +15,12 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
 
     List<AppointmentProductLine> findByAppointment(Appointment appointment);
 
-    // Total products revenue for a therapist in a date range (completed appts only)
+    // Total products revenue for a therapist in a date range (completed appts only).
+    // Scoped to the line's own therapist (who actually sold/administered it), not the
+    // appointment's main therapist.
     @Query("SELECT COALESCE(SUM(pl.lineTotal), 0) " +
            "FROM AppointmentProductLine pl " +
-           "WHERE pl.appointment.therapist = :therapist " +
+           "WHERE pl.therapist = :therapist " +
            "AND pl.appointment.status = 'COMPLETED' " +
            "AND pl.appointment.appointmentDateTime BETWEEN :start AND :end")
     BigDecimal sumProductRevenueByTherapistAndDateRange(

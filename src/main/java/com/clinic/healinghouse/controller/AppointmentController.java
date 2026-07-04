@@ -96,6 +96,7 @@ public class AppointmentController {
                          Model model, RedirectAttributes ra) {
         try {
             model.addAttribute("appointment", appointmentService.getById(id));
+            model.addAttribute("therapists", therapistService.findAll());
             model.addAttribute("returnUrl", returnUrl);
             model.addAttribute("pageTitle", "Appointment Details");
             return "appointments/detail";
@@ -118,15 +119,17 @@ public class AppointmentController {
             List<Map<String, Object>> existingServiceLines = appt.getServiceLines().stream()
                     .map(sl -> {
                         Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("serviceId", sl.getService().getId());
-                        m.put("quantity",  sl.getQuantity());
+                        m.put("serviceId",   sl.getService().getId());
+                        m.put("quantity",    sl.getQuantity());
+                        m.put("therapistId", sl.getTherapist().getId());
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
                     .map(pl -> {
                         Map<String, Object> m = new LinkedHashMap<>();
-                        m.put("productId", pl.getProduct().getId());
-                        m.put("quantity",  pl.getQuantity());
+                        m.put("productId",   pl.getProduct().getId());
+                        m.put("quantity",    pl.getQuantity());
+                        m.put("therapistId", pl.getTherapist().getId());
                         return m;
                     }).toList();
 
@@ -209,6 +212,43 @@ public class AppointmentController {
         return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
     }
 
+    // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    @PostMapping("/{id}/service-lines/{lineId}/reassign-therapist")
+    public String reassignServiceLineTherapist(@PathVariable Long id,
+                                               @PathVariable Long lineId,
+                                               @RequestParam Long therapistId,
+                                               @RequestParam(required = false) String returnUrl,
+                                               RedirectAttributes ra) {
+        try {
+            appointmentService.reassignServiceLineTherapist(id, lineId, therapistId);
+            ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    @PostMapping("/{id}/product-lines/{lineId}/reassign-therapist")
+    public String reassignProductLineTherapist(@PathVariable Long id,
+                                               @PathVariable Long lineId,
+                                               @RequestParam Long therapistId,
+                                               @RequestParam(required = false) String returnUrl,
+                                               RedirectAttributes ra) {
+        try {
+            appointmentService.reassignProductLineTherapist(id, lineId, therapistId);
+            ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    private String returnUrlSuffix(String returnUrl) {
+        return (returnUrl != null && !returnUrl.isBlank())
+                ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
+                : "";
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
     private void populateFormModel(Model model) {
         List<Map<String, Object>> serviceData = treatmentService.findAll().stream()
@@ -231,10 +271,19 @@ public class AppointmentController {
                     return m;
                 }).toList();
 
+        List<Map<String, Object>> therapistData = therapistService.findAll().stream()
+                .map(t -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("id",   t.getId());
+                    m.put("name", t.getFullName());
+                    return m;
+                }).toList();
+
         model.addAttribute("patients",       patientService.findAll());
         model.addAttribute("therapists",     therapistService.findAll());
         model.addAttribute("serviceData",    serviceData);
         model.addAttribute("productData",    productData);
+        model.addAttribute("therapistData",  therapistData);
         model.addAttribute("paymentMethods", PaymentMethod.values());
         model.addAttribute("defaultDateTime",
                 LocalDateTime.now().withSecond(0).withNano(0)

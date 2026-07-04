@@ -45,12 +45,14 @@ public class AppointmentForm {
             ServiceLineForm s = new ServiceLineForm();
             s.setServiceId(sl.getService().getId());
             s.setQuantity(sl.getQuantity());
+            s.setTherapistId(sl.getTherapist().getId());
             f.getServiceLines().add(s);
         });
         appt.getProductLines().forEach(pl -> {
             ProductLineForm p = new ProductLineForm();
             p.setProductId(pl.getProduct().getId());
             p.setQuantity(pl.getQuantity());
+            p.setTherapistId(pl.getTherapist().getId());
             f.getProductLines().add(p);
         });
         return f;
@@ -60,11 +62,15 @@ public class AppointmentForm {
     public static class ServiceLineForm {
         private Long serviceId;
         private int  quantity = 1;
+        /** Null means "use the appointment's main therapist" — resolved server-side. */
+        private Long therapistId;
     }
 
     @Data
     public static class ProductLineForm {
         private Long productId;
         private int  quantity = 1;
+        /** Null means "use the appointment's main therapist" — resolved server-side. */
+        private Long therapistId;
     }
 }

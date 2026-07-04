@@ -1,8 +1,12 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.AppointmentProductLine;
+import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.util.StringUtils;
 
@@ -21,10 +25,26 @@ public class AppointmentSpec {
                 status == null ? cb.conjunction() : cb.equal(root.get("status"), status);
     }
 
+    /** Matches appointments where the given therapist is the main therapist OR performed/sold any line item. */
     public static Specification<Appointment> hasTherapistId(Long therapistId) {
-        return (root, query, cb) ->
-                therapistId == null ? cb.conjunction()
-                        : cb.equal(root.get("therapist").get("id"), therapistId);
+        return (root, query, cb) -> {
+            if (therapistId == null) return cb.conjunction();
+
+            Subquery<Long> serviceLineSub = query.subquery(Long.class);
+            Root<AppointmentServiceLine> slRoot = serviceLineSub.from(AppointmentServiceLine.class);
+            serviceLineSub.select(slRoot.get("appointment").get("id"))
+                    .where(cb.equal(slRoot.get("therapist").get("id"), therapistId));
+
+            Subquery<Long> productLineSub = query.subquery(Long.class);
+            Root<AppointmentProductLine> plRoot = productLineSub.from(AppointmentProductLine.class);
+            productLineSub.select(plRoot.get("appointment").get("id"))
+                    .where(cb.equal(plRoot.get("therapist").get("id"), therapistId));
+
+            return cb.or(
+                    cb.equal(root.get("therapist").get("id"), therapistId),
+                    root.get("id").in(serviceLineSub),
+                    root.get("id").in(productLineSub));
+        };
     }
 
     public static Specification<Appointment> hasPatientId(Long patientId) {

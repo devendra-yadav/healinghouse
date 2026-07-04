@@ -8,7 +8,9 @@ import lombok.*;
 import java.math.BigDecimal;
 
 @Entity
-@Table(name = "appointment_service")
+@Table(name = "appointment_service", indexes = {
+        @Index(name = "idx_service_line_therapist", columnList = "therapist_id")
+})
 @Data
 @Builder
 @NoArgsConstructor
@@ -28,6 +30,11 @@ public class AppointmentServiceLine {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "service_id", nullable = false)
     private ClinicService service;
+
+    /** Therapist who actually performed this service — defaults to the appointment's main therapist. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "therapist_id", nullable = false)
+    private Therapist therapist;
 
     /** Price snapshot at the time of the appointment. */
     @NotNull

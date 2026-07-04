@@ -284,7 +284,14 @@
                             <td class="text-nowrap"
                                 th:text="${#temporals.format(a.appointmentDateTime, 'dd MMM yyyy, HH:mm')}">
                             </td>
-                            <td th:text="${a.therapist.fullName}"></td>
+                            <td>
+                                <span th:text="${a.therapist.fullName}"></span>
+                                <span th:if="${!a.otherLineTherapists.empty}"
+                                      class="badge bg-info text-dark ms-1"
+                                      title="Some services/products on this visit were performed by a different therapist"
+                                      th:text="'+' + ${a.otherLineTherapists.size()} + ' other'">
+                                </span>
+                            </td>
                             <td class="small">
                                 <span th:if="${a.serviceLines.empty}" class="text-muted">—</span>
                                 <span th:unless="${a.serviceLines.empty}"

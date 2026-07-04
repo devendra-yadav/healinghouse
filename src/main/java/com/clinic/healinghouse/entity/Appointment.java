@@ -8,7 +8,9 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table(name = "appointment", indexes = {
@@ -87,6 +89,19 @@ public class Appointment {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    /** Therapists on any service/product line that differ from the main therapist. */
+    @Transient
+    public List<Therapist> getOtherLineTherapists() {
+        Map<Long, Therapist> others = new LinkedHashMap<>();
+        serviceLines.forEach(sl -> {
+            if (!sl.getTherapist().getId().equals(therapist.getId())) others.put(sl.getTherapist().getId(), sl.getTherapist());
+        });
+        productLines.forEach(pl -> {
+            if (!pl.getTherapist().getId().equals(therapist.getId())) others.put(pl.getTherapist().getId(), pl.getTherapist());
+        });
+        return new ArrayList<>(others.values());
+    }
 
     @Transient
     public BigDecimal getBalanceDue() {

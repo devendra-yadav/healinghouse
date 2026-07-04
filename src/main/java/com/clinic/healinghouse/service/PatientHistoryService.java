@@ -60,17 +60,11 @@ public class PatientHistoryService {
                 .max(Comparator.comparing(Appointment::getAppointmentDateTime))
                 .ifPresent(a -> summary.lastVisitDate(a.getAppointmentDateTime()));
 
-        // Most-seen therapist — counted across all appointments regardless of status.
+        // Most-seen therapist — counted per line item (who actually performed/sold each
+        // line), not per appointment, since a line's therapist can differ from the
+        // appointment's main therapist.
         Map<Long, Integer> therapistCounts = new HashMap<>();
         Map<Long, String>  therapistNames  = new HashMap<>();
-        for (Appointment a : all) {
-            Therapist t = a.getTherapist();
-            therapistCounts.merge(t.getId(), 1, Integer::sum);
-            therapistNames.putIfAbsent(t.getId(), t.getFullName());
-        }
-        topEntry(therapistCounts).ifPresent(e ->
-                summary.mostSeenTherapistName(therapistNames.get(e.getKey()))
-                       .mostSeenTherapistCount(e.getValue()));
 
         // Top service / product — counted by quantity across all appointments' line items.
         Map<String, Integer> serviceCounts = new HashMap<>();
@@ -78,11 +72,20 @@ public class PatientHistoryService {
         for (Appointment a : all) {
             for (AppointmentServiceLine sl : a.getServiceLines()) {
                 serviceCounts.merge(sl.getService().getName(), sl.getQuantity(), Integer::sum);
+                Therapist t = sl.getTherapist();
+                therapistCounts.merge(t.getId(), 1, Integer::sum);
+                therapistNames.putIfAbsent(t.getId(), t.getFullName());
             }
             for (AppointmentProductLine pl : a.getProductLines()) {
                 productCounts.merge(pl.getProduct().getName(), pl.getQuantity(), Integer::sum);
+                Therapist t = pl.getTherapist();
+                therapistCounts.merge(t.getId(), 1, Integer::sum);
+                therapistNames.putIfAbsent(t.getId(), t.getFullName());
             }
         }
+        topEntry(therapistCounts).ifPresent(e ->
+                summary.mostSeenTherapistName(therapistNames.get(e.getKey()))
+                       .mostSeenTherapistCount(e.getValue()));
         topEntryByName(serviceCounts).ifPresent(e ->
                 summary.topServiceName(e.getKey()).topServiceCount(e.getValue()));
         topEntryByName(productCounts).ifPresent(e ->
