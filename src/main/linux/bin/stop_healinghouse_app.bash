@@ -16,9 +16,9 @@ if [ "a$pid" == "a" ]; then
 else
   pgrep -fa healinghouse.jar --spring.profiles.active=$env;
   echo "Going to kill the process";
-  pkill -e $pid;
-  pgrep -fa healinghouse.jar --spring.profiles.active=$env
-  echo "Process killed";
+  kill -9 $pid;
+  ps -elf|grep $pid;
+  echo "Process >>$pid<< killed";
 fi
 
 echo "DONE";
