@@ -4,6 +4,7 @@ import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -45,12 +47,17 @@ public class ProductService {
     }
 
     public Product save(Product product) {
-        return productRepository.save(product);
+        boolean isNew = product.getId() == null;
+        Product saved = productRepository.save(product);
+        log.info("{} product id={} name='{}' stock={}", isNew ? "Created" : "Updated",
+                saved.getId(), saved.getName(), saved.getStockQuantity());
+        return saved;
     }
 
     public void deactivate(Long id) {
         Product product = getById(id);
         product.setActive(false);
         productRepository.save(product);
+        log.info("Deactivated product id={} name='{}'", product.getId(), product.getName());
     }
 }
