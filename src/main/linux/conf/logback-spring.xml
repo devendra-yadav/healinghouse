@@ -43,7 +43,10 @@
     <logger name="org.apache.kafka" level="WARN"/>
 
     <!-- Your application packages (change to your base package) -->
-    <logger name="com.clinic.healinghouse" level="DEBUG"/>
+    <logger name="com.clinic.healinghouse" level="DEBUG">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </logger>
     <!-- <logger name="your.project.package" level="DEBUG"/> -->
 
 

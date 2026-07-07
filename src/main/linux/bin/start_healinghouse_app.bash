@@ -7,6 +7,11 @@ if [ "a$env" == "a" ]; then
     exit 1;
 fi
 
+if [ "$env" != "test" ] && [ "$env" != "prod" ]; then
+    echo "Only possible values for the environment are 'test' or 'prod'"
+    exit 1;
+fi
+
 echo "Going to start the healing house application for >>$env<< environment";
 
 export APP_INIT_JAVA_HEAP=512M
