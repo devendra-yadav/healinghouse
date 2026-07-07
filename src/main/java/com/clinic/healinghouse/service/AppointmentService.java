@@ -5,6 +5,7 @@ import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class AppointmentService {
 
     private final AppointmentRepository            appointmentRepository;
@@ -194,6 +196,8 @@ public class AppointmentService {
 
             // Decrement stock — treatment has been administered
             product.setStockQuantity(product.getStockQuantity() - qty);
+            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
+                    product.getId(), product.getName(), qty, product.getStockQuantity());
 
             totalProductAmount = totalProductAmount.add(lineTotal);
         }
@@ -203,7 +207,10 @@ public class AppointmentService {
         appointment.setTotalProductAmount(totalProductAmount);
         appointment.setGrandTotal(totalServiceAmount.add(totalProductAmount));
 
-        return appointmentRepository.save(appointment);
+        Appointment saved = appointmentRepository.save(appointment);
+        log.info("Created appointment id={} patient='{}' therapist='{}' grandTotal={}",
+                saved.getId(), patient.getFullName(), therapist.getFullName(), saved.getGrandTotal());
+        return saved;
     }
 
     // ── Status transitions ────────────────────────────────────────────────────
@@ -218,7 +225,9 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
-        return appointmentRepository.save(appt);
+        Appointment saved = appointmentRepository.save(appt);
+        log.info("Appointment id={} marked COMPLETED", saved.getId());
+        return saved;
     }
 
     /** SCHEDULED → CANCELLED. Stores reason and restores product stock. */
@@ -232,7 +241,9 @@ public class AppointmentService {
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
         restoreProductStock(appt);
-        return appointmentRepository.save(appt);
+        Appointment saved = appointmentRepository.save(appt);
+        log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
+        return saved;
     }
 
     /** SCHEDULED → NO_SHOW. Restores product stock (patient never arrived). */
@@ -245,7 +256,9 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
         restoreProductStock(appt);
-        return appointmentRepository.save(appt);
+        Appointment saved = appointmentRepository.save(appt);
+        log.info("Appointment id={} marked NO_SHOW", saved.getId());
+        return saved;
     }
 
     /**
@@ -325,6 +338,8 @@ public class AppointmentService {
                                 .lineTotal(lineTotal)
                                 .build());
                 product.setStockQuantity(product.getStockQuantity() - qty);
+                log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
+                        product.getId(), product.getName(), qty, product.getStockQuantity());
                 totalProductAmount = totalProductAmount.add(lineTotal);
             }
 
@@ -333,7 +348,9 @@ public class AppointmentService {
             existing.setGrandTotal(totalServiceAmount.add(totalProductAmount));
         }
 
-        return appointmentRepository.save(existing);
+        Appointment saved = appointmentRepository.save(existing);
+        log.info("Updated appointment id={}", saved.getId());
+        return saved;
     }
 
     // ── Per-line therapist reassignment ──────────────────────────────────────
@@ -350,7 +367,10 @@ public class AppointmentService {
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
         line.setTherapist(therapist);
-        return appointmentServiceLineRepository.save(line);
+        AppointmentServiceLine saved = appointmentServiceLineRepository.save(line);
+        log.info("Reassigned service line id={} (appointment id={}) to therapist '{}'",
+                lineId, appointmentId, therapist.getFullName());
+        return saved;
     }
 
     public AppointmentProductLine reassignProductLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
@@ -362,7 +382,10 @@ public class AppointmentService {
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
         line.setTherapist(therapist);
-        return appointmentProductLineRepository.save(line);
+        AppointmentProductLine saved = appointmentProductLineRepository.save(line);
+        log.info("Reassigned product line id={} (appointment id={}) to therapist '{}'",
+                lineId, appointmentId, therapist.getFullName());
+        return saved;
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

@@ -4,6 +4,7 @@ import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -14,6 +15,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class TreatmentService {
 
     private final ClinicServiceRepository clinicServiceRepository;
@@ -41,12 +43,16 @@ public class TreatmentService {
     }
 
     public ClinicService save(ClinicService service) {
-        return clinicServiceRepository.save(service);
+        boolean isNew = service.getId() == null;
+        ClinicService saved = clinicServiceRepository.save(service);
+        log.info("{} service id={} name='{}'", isNew ? "Created" : "Updated", saved.getId(), saved.getName());
+        return saved;
     }
 
     public void deactivate(Long id) {
         ClinicService service = getById(id);
         service.setActive(false);
         clinicServiceRepository.save(service);
+        log.info("Deactivated service id={} name='{}'", service.getId(), service.getName());
     }
 }
