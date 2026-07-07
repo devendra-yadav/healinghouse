@@ -3,12 +3,12 @@
 env=$1;
 
 if [ "a$env" == "a" ]; then
-    echo "Please pass environment value as param. possible values are 'test', 'prod'";
+    echo "Please pass environment value as param. possible values are 'test', 'preprod', 'prod'";
     exit 1;
 fi
 
-if [ "$env" != "test" ] && [ "$env" != "prod" ]; then
-    echo "Only possible values for the environment are 'test' or 'prod'"
+if [ "$env" != "test" ] && [ "$env" != "preprod" ] && [ "$env" != "prod" ]; then
+    echo "Only possible values for the environment are 'test' or 'preprod' or 'prod'"
     exit 1;
 fi
 
