@@ -17,15 +17,15 @@
         </a>
     </div>
 
-    <!-- Category filter chips -->
+    <!-- Tag filter chips -->
     <div class="d-flex flex-wrap gap-2 mb-3">
         <a th:href="@{/services}"
-           th:classappend="${selectedCategory == null} ? 'btn-success' : 'btn-outline-secondary'"
+           th:classappend="${selectedTag == null} ? 'btn-success' : 'btn-outline-secondary'"
            class="btn btn-sm">All</a>
-        <a th:each="cat : ${categories}"
-           th:href="@{/services(category=${cat})}"
-           th:text="${cat}"
-           th:classappend="${cat == selectedCategory} ? 'btn-success' : 'btn-outline-secondary'"
+        <a th:each="t : ${allTags}"
+           th:href="@{/services(tag=${t.name})}"
+           th:text="${t.name}"
+           th:classappend="${t.name == selectedTag} ? 'btn-success' : 'btn-outline-secondary'"
            class="btn btn-sm">
         </a>
     </div>
@@ -38,7 +38,7 @@
                         <tr>
                             <th>#</th>
                             <th>Service Name</th>
-                            <th>Category</th>
+                            <th>Tags</th>
                             <th class="text-end">Duration</th>
                             <th class="text-end">Price (₹)</th>
                             <th class="text-center">Actions</th>
@@ -56,8 +56,10 @@
                                      style="max-width:320px;" th:text="${s.description}"></div>
                             </td>
                             <td>
-                                <span class="badge rounded-pill bg-success bg-opacity-75"
-                                      th:text="${s.category ?: 'Other'}"></span>
+                                <span th:each="t : ${s.sortedTags}"
+                                      class="badge rounded-pill bg-success bg-opacity-75 me-1"
+                                      th:text="${t.name}"></span>
+                                <span th:if="${s.sortedTags.empty}" class="text-muted">—</span>
                             </td>
                             <td class="text-end"
                                 th:text="${s.durationMinutes != null ? s.durationMinutes + ' min' : '—'}"></td>

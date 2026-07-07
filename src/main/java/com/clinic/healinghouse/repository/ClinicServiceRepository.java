@@ -9,7 +9,11 @@ public interface ClinicServiceRepository extends JpaRepository<ClinicService, Lo
 
     List<ClinicService> findByActiveTrueOrderByNameAsc();
 
-    List<ClinicService> findByCategoryAndActiveTrueOrderByNameAsc(String category);
+    List<ClinicService> findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(String tagName);
 
     List<ClinicService> findByNameContainingIgnoreCaseAndActiveTrue(String name);
+
+    List<ClinicService> findByTagsId(Long tagId);
+
+    long countByTagsId(Long tagId);
 }

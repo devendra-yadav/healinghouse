@@ -6,6 +6,10 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Treatment / therapy catalog entry.
@@ -13,13 +17,14 @@ import java.math.BigDecimal;
  */
 @Entity
 @Table(name = "service", indexes = {
-        @Index(name = "idx_service_category", columnList = "category"),
-        @Index(name = "idx_service_active",   columnList = "active")
+        @Index(name = "idx_service_active", columnList = "active")
 })
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = "tags")
+@ToString(exclude = "tags")
 public class ClinicService {
 
     @Id
@@ -33,8 +38,12 @@ public class ClinicService {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    /** E.g. "Massage", "Acupuncture", "TCM", "Detox", "IonTherapy", "Compression", "Hijama", "Other" */
-    private String category;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "service_tag",
+            joinColumns = @JoinColumn(name = "service_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    @Builder.Default
+    private Set<Tag> tags = new HashSet<>();
 
     private Integer durationMinutes;
 
@@ -45,4 +54,12 @@ public class ClinicService {
     @Builder.Default
     @Column(nullable = false)
     private boolean active = true;
+
+    /** Tags sorted by name, for consistent display. */
+    @Transient
+    public List<Tag> getSortedTags() {
+        return tags.stream()
+                .sorted(Comparator.comparing(Tag::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
 }

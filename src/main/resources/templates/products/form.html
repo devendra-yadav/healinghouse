@@ -36,14 +36,19 @@
                             <div class="invalid-feedback" th:errors="*{name}"></div>
                         </div>
 
-                        <!-- Category + Price -->
+                        <!-- Tags + Price -->
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
-                                <label class="form-label fw-semibold">Category</label>
-                                <select th:field="*{category}" class="form-select">
-                                    <option value="">— Select Category —</option>
-                                    <option th:each="cat : ${categories}" th:value="${cat}" th:text="${cat}"></option>
-                                </select>
+                                <label class="form-label fw-semibold">Tags</label>
+                                <div id="tagChips" class="d-flex flex-wrap gap-2 mb-2"></div>
+                                <div class="position-relative">
+                                    <input type="text" id="tagInput" class="form-control" autocomplete="off"
+                                           placeholder="Type a tag and press Enter…"/>
+                                    <div id="tagSuggestions" class="list-group position-absolute w-100 shadow-sm"
+                                         style="z-index:1000; display:none;"></div>
+                                </div>
+                                <input type="hidden" name="tagNames" id="tagNamesHidden" th:value="${existingTagNames}"/>
+                                <div class="form-text">Press Enter or click a suggestion to add. New tags are created automatically.</div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Price (₹) <span class="text-danger">*</span></label>
@@ -98,5 +103,6 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
+<script th:src="@{/js/tag-input.js}"></script>
 </body>
 </html>
