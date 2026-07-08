@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Product/Service Performance</h4>
+
+    <!-- Filter -->
+    <form th:action="@{/reports/performance}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="row g-4">
+        <!-- Services table -->
+        <div class="col-12">
+            <h6 class="section-header mb-3">Service Performance</h6>
+            <div th:if="${report.services.empty}" class="coming-soon-card">
+                <i class="bi bi-clipboard2-heart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No service bookings in this period.</span>
+            </div>
+            <div th:unless="${report.services.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Tags</th>
+                                    <th class="text-center">Bookings</th>
+                                    <th class="text-end">Revenue</th>
+                                    <th class="text-end">Avg. Price</th>
+                                    <th>Top Therapist</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="s : ${report.services}">
+                                    <td th:text="${s.serviceName}"></td>
+                                    <td>
+                                        <span th:each="tag : ${s.tags}" class="badge bg-light text-dark border me-1"
+                                              th:text="${tag}"></span>
+                                    </td>
+                                    <td class="text-center" th:text="${s.bookingsCount}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(s.revenue, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(s.averagePrice, 1, 2)}|"></td>
+                                    <td th:text="${s.topTherapistName} ?: '—'"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products table -->
+        <div class="col-12">
+            <h6 class="section-header mb-3">Product Performance</h6>
+            <div th:if="${report.products.empty}" class="coming-soon-card">
+                <i class="bi bi-bag-heart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No product sales in this period.</span>
+            </div>
+            <div th:unless="${report.products.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Tags</th>
+                                    <th class="text-center">Units Sold</th>
+                                    <th class="text-end">Revenue</th>
+                                    <th class="text-center">Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="p : ${report.products}">
+                                    <td th:text="${p.productName}"></td>
+                                    <td>
+                                        <span th:each="tag : ${p.tags}" class="badge bg-light text-dark border me-1"
+                                              th:text="${tag}"></span>
+                                    </td>
+                                    <td class="text-center" th:text="${p.unitsSold}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(p.revenue, 1, 2)}|"></td>
+                                    <td class="text-center">
+                                        <span th:text="${p.stockQuantity}"
+                                              th:classappend="${p.lowStock} ? 'text-danger fw-bold' : 'text-muted'"></span>
+                                        <span th:if="${p.lowStock}" class="badge bg-warning text-dark ms-1">Low</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag revenue -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Revenue by Tag</h6>
+            <div th:if="${report.tagRevenue.empty}" class="coming-soon-card">
+                <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No tagged revenue in this period.</span>
+            </div>
+            <div th:unless="${report.tagRevenue.empty}" class="card shadow-sm p-3">
+                <canvas id="tagRevenueChart" height="220"></canvas>
+            </div>
+        </div>
+
+        <!-- Tag x therapist breakdown -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Revenue by Tag &amp; Therapist</h6>
+            <div th:if="${report.tagTherapistRevenue.empty}" class="coming-soon-card">
+                <i class="bi bi-table fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No tagged revenue in this period.</span>
+            </div>
+            <div th:unless="${report.tagTherapistRevenue.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 260px;">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Tag</th>
+                                    <th>Therapist</th>
+                                    <th class="text-end">Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="r : ${report.tagTherapistRevenue}">
+                                    <td th:text="${r.tagName}"></td>
+                                    <td th:text="${r.therapistName}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(r.revenue, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    /*[# th:if="${not report.tagRevenue.empty}"]*/
+    const tagLabels = /*[[${report.tagRevenue.![tagName]}]]*/ [];
+    const tagValues = /*[[${report.tagRevenue.![revenue]}]]*/ [];
+
+    new Chart(document.getElementById('tagRevenueChart'), {
+        type: 'pie',
+        data: {
+            labels: tagLabels,
+            datasets: [{
+                data: tagValues,
+                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+    /*[/]*/
+</script>
+</body>
+</html>

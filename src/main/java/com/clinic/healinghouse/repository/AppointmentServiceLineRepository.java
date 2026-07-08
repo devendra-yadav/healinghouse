@@ -1,5 +1,9 @@
 package com.clinic.healinghouse.repository;
 
+import com.clinic.healinghouse.dto.ServiceRevenueSummaryDTO;
+import com.clinic.healinghouse.dto.ServiceTherapistRevenueDTO;
+import com.clinic.healinghouse.dto.TagRevenueDTO;
+import com.clinic.healinghouse.dto.TagTherapistRevenueDTO;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.Therapist;
@@ -39,4 +43,48 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
             @Param("therapist") Therapist therapist,
             @Param("start")     LocalDateTime start,
             @Param("end")       LocalDateTime end);
+
+    // Services revenue grouped by tag (dashboard tag breakdown / performance report).
+    // A service tagged with multiple tags contributes its full line total to each tag.
+    @Query("SELECT new com.clinic.healinghouse.dto.TagRevenueDTO(t.name, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "FROM AppointmentServiceLine sl JOIN sl.service.tags t " +
+           "WHERE sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
+           "GROUP BY t.name")
+    List<TagRevenueDTO> sumServiceRevenueByTagAndDateRange(
+            @Param("start") LocalDateTime start,
+            @Param("end")   LocalDateTime end);
+
+    // Per-service bookings count and revenue (performance report).
+    @Query("SELECT new com.clinic.healinghouse.dto.ServiceRevenueSummaryDTO(" +
+           "    sl.service.id, sl.service.name, COUNT(sl), COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "FROM AppointmentServiceLine sl " +
+           "WHERE sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
+           "GROUP BY sl.service.id, sl.service.name")
+    List<ServiceRevenueSummaryDTO> sumServiceRevenueByServiceAndDateRange(
+            @Param("start") LocalDateTime start,
+            @Param("end")   LocalDateTime end);
+
+    // Per-service, per-therapist revenue — used to find each service's top-revenue therapist.
+    @Query("SELECT new com.clinic.healinghouse.dto.ServiceTherapistRevenueDTO(" +
+           "    sl.service.name, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "FROM AppointmentServiceLine sl " +
+           "WHERE sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
+           "GROUP BY sl.service.name, sl.therapist.fullName")
+    List<ServiceTherapistRevenueDTO> sumServiceRevenueByServiceAndTherapist(
+            @Param("start") LocalDateTime start,
+            @Param("end")   LocalDateTime end);
+
+    // Services revenue grouped by tag x therapist (performance report cross-tab).
+    @Query("SELECT new com.clinic.healinghouse.dto.TagTherapistRevenueDTO(" +
+           "    t.name, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "FROM AppointmentServiceLine sl JOIN sl.service.tags t " +
+           "WHERE sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
+           "GROUP BY t.name, sl.therapist.fullName")
+    List<TagTherapistRevenueDTO> sumServiceRevenueByTagAndTherapist(
+            @Param("start") LocalDateTime start,
+            @Param("end")   LocalDateTime end);
 }

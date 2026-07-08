@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Daily Report</h4>
+        <small class="text-muted" th:text="${#temporals.format(report.date, 'EEEE, dd MMMM yyyy')}"></small>
+    </div>
+
+    <!-- Filter -->
+    <form th:action="@{/reports/daily}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Date</label>
+                    <input type="date" name="date" class="form-control form-control-sm" th:value="${selectedDate}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-calendar2-check"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.summary.totalAppointments}">—</div>
+                        <small class="text-muted">Appointments</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-info"><i class="bi bi-people"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.summary.uniquePatients}">—</div>
+                        <small class="text-muted">Unique Patients</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-primary"><i class="bi bi-clipboard2-heart"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(report.summary.totalServicesRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Services Revenue</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-warning"><i class="bi bi-bag-heart"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(report.summary.totalProductsRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Products Revenue</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Per-therapist earnings -->
+    <h6 class="section-header mb-3">Therapist Earnings</h6>
+    <div th:if="${report.therapistEarnings.empty}" class="coming-soon-card">
+        <i class="bi bi-person-badge fs-2 text-secondary mb-2 d-block"></i>
+        <span class="text-muted">No active therapists to report on.</span>
+    </div>
+    <div th:unless="${report.therapistEarnings.empty}" class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Therapist</th>
+                            <th class="text-end">Services Rev.</th>
+                            <th class="text-end">Products Rev.</th>
+                            <th class="text-center">Services</th>
+                            <th class="text-end">Commission</th>
+                            <th class="text-center">Bonus</th>
+                            <th class="text-end">Total Variable Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:each="e : ${report.therapistEarnings}">
+                            <td th:text="${e.therapist.fullName}"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.servicesRevenue, 1, 2)}|"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
+                            <td class="text-center" th:text="${e.servicesCount}"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.totalCommission, 1, 2)}|"></td>
+                            <td class="text-center">
+                                <span th:if="${e.bonusEarned}" class="badge bg-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(e.bonusAmount, 1, 2)}|"></span>
+                                <span th:unless="${e.bonusEarned}" class="text-muted">—</span>
+                            </td>
+                            <td class="text-end fw-semibold"
+                                th:text="|₹ ${#numbers.formatDecimal(e.totalVariablePay, 1, 2)}|"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

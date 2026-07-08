@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Therapist Comparison</h4>
+
+    <!-- Filter -->
+    <form th:action="@{/reports/comparison}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-end mb-3">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+            </div>
+            <label class="form-label small mb-2 d-block">Therapists (select 2 or more)</label>
+            <div class="d-flex flex-wrap gap-3 mb-3">
+                <div class="form-check" th:each="t : ${allTherapists}">
+                    <input class="form-check-input" type="checkbox" name="therapistIds" th:value="${t.id}"
+                           th:id="${'therapist-' + t.id}"
+                           th:checked="${selectedTherapistIds.contains(t.id)}">
+                    <label class="form-check-label small" th:for="${'therapist-' + t.id}" th:text="${t.fullName}"></label>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-sm btn-hh">
+                <i class="bi bi-search"></i> Compare
+            </button>
+        </div>
+    </form>
+
+    <!-- Empty state -->
+    <div th:if="${report == null}" class="coming-soon-card">
+        <i class="bi bi-people fs-2 text-secondary mb-2 d-block"></i>
+        <span class="text-muted">Select at least 2 therapists above to compare.</span>
+    </div>
+
+    <div th:if="${report != null}">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th th:each="e : ${report.therapistEarnings}" th:text="${e.therapist.fullName}"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="fw-semibold">Services Revenue</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.servicesRevenue, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Products Revenue</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Services Count</td>
+                                <td th:each="e : ${report.therapistEarnings}" th:text="${e.servicesCount}"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Total Commission</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.totalCommission, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Bonus</td>
+                                <td th:each="e : ${report.therapistEarnings}">
+                                    <span th:if="${e.bonusEarned}" class="badge bg-success"
+                                          th:text="|₹ ${#numbers.formatDecimal(e.bonusAmount, 1, 2)}|"></span>
+                                    <span th:unless="${e.bonusEarned}" class="text-muted">—</span>
+                                </td>
+                            </tr>
+                            <tr class="table-light">
+                                <td class="fw-bold">Total Variable Pay</td>
+                                <td th:each="e : ${report.therapistEarnings}" class="fw-bold"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.totalVariablePay, 1, 2)}|"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <h6 class="section-header mb-3">Total Variable Pay Comparison</h6>
+        <div class="card shadow-sm p-3">
+            <canvas id="comparisonChart" height="220"></canvas>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript" th:if="${report != null}">
+    const comparisonLabels = /*[[${report.therapistEarnings.![therapist.fullName]}]]*/ [];
+    const comparisonValues = /*[[${report.therapistEarnings.![totalVariablePay]}]]*/ [];
+
+    new Chart(document.getElementById('comparisonChart'), {
+        type: 'bar',
+        data: {
+            labels: comparisonLabels,
+            datasets: [{
+                label: 'Total Variable Pay (₹)',
+                data: comparisonValues,
+                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+</script>
+</body>
+</html>

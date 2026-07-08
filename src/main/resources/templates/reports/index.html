@@ -4,15 +4,33 @@
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
 <body class="d-flex flex-column min-vh-100">
+
 <nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
 <main class="container-fluid px-4 py-4 flex-grow-1">
     <h4 class="section-header mb-4">Reports</h4>
-    <div class="coming-soon-card">
-        <i class="bi bi-bar-chart-line fs-1 text-secondary mb-3 d-block"></i>
-        <h5 class="text-muted">Coming in Phase 3</h5>
-        <p class="text-muted mb-0">Daily, weekly, monthly reports and therapist earnings calculations will be available here.</p>
+
+    <div class="row g-3">
+        <div class="col-12 col-sm-6 col-lg-4"
+             th:each="item : ${ {'Daily Report|/reports/daily|bi-calendar2-day|Revenue and per-therapist earnings for a single day.',
+                                  'Period Report|/reports/period|bi-calendar2-range|Earnings, tag revenue, and product performance for a date range.',
+                                  'Therapist Comparison|/reports/comparison|bi-people|Compare two or more therapists side by side.',
+                                  'Patient Acquisition|/reports/patients|bi-person-plus|New vs repeat patients and retention rate.',
+                                  'Product/Service Performance|/reports/performance|bi-bar-chart|Top services, products, and tag breakdowns.'} }">
+            <th:block th:with="parts=${#strings.arraySplit(item,'|')}">
+                <a th:href="@{${parts[1]}}"
+                   class="card card-kpi p-4 bg-white text-decoration-none h-100 d-flex flex-column">
+                    <div class="d-flex align-items-center gap-3 mb-2">
+                        <i th:class="'bi ' + ${parts[2]} + ' fs-3 text-success'"></i>
+                        <span class="fw-semibold text-dark" th:text="${parts[0]}"></span>
+                    </div>
+                    <small class="text-muted" th:text="${parts[3]}"></small>
+                </a>
+            </th:block>
+        </div>
     </div>
 </main>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 </body>

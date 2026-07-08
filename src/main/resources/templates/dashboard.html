@@ -15,47 +15,48 @@
         <small class="text-muted" th:text="${#temporals.format(#temporals.createNow(), 'EEEE, dd MMMM yyyy')}"></small>
     </div>
 
-    <!-- ── KPI Placeholder Cards ── -->
+    <!-- ── KPI Cards ── -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
+        <div class="col-12 col-sm-6 col-lg-3">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-success"><i class="bi bi-calendar2-check"></i></span>
                     <div>
-                        <div class="fw-semibold fs-4" th:text="${todayAppointments.size()}">—</div>
+                        <div class="fw-semibold fs-4" th:text="${kpis.todayAppointmentsCount}">—</div>
                         <small class="text-muted">Today's Appointments</small>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-12 col-sm-6 col-lg-3">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-primary"><i class="bi bi-currency-rupee"></i></span>
                     <div>
-                        <div class="fw-semibold fs-4">—</div>
-                        <small class="text-muted">Monthly Revenue</small>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(kpis.todayRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Today's Revenue</small>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-12 col-sm-6 col-lg-3">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-warning"><i class="bi bi-box-seam"></i></span>
                     <div>
-                        <div class="fw-semibold fs-4">—</div>
+                        <div class="fw-semibold fs-4" th:text="${kpis.lowStockCount}">—</div>
                         <small class="text-muted">Low Stock Items</small>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-12 col-sm-6 col-lg-3">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-info"><i class="bi bi-person-badge"></i></span>
                     <div>
-                        <div class="fw-semibold fs-4">—</div>
+                        <div class="fw-semibold fs-4" th:text="${kpis.activeTherapistsCount}">—</div>
                         <small class="text-muted">Active Therapists</small>
                     </div>
                 </div>
@@ -79,7 +80,6 @@
         </div>
     </div>
 
-    <!-- ── Placeholder sections ── -->
     <div class="row g-4">
         <!-- Today's appointments list -->
         <div class="col-12 col-lg-6">
@@ -131,12 +131,64 @@
             </div>
         </div>
 
-        <!-- Charts -->
+        <!-- Low stock alerts -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Low Stock Alerts</h6>
+            <div th:if="${lowStockAlerts.empty}" class="coming-soon-card">
+                <i class="bi bi-check2-circle fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">All products are adequately stocked.</span>
+            </div>
+            <div th:unless="${lowStockAlerts.empty}" class="card shadow-sm">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center"
+                     data-bs-toggle="collapse" data-bs-target="#lowStockBody" role="button">
+                    <span class="fw-semibold text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <span th:text="${lowStockAlerts.size()}"></span> item(s) need reordering
+                    </span>
+                    <i class="bi bi-chevron-down"></i>
+                </div>
+                <div class="collapse show" id="lowStockBody">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-center">Stock</th>
+                                        <th class="text-center">Reorder At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="p : ${lowStockAlerts}">
+                                        <td th:text="${p.name}"></td>
+                                        <td class="text-center text-danger fw-bold" th:text="${p.stockQuantity}"></td>
+                                        <td class="text-center text-muted" th:text="${p.reorderLevel}"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Revenue trend -->
         <div class="col-12 col-lg-6">
             <h6 class="section-header mb-3">Revenue Trend (Last 7 Days)</h6>
-            <div class="coming-soon-card">
-                <i class="bi bi-bar-chart fs-2 text-secondary mb-2 d-block"></i>
-                <span class="text-muted">Charts will be added in Phase 3.</span>
+            <div class="card shadow-sm p-3">
+                <canvas id="revenueTrendChart" height="220"></canvas>
+            </div>
+        </div>
+
+        <!-- Tag revenue breakdown -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Revenue by Tag (Last 30 Days)</h6>
+            <div th:if="${tagRevenueBreakdown.empty}" class="coming-soon-card">
+                <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No tagged revenue in this period yet.</span>
+            </div>
+            <div th:unless="${tagRevenueBreakdown.empty}" class="card shadow-sm p-3">
+                <canvas id="tagRevenueChart" height="220"></canvas>
             </div>
         </div>
     </div>
@@ -166,5 +218,53 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
 <th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    const trendLabels = /*[[${revenueTrend.labels}]]*/ [];
+    const trendValues = /*[[${revenueTrend.values}]]*/ [];
+
+    new Chart(document.getElementById('revenueTrendChart'), {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: 'Revenue (₹)',
+                data: trendValues,
+                borderColor: '#40916c',
+                backgroundColor: 'rgba(64, 145, 108, 0.15)',
+                tension: 0.3,
+                fill: true,
+                pointRadius: 3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    /*[# th:if="${not tagRevenueBreakdown.empty}"]*/
+    const tagLabels = /*[[${tagRevenueBreakdown.![tagName]}]]*/ [];
+    const tagValues = /*[[${tagRevenueBreakdown.![revenue]}]]*/ [];
+
+    new Chart(document.getElementById('tagRevenueChart'), {
+        type: 'pie',
+        data: {
+            labels: tagLabels,
+            datasets: [{
+                data: tagValues,
+                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+    /*[/]*/
+</script>
 </body>
 </html>

@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.repository;
 
+import com.clinic.healinghouse.dto.PatientFirstVisitDTO;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Patient;
@@ -86,4 +87,16 @@ public interface AppointmentRepository
            "AND a.appointmentDateTime BETWEEN :start AND :end")
     BigDecimal sumRevenueByDateRange(@Param("start") LocalDateTime start,
                                      @Param("end")   LocalDateTime end);
+
+    // ── Patient acquisition report ────────────────────────────────────────────
+    // Earliest-ever appointment date (any status) for every patient with at least
+    // one appointment in the range — used to classify new vs. repeat patients.
+    @Query("SELECT new com.clinic.healinghouse.dto.PatientFirstVisitDTO(a.patient.id, MIN(a.appointmentDateTime)) " +
+           "FROM Appointment a " +
+           "WHERE a.patient.id IN (" +
+           "    SELECT DISTINCT a2.patient.id FROM Appointment a2 WHERE a2.appointmentDateTime BETWEEN :start AND :end" +
+           ") " +
+           "GROUP BY a.patient.id")
+    List<PatientFirstVisitDTO> findFirstVisitDatesForPatientsActiveInRange(@Param("start") LocalDateTime start,
+                                                                            @Param("end")   LocalDateTime end);
 }

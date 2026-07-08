@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Patient Acquisition</h4>
+
+    <!-- Filter -->
+    <form th:action="@{/reports/patients}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-person-plus"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.totalNewPatients}">—</div>
+                        <small class="text-muted">New Patients</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-info"><i class="bi bi-arrow-repeat"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.totalRepeatPatients}">—</div>
+                        <small class="text-muted">Repeat Patients</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-primary"><i class="bi bi-graph-up"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="${#numbers.formatDecimal(report.overallRetentionRate, 1, 1)} + '%'">—</div>
+                        <small class="text-muted">Retention Rate</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Trend chart -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">New vs Repeat Trend</h6>
+            <div th:if="${report.trend.labels.empty}" class="coming-soon-card">
+                <i class="bi bi-graph-up fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No appointments in this period.</span>
+            </div>
+            <div th:unless="${report.trend.labels.empty}" class="card shadow-sm p-3">
+                <canvas id="patientTrendChart" height="220"></canvas>
+            </div>
+        </div>
+
+        <!-- Per-therapist patient metrics -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">By Therapist</h6>
+            <div th:if="${report.therapistMetrics.empty}" class="coming-soon-card">
+                <i class="bi bi-person-badge fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No active therapists to report on.</span>
+            </div>
+            <div th:unless="${report.therapistMetrics.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Therapist</th>
+                                    <th class="text-center">New</th>
+                                    <th class="text-center">Repeat</th>
+                                    <th class="text-center">Retention</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="m : ${report.therapistMetrics}">
+                                    <td th:text="${m.therapist.fullName}"></td>
+                                    <td class="text-center" th:text="${m.newPatients}"></td>
+                                    <td class="text-center" th:text="${m.repeatPatients}"></td>
+                                    <td class="text-center"
+                                        th:text="${#numbers.formatDecimal(m.retentionRate, 1, 1)} + '%'"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    /*[# th:if="${not report.trend.labels.empty}"]*/
+    const trendLabels = /*[[${report.trend.labels}]]*/ [];
+    const newPatientValues = /*[[${report.trend.newPatients}]]*/ [];
+    const repeatPatientValues = /*[[${report.trend.repeatPatients}]]*/ [];
+
+    new Chart(document.getElementById('patientTrendChart'), {
+        type: 'bar',
+        data: {
+            labels: trendLabels,
+            datasets: [
+                {
+                    label: 'New',
+                    data: newPatientValues,
+                    backgroundColor: '#40916c'
+                },
+                {
+                    label: 'Repeat',
+                    data: repeatPatientValues,
+                    backgroundColor: '#95d5b2'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                x: { stacked: true },
+                y: { stacked: true, beginAtZero: true }
+            }
+        }
+    });
+    /*[/]*/
+</script>
+</body>
+</html>

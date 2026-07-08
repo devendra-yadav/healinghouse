@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Period Report</h4>
+
+    <!-- Filter -->
+    <form th:action="@{/reports/period}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-calendar2-check"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.summary.totalAppointments}">—</div>
+                        <small class="text-muted">Appointments</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-info"><i class="bi bi-people"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.summary.uniquePatients}">—</div>
+                        <small class="text-muted">Unique Patients</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-primary"><i class="bi bi-currency-rupee"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(report.summary.totalRevenue(), 1, 2)}|">—</div>
+                        <small class="text-muted">Total Revenue</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-warning"><i class="bi bi-bag-heart"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(report.summary.totalProductsRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Products Revenue</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Per-therapist earnings -->
+        <div class="col-12">
+            <h6 class="section-header mb-3">Therapist Earnings</h6>
+            <div th:if="${report.therapistEarnings.empty}" class="coming-soon-card">
+                <i class="bi bi-person-badge fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No active therapists to report on.</span>
+            </div>
+            <div th:unless="${report.therapistEarnings.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Therapist</th>
+                                    <th class="text-end">Services Rev.</th>
+                                    <th class="text-end">Products Rev.</th>
+                                    <th class="text-center">Services</th>
+                                    <th class="text-end">Commission</th>
+                                    <th class="text-center">Bonus</th>
+                                    <th class="text-end">Total Variable Pay</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="e : ${report.therapistEarnings}">
+                                    <td th:text="${e.therapist.fullName}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.servicesRevenue, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
+                                    <td class="text-center" th:text="${e.servicesCount}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.totalCommission, 1, 2)}|"></td>
+                                    <td class="text-center">
+                                        <span th:if="${e.bonusEarned}" class="badge bg-success"
+                                              th:text="|₹ ${#numbers.formatDecimal(e.bonusAmount, 1, 2)}|"></span>
+                                        <span th:unless="${e.bonusEarned}" class="text-muted">—</span>
+                                    </td>
+                                    <td class="text-end fw-semibold"
+                                        th:text="|₹ ${#numbers.formatDecimal(e.totalVariablePay, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tag revenue -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Revenue by Tag</h6>
+            <div th:if="${report.tagRevenue.empty}" class="coming-soon-card">
+                <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No tagged revenue in this period.</span>
+            </div>
+            <div th:unless="${report.tagRevenue.empty}" class="card shadow-sm p-3">
+                <canvas id="tagRevenueChart" height="220"></canvas>
+            </div>
+        </div>
+
+        <!-- Product performance -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Product Performance</h6>
+            <div th:if="${report.productPerformance.empty}" class="coming-soon-card">
+                <i class="bi bi-bag-heart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No product sales in this period.</span>
+            </div>
+            <div th:unless="${report.productPerformance.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Units Sold</th>
+                                    <th class="text-end">Revenue</th>
+                                    <th class="text-center">Stock</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="p : ${report.productPerformance}">
+                                    <td th:text="${p.productName}"></td>
+                                    <td class="text-center" th:text="${p.unitsSold}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(p.revenue, 1, 2)}|"></td>
+                                    <td class="text-center">
+                                        <span th:text="${p.stockQuantity}"
+                                              th:classappend="${p.lowStock} ? 'text-danger fw-bold' : 'text-muted'"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    /*[# th:if="${not report.tagRevenue.empty}"]*/
+    const tagLabels = /*[[${report.tagRevenue.![tagName]}]]*/ [];
+    const tagValues = /*[[${report.tagRevenue.![revenue]}]]*/ [];
+
+    new Chart(document.getElementById('tagRevenueChart'), {
+        type: 'pie',
+        data: {
+            labels: tagLabels,
+            datasets: [{
+                data: tagValues,
+                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+    /*[/]*/
+</script>
+</body>
+</html>
