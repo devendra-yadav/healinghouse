@@ -7,16 +7,21 @@ import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "product", indexes = {
-        @Index(name = "idx_product_category", columnList = "category"),
-        @Index(name = "idx_product_active",   columnList = "active")
+        @Index(name = "idx_product_active", columnList = "active")
 })
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@EqualsAndHashCode(exclude = "tags")
+@ToString(exclude = "tags")
 public class Product {
 
     @Id
@@ -30,8 +35,12 @@ public class Product {
     @Column(columnDefinition = "TEXT")
     private String description;
 
-    /** E.g. "Herbal Supplement", "Oil", "Tea", "Detox Kit", "Capsule", "Other" */
-    private String category;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "product_tag",
+            joinColumns = @JoinColumn(name = "product_id"),
+            inverseJoinColumns = @JoinColumn(name = "tag_id"))
+    @Builder.Default
+    private Set<Tag> tags = new HashSet<>();
 
     @NotNull
     @Column(nullable = false, precision = 10, scale = 2)
@@ -53,5 +62,13 @@ public class Product {
     @Transient
     public boolean isLowStock() {
         return stockQuantity <= reorderLevel;
+    }
+
+    /** Tags sorted by name, for consistent display. */
+    @Transient
+    public List<Tag> getSortedTags() {
+        return tags.stream()
+                .sorted(Comparator.comparing(Tag::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 }

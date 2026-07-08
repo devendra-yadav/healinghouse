@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Tags')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Tags</h4>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Tag</th>
+                            <th class="text-center">Services</th>
+                            <th class="text-center">Products</th>
+                            <th class="text-center">Total</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${tagUsages.empty}">
+                            <td colspan="6" class="text-center text-muted py-4">No tags found.</td>
+                        </tr>
+                        <tr th:each="u, stat : ${tagUsages}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td><span class="fw-semibold" th:text="${u.tag.name}"></span></td>
+                            <td class="text-center" th:text="${u.serviceCount}"></td>
+                            <td class="text-center" th:text="${u.productCount}"></td>
+                            <td class="text-center fw-semibold" th:text="${u.totalCount}"></td>
+                            <td class="text-center text-nowrap">
+                                <button type="button" class="btn btn-sm btn-outline-primary me-1"
+                                        data-bs-toggle="modal" data-bs-target="#renameModal"
+                                        th:attr="data-id=${u.tag.id}, data-name=${u.tag.name}"
+                                        title="Rename">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        data-bs-toggle="modal" data-bs-target="#mergeModal"
+                                        th:attr="data-id=${u.tag.id}, data-name=${u.tag.name}"
+                                        title="Merge into another tag">
+                                    <i class="bi bi-signpost-split"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-id=${u.tag.id}, data-name=${u.tag.name}, data-total=${u.totalCount}"
+                                        title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <span th:text="${tagUsages.size()} + ' tag(s)'"></span>
+        </div>
+    </div>
+</main>
+
+<!-- Rename Modal -->
+<div class="modal fade" id="renameModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Rename Tag</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="renameForm" method="post">
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">New name</label>
+                    <input type="text" name="name" id="renameNameInput" class="form-control" required/>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-hh">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Merge Modal -->
+<div class="modal fade" id="mergeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">Merge Tag</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="mergeForm" method="post" th:action="@{/tags/merge}">
+                <input type="hidden" name="sourceId" id="mergeSourceId"/>
+                <div class="modal-body">
+                    <p>Merge <strong id="mergeSourceName"></strong> into:</p>
+                    <select name="targetId" id="mergeTargetSelect" class="form-select" required>
+                        <option th:each="t : ${allTags}" th:value="${t.id}" th:text="${t.name}"></option>
+                    </select>
+                    <div class="form-text">
+                        Every service/product tagged <span id="mergeSourceName2" class="fw-semibold"></span> will get
+                        the target tag instead, and <span id="mergeSourceName3" class="fw-semibold"></span> will be deleted.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-hh">Merge</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('renameModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('renameNameInput').value = btn.dataset.name;
+        document.getElementById('renameForm').action = '/tags/' + btn.dataset.id + '/rename';
+    });
+
+    document.getElementById('mergeModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('mergeSourceId').value = btn.dataset.id;
+        document.getElementById('mergeSourceName').textContent = btn.dataset.name;
+        document.getElementById('mergeSourceName2').textContent = btn.dataset.name;
+        document.getElementById('mergeSourceName3').textContent = btn.dataset.name;
+        const select = document.getElementById('mergeTargetSelect');
+        Array.from(select.options).forEach(function (opt) {
+            opt.hidden = (opt.value === btn.dataset.id);
+        });
+        select.selectedIndex = Array.from(select.options).findIndex(o => !o.hidden);
+    });
+
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        const total = parseInt(btn.dataset.total, 10);
+        const msg = total > 0
+            ? 'Delete tag "' + btn.dataset.name + '"? It is used by ' + total + ' item(s) — they will lose this tag.'
+            : 'Delete tag "' + btn.dataset.name + '"?';
+        document.getElementById('deleteModalBody').textContent = msg;
+        document.getElementById('deleteForm').action = '/tags/' + btn.dataset.id + '/delete';
+    });
+</script>
+</body>
+</html>

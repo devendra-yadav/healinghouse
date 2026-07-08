@@ -2,25 +2,38 @@ package com.clinic.healinghouse.config;
 
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import com.clinic.healinghouse.service.TagService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j
+@Profile("!prod & !preprod")
 public class DataSeeder implements CommandLineRunner {
 
     private final PatientRepository        patientRepository;
     private final TherapistRepository      therapistRepository;
     private final ClinicServiceRepository  clinicServiceRepository;
     private final ProductRepository        productRepository;
+    private final TagService               tagService;
+
+    /** Resolves tag names via find-or-create so seeded catalog items share the same Tag pool as user-created ones. */
+    private Set<Tag> tags(String... names) {
+        return Arrays.stream(names).map(tagService::findOrCreate).collect(Collectors.toCollection(HashSet::new));
+    }
 
     @Override
     @Transactional
@@ -206,7 +219,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Swedish Massage 60 min")
-                .category("Massage")
+                .tags(tags("Massage"))
                 .durationMinutes(60)
                 .price(new BigDecimal("800.00"))
                 .description("Relaxing full-body Swedish massage using long, flowing strokes to ease muscle tension.")
@@ -215,7 +228,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Deep Tissue Massage 60 min")
-                .category("Massage")
+                .tags(tags("Massage"))
                 .durationMinutes(60)
                 .price(new BigDecimal("1000.00"))
                 .description("Targets deep muscle layers to relieve chronic pain and stiffness.")
@@ -224,7 +237,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Hot Stone Massage 90 min")
-                .category("Massage")
+                .tags(tags("Massage"))
                 .durationMinutes(90)
                 .price(new BigDecimal("1500.00"))
                 .description("Heated basalt stones combined with massage to promote deep relaxation.")
@@ -233,7 +246,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Reflexology 45 min")
-                .category("Massage")
+                .tags(tags("Massage"))
                 .durationMinutes(45)
                 .price(new BigDecimal("700.00"))
                 .description("Foot reflexology targeting pressure points linked to organs and body systems.")
@@ -242,7 +255,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Acupuncture Session")
-                .category("Acupuncture")
+                .tags(tags("Acupuncture"))
                 .durationMinutes(45)
                 .price(new BigDecimal("1200.00"))
                 .description("Traditional needle acupuncture to restore energy flow and relieve pain.")
@@ -251,7 +264,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("TCM Consultation & Treatment")
-                .category("TCM")
+                .tags(tags("TCM"))
                 .durationMinutes(60)
                 .price(new BigDecimal("1500.00"))
                 .description("Traditional Chinese Medicine consultation with herbal recommendations and treatment.")
@@ -260,7 +273,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Hijama (Cupping Therapy)")
-                .category("Hijama")
+                .tags(tags("Hijama"))
                 .durationMinutes(60)
                 .price(new BigDecimal("1000.00"))
                 .description("Wet or dry cupping therapy to improve circulation and remove toxins.")
@@ -269,7 +282,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Foot Ion Detox")
-                .category("IonTherapy")
+                .tags(tags("IonTherapy", "Detox"))
                 .durationMinutes(45)
                 .price(new BigDecimal("700.00"))
                 .description("Ionic foot bath that draws out toxins through the soles of the feet.")
@@ -278,7 +291,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Full Body Detox Program")
-                .category("Detox")
+                .tags(tags("Detox"))
                 .durationMinutes(90)
                 .price(new BigDecimal("2000.00"))
                 .description("Comprehensive detox session combining dry brushing, herbal wraps, and steam therapy.")
@@ -287,7 +300,7 @@ public class DataSeeder implements CommandLineRunner {
 
             ClinicService.builder()
                 .name("Compression Therapy")
-                .category("Compression")
+                .tags(tags("Compression"))
                 .durationMinutes(30)
                 .price(new BigDecimal("600.00"))
                 .description("Pneumatic compression to improve lymphatic drainage and reduce swelling in limbs.")
@@ -309,7 +322,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Detox Herbal Tea (100g)")
-                .category("Tea")
+                .tags(tags("Tea", "Detox"))
                 .price(new BigDecimal("450.00"))
                 .stockQuantity(25)
                 .reorderLevel(8)
@@ -319,7 +332,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Peppermint Massage Oil (200ml)")
-                .category("Oil")
+                .tags(tags("Oil"))
                 .price(new BigDecimal("650.00"))
                 .stockQuantity(18)
                 .reorderLevel(6)
@@ -329,7 +342,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Lavender Essential Oil (30ml)")
-                .category("Oil")
+                .tags(tags("Oil"))
                 .price(new BigDecimal("750.00"))
                 .stockQuantity(3)
                 .reorderLevel(5)
@@ -339,7 +352,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Liver Cleanse Kit")
-                .category("Detox Kit")
+                .tags(tags("Detox Kit", "Detox"))
                 .price(new BigDecimal("1800.00"))
                 .stockQuantity(8)
                 .reorderLevel(4)
@@ -349,7 +362,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Ashwagandha Capsules (60 caps)")
-                .category("Capsule")
+                .tags(tags("Capsule", "Herbal Supplement"))
                 .price(new BigDecimal("550.00"))
                 .stockQuantity(30)
                 .reorderLevel(10)
@@ -359,7 +372,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Turmeric & Ginger Supplement (90 caps)")
-                .category("Herbal Supplement")
+                .tags(tags("Herbal Supplement"))
                 .price(new BigDecimal("400.00"))
                 .stockQuantity(4)
                 .reorderLevel(10)
@@ -369,7 +382,7 @@ public class DataSeeder implements CommandLineRunner {
 
             Product.builder()
                 .name("Foot Detox Salt Scrub (500g)")
-                .category("Other")
+                .tags(tags("Other", "Detox"))
                 .price(new BigDecimal("380.00"))
                 .stockQuantity(12)
                 .reorderLevel(5)

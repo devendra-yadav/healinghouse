@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -9,7 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -18,6 +21,7 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final TagService tagService;
 
     @Transactional(readOnly = true)
     public List<Product> findAll() {
@@ -31,8 +35,8 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
-    public List<Product> findByCategory(String category) {
-        return productRepository.findByCategoryAndActiveTrueOrderByNameAsc(category);
+    public List<Product> findByTag(String tagName) {
+        return productRepository.findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(tagName);
     }
 
     @Transactional(readOnly = true)
@@ -46,12 +50,23 @@ public class ProductService {
         return productRepository.findLowStockProducts();
     }
 
-    public Product save(Product product) {
+    /** tagNames are resolved via find-or-create (see {@link TagService#findOrCreate}) before saving. */
+    public Product save(Product product, List<String> tagNames) {
         boolean isNew = product.getId() == null;
+        product.setTags(resolveTags(tagNames));
         Product saved = productRepository.save(product);
         log.info("{} product id={} name='{}' stock={}", isNew ? "Created" : "Updated",
                 saved.getId(), saved.getName(), saved.getStockQuantity());
         return saved;
+    }
+
+    private Set<Tag> resolveTags(List<String> tagNames) {
+        Set<Tag> tags = new HashSet<>();
+        if (tagNames == null) return tags;
+        for (String name : tagNames) {
+            if (StringUtils.hasText(name)) tags.add(tagService.findOrCreate(name.trim()));
+        }
+        return tags;
     }
 
     public void deactivate(Long id) {

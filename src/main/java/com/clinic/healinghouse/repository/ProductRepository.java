@@ -10,9 +10,13 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     List<Product> findByActiveTrueOrderByNameAsc();
 
-    List<Product> findByCategoryAndActiveTrueOrderByNameAsc(String category);
+    List<Product> findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(String tagName);
 
     List<Product> findByNameContainingIgnoreCaseAndActiveTrue(String name);
+
+    List<Product> findByTagsId(Long tagId);
+
+    long countByTagsId(Long tagId);
 
     @Query("SELECT p FROM Product p WHERE p.active = true AND p.stockQuantity <= p.reorderLevel ORDER BY p.stockQuantity ASC")
     List<Product> findLowStockProducts();

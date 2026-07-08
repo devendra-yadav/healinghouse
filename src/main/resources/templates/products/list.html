@@ -17,7 +17,7 @@
         </a>
     </div>
 
-    <!-- Search + Category filter -->
+    <!-- Search + Tag filter -->
     <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
         <form th:action="@{/products}" method="get" class="d-flex gap-2">
             <input type="text" name="q" th:value="${q}" class="form-control form-control-sm"
@@ -32,12 +32,12 @@
 
         <div class="d-flex flex-wrap gap-1">
             <a th:href="@{/products}"
-               th:classappend="${selectedCategory == null} ? 'btn-success' : 'btn-outline-secondary'"
+               th:classappend="${selectedTag == null} ? 'btn-success' : 'btn-outline-secondary'"
                class="btn btn-sm">All</a>
-            <a th:each="cat : ${categories}"
-               th:href="@{/products(category=${cat})}"
-               th:text="${cat}"
-               th:classappend="${cat == selectedCategory} ? 'btn-success' : 'btn-outline-secondary'"
+            <a th:each="t : ${allTags}"
+               th:href="@{/products(tag=${t.name})}"
+               th:text="${t.name}"
+               th:classappend="${t.name == selectedTag} ? 'btn-success' : 'btn-outline-secondary'"
                class="btn btn-sm">
             </a>
         </div>
@@ -51,7 +51,7 @@
                         <tr>
                             <th>#</th>
                             <th>Product Name</th>
-                            <th>Category</th>
+                            <th>Tags</th>
                             <th class="text-end">Price (₹)</th>
                             <th class="text-center">Stock</th>
                             <th class="text-center">Reorder At</th>
@@ -73,8 +73,10 @@
                                      style="max-width:320px;" th:text="${p.description}"></div>
                             </td>
                             <td>
-                                <span class="badge rounded-pill bg-info text-dark"
-                                      th:text="${p.category ?: 'Other'}"></span>
+                                <span th:each="t : ${p.sortedTags}"
+                                      class="badge rounded-pill bg-info text-dark me-1"
+                                      th:text="${t.name}"></span>
+                                <span th:if="${p.sortedTags.empty}" class="text-muted">—</span>
                             </td>
                             <td class="text-end fw-semibold"
                                 th:text="${p.price != null} ? |₹ ${#numbers.formatDecimal(p.price, 1, 2)}| : '—'"></td>
