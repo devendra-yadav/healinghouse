@@ -1,11 +1,34 @@
 # Healing House Clinic Management System
 ## Requirements Document & Phased Implementation Guide
 
-**Version:** 1.1 (Updated with user clarifications)  
-**Date:** June 27, 2026  
+**Version:** 1.2 (Updated with Phase 2 completions and Phase 3 enhancements)  
+**Date:** July 8, 2026  
 **Clinic:** Healing House Clinic  
 **Prepared by:** Grok (Senior Java Developer & Architect)  
 **Purpose:** Provide a complete, actionable blueprint to build a fresh Spring Boot application for managing your clinic operations, appointments, patients, therapists, services, products, and therapist performance/perks.
+
+### What's New in v1.2
+
+**Tags System** (now primary categorization):
+- Replaced fixed `category` fields on Services and Products with flexible **many-to-many Tag relationships**
+- Services and Products can have multiple tags for better organization and reporting
+
+**Per-Line Therapist Attribution** (critical for accurate commission):
+- Each service/product line now has its own therapist assignment (defaults to appointment's main therapist but can differ)
+- Commission is calculated per-line (each line attributed to its assigned therapist)
+- Enables accurate tracking when multiple therapists work on same appointment
+
+**Responsive Design** (cross-phase requirement):
+- All pages must be mobile-friendly: 375px (mobile), 768px (tablet), 1920px (desktop)
+- Forms, tables, navigation, and reports all responsive
+- Bootstrap 5 utilities + custom CSS for mobile-first design
+
+**Phase 3 Expanded** (comprehensive analytics & reporting):
+- Multiple report types: Daily, Period, Therapist Comparison, Patient Acquisition, Product/Service Performance
+- Advanced dashboards with KPI cards, charts, trends
+- Export to CSV and PDF formats
+- Per-line commission calculations reflected in all reports
+- Responsive design on all dashboard and report pages
 
 ---
 
@@ -184,20 +207,26 @@ erDiagram
 
 **Note:** Commission rules (rate, threshold, bonus amount) are fully configurable **per therapist**. Marcia Gomes Yadav (owner) has no salary/commission calculations. Future enhancement: per-therapy/product commission rates if needed.
 
-**3. ClinicService** (Treatment Catalog — named `ClinicService` to avoid clashing with Spring's `@Service`)
+**3. Tag** (Flexible Multi-Purpose Labels — replaces fixed categories)
+- `id`
+- `name` (String, required, unique case-insensitive; e.g. "Massage", "Detox", "TCM", "Acupuncture", "IonTherapy", etc.)
+- `createdAt`, `updatedAt`
+- **Relationships**: Many-to-Many with ClinicService and Product (via join tables `service_tag` and `product_tag`)
+
+**4. ClinicService** (Treatment Catalog — named `ClinicService` to avoid clashing with Spring's `@Service`)
 - `id`
 - `name` (e.g. "Swedish Massage 60 min")
 - `description`
-- `category` (String: "Massage", "Acupuncture", "PCM", "Detox", "IonTherapy", "Compression", "Other")
+- `tags` (Set<Tag>, many-to-many; replaces single `category` field)
 - `durationMinutes` (Integer)
 - `price` (BigDecimal)
 - `active`
 
-**4. Product** (Herbal & Natural Items)
+**5. Product** (Herbal & Natural Items)
 - `id`
 - `name`
 - `description`
-- `category` (String: "Herbal Supplement", "Oil", "Tea", "Detox Kit", etc.)
+- `tags` (Set<Tag>, many-to-many; replaces single `category` field)
 - `price` (BigDecimal)
 - `stockQuantity` (Integer)
 - `reorderLevel` (Integer, default 5)
@@ -219,16 +248,19 @@ erDiagram
 - `id`
 - `appointment` (ManyToOne)
 - `service` (ManyToOne → `ClinicService`)
+- `therapist` (ManyToOne → `Therapist`) — **per-line therapist attribution** (defaults to appointment's main therapist but can differ)
 - `priceAtTime` (BigDecimal)   // snapshot
 - `quantity` (Integer, default 1)
+- `lineTotal` (BigDecimal, calculated as `priceAtTime × quantity`)
 
 **7. AppointmentProductLine** (Line Item)
 - `id`
 - `appointment` (ManyToOne)
 - `product` (ManyToOne)
+- `therapist` (ManyToOne → `Therapist`) — **per-line therapist attribution** (defaults to appointment's main therapist but can differ)
 - `quantity` (Integer)
 - `priceAtTime` (BigDecimal)
-- `lineTotal` (BigDecimal, calculated)
+- `lineTotal` (BigDecimal, calculated as `priceAtTime × quantity`)
 
 > **Design Note:** We use separate line-item entities so history is preserved even if catalog prices change later. Totals are calculated in service layer (not stored redundantly except for quick reporting).
 
@@ -269,18 +301,41 @@ erDiagram
 - Reference: Fixed Monthly Salary shown for context
 - Export to CSV button (for accountant)
 
-**Commission Calculation Logic (to be implemented in service):**
+**Commission Calculation Logic (Per-Line Attribution — to be implemented in service):**
+
+For each therapist, calculate earnings from only the lines attributed to them:
+
 ```java
+// Per therapist, sum revenue from their assigned lines
+BigDecimal servicesRevenue = appointment.serviceLines
+    .filter(line -> line.therapist.id == therapist.id)
+    .sum(line -> line.lineTotal);
+    
+BigDecimal productsRevenue = appointment.productLines
+    .filter(line -> line.therapist.id == therapist.id)
+    .sum(line -> line.lineTotal);
+
+// Commission on services and products
 BigDecimal serviceCommission = servicesRevenue.multiply(therapist.getCommissionRate());
 BigDecimal productCommission = productsRevenue.multiply(therapist.getCommissionRate());
 BigDecimal totalCommission = serviceCommission.add(productCommission);
 
+// Count of services performed by this therapist
+int servicesCount = appointment.serviceLines
+    .filter(line -> line.therapist.id == therapist.id)
+    .size();
+
+// Bonus if threshold met (based on therapist's service count in period)
 BigDecimal bonus = BigDecimal.ZERO;
 if (totalServicesPerformedCount >= therapist.getPerformanceBonusThreshold()) {
     bonus = therapist.getPerformanceBonusAmount();
 }
+
+// Total variable pay
 BigDecimal totalVariablePay = totalCommission.add(bonus);
 ```
+
+**Key Change:** Commission is now attributed **per-line by the therapist assigned to that line**, not by appointment's main therapist. This enables accurate tracking when different therapists perform different services/products in the same appointment.
 
 ### 6.4 Dashboard (Home Page)
 - Today's appointments (quick list)
@@ -320,9 +375,10 @@ FLUSH PRIVILEGES;
 
 ---
 
-### Phase 1: Master Data – Patients, Therapists, Services, Products
+### Phase 1: Master Data – Patients, Therapists, Services, Products, Tags
 
 **Step 1.1** — Create all **Entity** classes + Enums (`AppointmentStatus`, `PaymentMethod`) with proper JPA, Lombok (`@Data`, `@Builder` where safe), `@CreationTimestamp`/`@UpdateTimestamp`, `active` flags, and sensible indexes.
+- Include **Tag** entity with many-to-many relationships to ClinicService and Product
 
 **Step 1.2** — Create **Repository** interfaces (extend `JpaRepository`). Add useful query methods (`findByActiveTrue()`, `findByPhoneContainingIgnoreCase`, `findByFullNameContainingIgnoreCase`, etc.).
 
@@ -331,10 +387,11 @@ FLUSH PRIVILEGES;
 **Step 1.4** — Create **Controllers + Thymeleaf views** for:
 - Patients (list table + search form + create/edit form with validation)
 - Therapists (show salary, commission rate nicely formatted, bonus config)
-- Services (category dropdown or chips)
-- Products (stock column + low stock warning in red)
+- **Tags** (create, list, rename, merge, delete with usage counts)
+- Services (tag multi-select/chip input instead of category dropdown)
+- Products (tag multi-select/chip input, stock column + low stock warning in red)
 
-Use Bootstrap 5 tables, forms, modals for delete confirmation. Add flash messages (`RedirectAttributes`).
+Use Bootstrap 5 tables, forms, modals for delete confirmation. Add flash messages (`RedirectAttributes`). Make all pages responsive for mobile/tablet.
 
 **Step 1.5** — Create `DataSeeder` (implements `CommandLineRunner`) that populates realistic sample data **only if tables are empty** on first run:
 - Several Patients (with DOB estimates)
@@ -349,23 +406,26 @@ Use Bootstrap 5 tables, forms, modals for delete confirmation. Add flash message
 ### Phase 2: Appointment Management & Line Items (Core Workflow)
 
 **Step 2.1** — Implement `Appointment`, `AppointmentServiceLine`, `AppointmentProductLine` entities + repositories. Add proper relationships (ManyToOne with `FetchType.LAZY`).
+- **Important:** Each line item (service/product) has its own `therapist` field for per-line attribution in commission calculations
 
 **Step 2.2** — Create `AppointmentService.java` (business logic) with methods:
-- `createAppointment(...)` — handles validation, price snapshots, total calculation, stock decrement, persistence.
+- `createAppointment(...)` — handles validation, price snapshots, total calculation, stock decrement, persistence, **per-line therapist assignment**
 - `findByFilters(...)`
 - `markAsCompleted(Long id)`
 - `cancelAppointment(id, reason)` — restores product stock on cancel
 - `markAsNoShow(Long id)` — restores product stock (as-built addition beyond original spec)
-- `updateAppointment(id, form)` — full edit for SCHEDULED appointments, incl. re-snapshotting lines and stock adjustment (as-built addition beyond original spec)
+- `updateAppointment(id, form)` — full edit for SCHEDULED appointments, incl. per-line therapist reassignment, re-snapshotting lines and stock adjustment
+- **Important:** All calculations now use per-line therapist attribution (line's therapist, not appointment's main therapist)
 
 **Step 2.3** — Build the **Appointment creation form** (most complex UI):
-- Patient & Therapist selects
+- Patient & Main Therapist selects
 - `datetime-local` input
-- **Dynamic Services section** (JS-powered "Add Service" button that appends a row with `<select>`, auto-fills price, live subtotal, remove button). Client-side total calculation.
-- **Dynamic Products section** (same pattern + current stock display + warning if qty > stock)
+- **Dynamic Services section** (JS-powered "Add Service" button that appends a row with service `<select>`, **per-line therapist `<select>`** (defaults to main therapist), auto-fills price, live subtotal, remove button). Client-side total calculation.
+- **Dynamic Products section** (same pattern: product `<select>`, **per-line therapist `<select>`**, quantity, current stock display + warning if qty > stock)
 - Notes + Payment method + Amount paid
-- Big live "Grand Total" display
-- On submit: send data to controller (use JS to serialize lines into hidden JSON field or indexed form params — common Thymeleaf pattern)
+- Big live "Grand Total" display (grouped by assigned therapist for clarity)
+- On submit: send data to controller including per-line therapist assignments
+- **Responsive design**: Form must be usable on mobile (375px), tablet (768px), and desktop (1920px)
 
 **Step 2.4** — Appointment list page with server-side filters (date range, therapist, status, patient name). Table shows key info + action buttons (View, Cancel, Complete).
 
@@ -375,46 +435,190 @@ Use Bootstrap 5 tables, forms, modals for delete confirmation. Add flash message
 
 ---
 
-### Phase 3: Dashboard + Reports + Therapist Earnings Calculation
+### Phase 3: Dashboard + Reports + Analytics + Therapist Earnings Calculation
 
-**Step 3.1** — Create `ReportService` / `DashboardService` + `CommissionCalculator` (or one service with clear methods).
+**Step 3.1** — Create core analytics services:
+- `CommissionCalculator` — calculates per-line commission/bonus using per-therapist, per-line attribution
+- `ReportService` — queries appointments, aggregates by therapist/tag/period
+- `DashboardService` — KPI calculations and data preparation
+- `AnalyticsService` — trends, comparisons, product/service performance
 
-Implement the exact calculation logic from section 6.3.
+Implement exact calculation logic from section 6.3 (per-line attribution).
 
-**Step 3.2** — Build **Dashboard** (`/`):
-- KPI cards (Today's appointments, Monthly revenue, etc.)
-- Today's appointments mini list
-- Low stock alert list
-- Two Chart.js charts (revenue trend + category breakdown) — data prepared in controller/model
+**Step 3.2** — Build **Dashboard** (`/`) — Mobile & Desktop Responsive:
+- **KPI Cards** (stacked on mobile, 4-col on desktop):
+  - Today's appointments count
+  - Today's revenue (₹)
+  - Low stock items count
+  - Active therapists count
+- **Today's Appointments List** (scrollable table on mobile, normal on desktop)
+- **Low Stock Alerts** (collapsible on mobile)
+- **Revenue Trend Chart** (Last 30 days; responsive Chart.js)
+- **Revenue by Tag Breakdown** (Pie/Donut chart; touch-friendly on mobile)
+- **Quick Action Buttons** (New Appointment, New Patient, View Reports)
 
-**Step 3.3** — Build **Reports** section:
-- `/reports/daily` — date picker → shows daily breakdown + per-therapist earnings table
-- `/reports/period` — date range form → comprehensive therapist earnings report with commission + bonus columns + CSV export button
+**Step 3.3** — Build **Reports Section** with multiple views:
 
-**Step 3.4** — Add CSV export utility (simple Java CSV writer, no extra heavy dependency if possible).
+**3.3.1 Daily Report** (`/reports/daily`):
+- Date picker input
+- Summary cards: Total appointments, Total revenue (services vs products), New patients, Repeat patients
+- **Per-Therapist Earnings Table**:
+  - Therapist name
+  - Services performed count
+  - Services revenue (₹)
+  - Products revenue (₹)
+  - Commission earned (₹)
+  - Bonus earned (Y/N + amount)
+  - **Total Variable Pay** (commission + bonus)
+  - Reference: Fixed salary (read-only)
+- Drill-down option: Click therapist → see detailed line items for that day
 
-**Deliverable Phase 3:** You can now see exactly what you asked for — per day/week/month views of patients, services, products, payments, and **precise therapist perk calculations** (commission + bonus). Numbers match the business rules you described.
+**3.3.2 Period Report** (`/reports/period`):
+- Date range form (From date, To date)
+- Period summary: Total appointments, New vs repeat patients, Total revenue split
+- **Per-Therapist Detailed Earnings**:
+  - All columns from daily report (services count, revenue, commission, bonus)
+  - Session count (how many appointments)
+  - Average revenue per appointment
+  - Performance against bonus threshold
+- **Tag-Based Revenue Breakdown** table:
+  - Tag name
+  - Service count with this tag
+  - Revenue from this tag (by therapist if needed)
+  - Top performers for this tag
+- **Product Performance Table**:
+  - Product name
+  - Quantity sold
+  - Total revenue
+  - Profit margin (if cost tracked, otherwise just revenue)
+  - Top selling therapist for this product
+
+**3.3.3 Therapist Comparison Report** (`/reports/comparison`):
+- Multi-select therapist picker (compare 2-3 therapists)
+- Date range
+- **Side-by-side comparison table**:
+  - Appointments count
+  - Services count
+  - Total revenue (services + products)
+  - Commission earned
+  - Bonus earned
+  - Average revenue per appointment
+  - % of total clinic revenue
+- Performance differential (who's ahead by how much)
+- Charts: Stacked bar (revenue comparison), Line (trend comparison)
+
+**3.3.4 Patient Acquisition & Retention Report** (`/reports/patients`):
+- Date range
+- Summary: Total new patients, Repeat patients, Return rate (%)
+- **Per-Therapist Patient Metrics**:
+  - Therapist name
+  - New patients acquired
+  - Repeat patients (returning for 2nd+ appointment)
+  - Retention rate (repeat / total)
+  - Patient satisfaction (if tracked, else blank for now)
+- **Patient Trend Chart**: New vs repeat patients over time (line chart)
+
+**3.3.5 Product & Service Performance Report** (`/reports/performance`):
+- Date range
+- **Service Performance Table**:
+  - Service name
+  - Tags (display all tags for this service)
+  - Count (how many times performed)
+  - Total revenue
+  - Average price realized
+  - Top therapist for this service
+  - Performance trend (up/down vs prior period)
+- **Product Performance Table**:
+  - Product name
+  - Tags
+  - Units sold
+  - Total revenue
+  - Stock level
+  - Reorder priority (if units < reorder level)
+  - Days supply remaining (units / avg daily sales)
+- **Tag-Based Revenue Breakdown** (cross-tab: tags × therapists × revenue)
+
+**Step 3.4** — Export & Analytics Features:
+- **CSV Export** for all reports (download button on each report)
+- **PDF Export** (using iText or similar) — formatted report document with:
+  - Header: Clinic name, report name, date range
+  - All tables and summaries from the report
+  - Footer: Generated date, disclaimer
+- **Print-friendly view** — optimized CSS for printing
+- Each report has Download CSV & Download PDF buttons
+
+**Step 3.5** — Responsive Design & Mobile Optimization:
+- All reports and dashboard optimized for mobile-first design
+- Tables collapse to card view on mobile (each row becomes a card)
+- Charts responsive (Chart.js default responsive behavior)
+- Navigation: Hamburger menu on mobile, full nav on desktop
+- KPI cards stack vertically on mobile, horizontal on desktop
+- Date pickers work on mobile/tablet
+- **Touch-friendly**: All buttons ≥44px, proper spacing
+
+**Step 3.6** — Data Visualization Enhancements:
+- **Revenue Trend Chart** (Line chart): Daily revenue over period, with therapist breakdown (stacked area or multiple lines)
+- **Tag-Based Revenue** (Pie/Donut): Revenue split by tag for period
+- **Therapist Comparison** (Bar chart): Revenue per therapist side-by-side
+- **Product Sales Velocity** (Bar chart): Top 10 products by revenue
+- **Service Popularity** (Bar chart): Top 10 services by count
+- **Patient Acquisition Trend** (Area chart): New patients over time
+- All charts: Hover tooltips, responsive, legend toggleable
+
+**Deliverable Phase 3:** Complete analytics & reporting suite. You can:
+- See per-therapist earnings attributed accurately (per-line commission)
+- Compare therapist performance in detail
+- Understand service/product performance by tag
+- Track patient acquisition and retention
+- Export reports in CSV and PDF for accounting/analysis
+- View all dashboards and reports on mobile, tablet, and desktop with proper responsive design
+- Make data-driven decisions about therapist compensation, service/product focus, and clinic growth
 
 ---
 
-### Phase 4: Polish, UX, Testing & Documentation
+### Phase 4: Polish, Testing, Documentation & Performance Optimization
 
-**Step 4.1** — Consistent layout using Thymeleaf fragments (header, sidebar nav, footer, alert messages, confirmation modals).
+**Step 4.1** — Consistent layout using Thymeleaf fragments (header, sidebar nav, footer, alert messages, confirmation modals, responsive navbar).
 
-**Step 4.2** — UX improvements:
-- Responsive design (test on tablet size)
-- Client-side form enhancements (better dynamic rows, total auto-update)
-- Date formatting (nice readable dates everywhere)
-- Success/error toasts or Bootstrap alerts
-- Quick search on list pages
+**Step 4.2** — UX/Polish enhancements:
+- ✅ **Responsive design** (completed in Phases 2-3; now verify all pages work on mobile 375px, tablet 768px, desktop 1920px)
+- Client-side form enhancements (better dynamic rows, live total update, validation feedback)
+- Date/Currency formatting (consistent ₹ symbols, date format "DD MMM YYYY", nice readable timestamps)
+- Success/error toasts or Bootstrap alerts with auto-dismiss
+- Quick search on list pages (Patients, Therapists, Services, Products)
+- Loading indicators on long-running reports
+- Empty state messaging (no data → helpful prompts)
 
-**Step 4.3** — Add indexes on high-query columns (`appointmentDateTime`, foreign keys) via `@Index` or Flyway migration.
+**Step 4.3** — Database optimization:
+- Add indexes on high-query columns: `appointmentDateTime`, `createdAt`, `therapistId`, `patientId`, `status`
+- Foreign key indexes for relationships
+- Analyze query performance on large datasets (simulate 1000+ appointments)
 
-**Step 4.4** — Update `README.md` with setup instructions, screenshots placeholders, how to run, and future roadmap.
+**Step 4.4** — Testing & Quality:
+- Unit tests for `CommissionCalculator` (per-line attribution, bonus logic)
+- Unit tests for `ReportService` (filtering, aggregation)
+- Integration tests for key flows (create appointment → calculate commission)
+- Browser testing: Chrome, Firefox, Safari on mobile and desktop
+- Accessibility audit: WCAG 2.1 AA compliance (keyboard nav, screen reader compatibility)
 
-**Step 4.5** (optional but recommended) — Basic test coverage for `CommissionCalculator` service (unit test with mocked data).
+**Step 4.5** — Documentation & Deployment:
+- Update `README.md` with:
+  - Setup instructions (DB creation, Spring Boot run)
+  - Screenshots of key features
+  - User guide (how to create appointment, run reports)
+  - Admin guide (managing therapists, products, tags)
+  - Future roadmap (Phase 5 security, etc.)
+- Add code comments on complex business logic
+- API documentation (if REST endpoints added)
+- Database schema documentation
 
-**Deliverable Phase 4:** Polished, professional internal tool ready for daily use at the clinic. All core functionality complete and delightful to use.
+**Step 4.6** — Performance & Monitoring:
+- Query optimization (use lazy loading properly, add pagination for large lists)
+- Caching where beneficial (e.g., therapist list for dropdowns)
+- Response time targets: Page load < 2s, Report generation < 5s
+- Error handling: User-friendly error messages, no stack traces visible to user
+
+**Deliverable Phase 4:** Production-ready, polished internal tool. All core functionality complete, well-tested, fully responsive, and documented. Ready for daily clinic use and confident for future enhancements.
 
 ---
 

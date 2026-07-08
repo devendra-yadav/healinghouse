@@ -10,4 +10,6 @@ public interface TherapistRepository extends JpaRepository<Therapist, Long> {
     List<Therapist> findByActiveTrueOrderByFullNameAsc();
 
     List<Therapist> findByFullNameContainingIgnoreCaseAndActiveTrue(String name);
+
+    long countByActiveTrue();
 }
