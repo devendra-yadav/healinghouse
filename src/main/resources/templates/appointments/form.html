@@ -110,7 +110,7 @@
                 </button>
             </div>
             <div class="card-body pb-1">
-                <div id="productHeader" class="row g-2 mb-1 d-none d-md-flex small text-muted fw-semibold px-1">
+                <div id="productHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
                     <div class="col-3">Product</div>
                     <div class="col-2">Therapist</div>
                     <div class="col-1 text-center">Qty</div>
@@ -482,9 +482,7 @@ function toggleUI() {
     const sRows = document.querySelectorAll('.service-row').length;
     const pRows = document.querySelectorAll('.product-row').length;
     toggle('servicesEmpty',  sRows === 0);
-    toggle('serviceHeader',  sRows > 0);
     toggle('productsEmpty',  pRows === 0);
-    toggle('productHeader',  pRows > 0);
 }
 
 // ── Submit: re-index rows and validate ────────────────────────────────────
