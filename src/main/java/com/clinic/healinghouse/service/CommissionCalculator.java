@@ -17,28 +17,36 @@ import java.time.LocalTime;
 /**
  * Per-line therapist commission/bonus calculation (Requirements v1.2 §"Per-Line Therapist Attribution").
  * Marcia Gomes Yadav (owner) is excluded from all payout calculations — see {@link Therapist#isOwner()}.
+ * Commission only accrues on lines whose service/product is tagged {@link #COMMISSION_TAG};
+ * the bonus-threshold count only includes lines whose service is tagged {@link #BONUS_TAG}
+ * (both matched case-insensitively).
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommissionCalculator {
 
+    /** Tag (case-insensitive) that marks a service/product line as commission-eligible. */
+    public static final String COMMISSION_TAG = "Commission";
+    /** Tag (case-insensitive) that marks a service line as counting towards the performance-bonus threshold. */
+    public static final String BONUS_TAG = "Bonus";
+
     private final AppointmentServiceLineRepository serviceLineRepository;
     private final AppointmentProductLineRepository productLineRepository;
 
     public BigDecimal calculateServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRange(
-                therapist, startOf(dateFrom), endOf(dateTo));
+        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), COMMISSION_TAG);
     }
 
     public BigDecimal calculateProductsRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return productLineRepository.sumProductRevenueByTherapistAndDateRange(
-                therapist, startOf(dateFrom), endOf(dateTo));
+        return productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), COMMISSION_TAG);
     }
 
     public long calculateServicesCount(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return serviceLineRepository.countServicesPerformedByTherapistAndDateRange(
-                therapist, startOf(dateFrom), endOf(dateTo));
+        return serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), BONUS_TAG);
     }
 
     /** Bonus is all-or-nothing: the full configured amount once servicesCount meets the threshold. */

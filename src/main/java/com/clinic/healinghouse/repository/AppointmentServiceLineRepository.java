@@ -19,30 +19,36 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
 
     List<AppointmentServiceLine> findByAppointment(Appointment appointment);
 
-    // Total services revenue for a therapist in a date range (completed appts only).
+    // Commission-eligible services revenue for a therapist in a date range (completed appts only).
     // Scoped to the line's own therapist (who actually performed it), not the
     // appointment's main therapist — a single appointment can have lines performed
-    // by different therapists.
+    // by different therapists. Only lines whose service carries the given tag
+    // (e.g. "Commission") count towards payout.
     @Query("SELECT COALESCE(SUM(sl.priceAtTime * sl.quantity), 0) " +
-           "FROM AppointmentServiceLine sl " +
+           "FROM AppointmentServiceLine sl JOIN sl.service.tags t " +
            "WHERE sl.therapist = :therapist " +
+           "AND LOWER(t.name) = LOWER(:tagName) " +
            "AND sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
-    BigDecimal sumServiceRevenueByTherapistAndDateRange(
+    BigDecimal sumServiceRevenueByTherapistAndDateRangeAndTag(
             @Param("therapist") Therapist therapist,
             @Param("start")     LocalDateTime start,
-            @Param("end")       LocalDateTime end);
+            @Param("end")       LocalDateTime end,
+            @Param("tagName")   String tagName);
 
-    // Count of individual services performed (for bonus threshold check)
+    // Count of individual services performed that carry the given tag (e.g. "Bonus"),
+    // for the performance-bonus threshold check.
     @Query("SELECT COALESCE(SUM(sl.quantity), 0) " +
-           "FROM AppointmentServiceLine sl " +
+           "FROM AppointmentServiceLine sl JOIN sl.service.tags t " +
            "WHERE sl.therapist = :therapist " +
+           "AND LOWER(t.name) = LOWER(:tagName) " +
            "AND sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
-    long countServicesPerformedByTherapistAndDateRange(
+    long countServicesPerformedByTherapistAndDateRangeAndTag(
             @Param("therapist") Therapist therapist,
             @Param("start")     LocalDateTime start,
-            @Param("end")       LocalDateTime end);
+            @Param("end")       LocalDateTime end,
+            @Param("tagName")   String tagName);
 
     // Services revenue grouped by tag (dashboard tag breakdown / performance report).
     // A service tagged with multiple tags contributes its full line total to each tag.

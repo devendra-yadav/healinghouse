@@ -4,7 +4,7 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .claude
-CLAUDE.md
+#CLAUDE.md
 app.log
 .mvn
 tmp
