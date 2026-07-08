@@ -42,13 +42,18 @@
                                 <label class="form-label fw-semibold">Tags</label>
                                 <div id="tagChips" class="d-flex flex-wrap gap-2 mb-2"></div>
                                 <div class="position-relative">
-                                    <input type="text" id="tagInput" class="form-control" autocomplete="off"
-                                           placeholder="Type a tag and press Enter…"/>
+                                    <div class="input-group">
+                                        <input type="text" id="tagInput" class="form-control" autocomplete="off"
+                                               placeholder="Type a tag…"/>
+                                        <button type="button" id="tagAddBtn" class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-plus-lg"></i>
+                                        </button>
+                                    </div>
                                     <div id="tagSuggestions" class="list-group position-absolute w-100 shadow-sm"
                                          style="z-index:1000; display:none;"></div>
                                 </div>
                                 <input type="hidden" name="tagNames" id="tagNamesHidden" th:value="${existingTagNames}"/>
-                                <div class="form-text">Press Enter or click a suggestion to add. New tags are created automatically.</div>
+                                <div class="form-text">Type a tag and press Enter or click the + button. New tags are created automatically.</div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Price (₹) <span class="text-danger">*</span></label>
@@ -86,7 +91,7 @@
                         </div>
 
                         <!-- Buttons -->
-                        <div class="d-flex gap-2 justify-content-end border-top pt-3">
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">
                             <a th:href="@{/products}" class="btn btn-outline-secondary">
                                 <i class="bi bi-x-lg me-1"></i>Cancel
                             </a>

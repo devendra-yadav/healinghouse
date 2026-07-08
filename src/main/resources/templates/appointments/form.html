@@ -110,7 +110,7 @@
                 </button>
             </div>
             <div class="card-body pb-1">
-                <div id="productHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                <div id="productHeader" class="row g-2 mb-1 d-none d-md-flex small text-muted fw-semibold px-1">
                     <div class="col-3">Product</div>
                     <div class="col-2">Therapist</div>
                     <div class="col-1 text-center">Qty</div>
@@ -143,7 +143,7 @@
                                       th:text="${form.notes}"></textarea>
                         </div>
                         <div class="row g-3">
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label fw-semibold">Payment Method</label>
                                 <select name="paymentMethod" class="form-select">
                                     <option value="">— Select —</option>
@@ -154,7 +154,7 @@
                                     </option>
                                 </select>
                             </div>
-                            <div class="col-6">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label fw-semibold">Amount Paid (₹)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
@@ -212,7 +212,7 @@
         </div>
 
         <!-- ── Action buttons ─────────────────────────────────────────────── -->
-        <div class="d-flex justify-content-end gap-2 mb-4">
+        <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
             <a th:href="${cancelUrl}" class="btn btn-outline-secondary">Cancel</a>
             <button type="submit" class="btn btn-hh px-4">
                 <i class="bi bi-check2-circle me-1"></i>
@@ -280,7 +280,7 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center service-row';
     row.innerHTML =
-        `<div class="col-4">
+        `<div class="col-12 col-md-4">
             <select class="form-select form-select-sm s-select"
                     name="serviceLines[${i}].serviceId" required
                     onchange="onServiceChange(this)">
@@ -288,7 +288,7 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(SERVICE_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-3">
+         <div class="col-12 col-md-3">
             <select class="form-select form-select-sm line-therapist-select"
                     name="serviceLines[${i}].therapistId"
                     onchange="onLineTherapistChange(this)">
@@ -296,14 +296,14 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(THERAPIST_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-1">
+         <div class="col-12 col-md-1">
             <input type="number" class="form-control form-control-sm s-qty"
                    name="serviceLines[${i}].quantity"
                    value="1" min="1" oninput="updateTotals()">
          </div>
-         <div class="col-2 s-rate text-muted small">—</div>
-         <div class="col-1 text-end fw-semibold s-subtotal">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 s-rate text-muted small">—</div>
+         <div class="col-12 col-md-1 text-end fw-semibold s-subtotal">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'service-row')">
                 <i class="bi bi-x-lg"></i>
@@ -334,7 +334,7 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center product-row';
     row.innerHTML =
-        `<div class="col-3">
+        `<div class="col-12 col-md-3">
             <select class="form-select form-select-sm p-select"
                     name="productLines[${i}].productId"
                     onchange="onProductChange(this)">
@@ -342,7 +342,7 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(PRODUCT_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <select class="form-select form-select-sm line-therapist-select"
                     name="productLines[${i}].therapistId"
                     onchange="onLineTherapistChange(this)">
@@ -350,17 +350,17 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(THERAPIST_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-1">
+         <div class="col-12 col-md-1">
             <input type="number" class="form-control form-control-sm p-qty"
                    name="productLines[${i}].quantity"
                    value="1" min="1" oninput="onProductQty(this)">
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <span class="p-stock badge bg-secondary">—</span>
          </div>
-         <div class="col-2 p-rate text-muted small">—</div>
-         <div class="col-1 text-end fw-semibold p-subtotal">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 p-rate text-muted small">—</div>
+         <div class="col-12 col-md-1 text-end fw-semibold p-subtotal">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'product-row')">
                 <i class="bi bi-x-lg"></i>

@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const chipsContainer = document.getElementById('tagChips');
     const suggestionsBox = document.getElementById('tagSuggestions');
     const hiddenField = document.getElementById('tagNamesHidden');
+    const addBtn = document.getElementById('tagAddBtn');
     if (!input || !chipsContainer || !suggestionsBox || !hiddenField) return;
 
     let tags = hiddenField.value.split(',').map(t => t.trim()).filter(t => t.length > 0);
@@ -95,6 +96,14 @@ document.addEventListener('DOMContentLoaded', function () {
     input.addEventListener('blur', function () {
         setTimeout(hideSuggestions, 150);
     });
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            addTag(input.value);
+            input.focus();
+        });
+    }
 
     renderChips();
 });
