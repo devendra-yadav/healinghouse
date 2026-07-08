@@ -33,9 +33,21 @@
                     <label class="form-check-label small" th:for="${'therapist-' + t.id}" th:text="${t.fullName}"></label>
                 </div>
             </div>
-            <button type="submit" class="btn btn-sm btn-hh">
-                <i class="bi bi-search"></i> Compare
-            </button>
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-sm btn-hh">
+                    <i class="bi bi-search"></i> Compare
+                </button>
+                <th:block th:if="${report != null}">
+                    <a th:href="@{/reports/comparison/export-csv(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistIds=${selectedTherapistIds})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as CSV">
+                        <i class="bi bi-file-earmark-csv"></i> CSV
+                    </a>
+                    <a th:href="@{/reports/comparison/export-pdf(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistIds=${selectedTherapistIds})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </a>
+                </th:block>
+            </div>
         </div>
     </form>
 

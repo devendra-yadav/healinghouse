@@ -2,14 +2,19 @@ package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.service.ReportService;
 import com.clinic.healinghouse.service.TherapistService;
+import com.clinic.healinghouse.util.CsvExportUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -105,5 +110,189 @@ public class ReportController {
         model.addAttribute("selectedDateTo", to);
         model.addAttribute("report", reportService.getProductPerformanceReport(from, to));
         return "reports/performance";
+    }
+
+    @GetMapping("/daily/export-csv")
+    public ResponseEntity<byte[]> exportDailyReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws IOException {
+        LocalDate selectedDate = date != null ? date : LocalDate.now();
+        var report = reportService.getDailyReport(selectedDate);
+        String csv = CsvExportUtil.generateDailyReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=daily-report-" + selectedDate + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/daily/export-pdf")
+    public ResponseEntity<byte[]> exportDailyReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws Exception {
+        LocalDate selectedDate = date != null ? date : LocalDate.now();
+        var report = reportService.getDailyReport(selectedDate);
+        byte[] pdf = PdfExportUtil.generateDailyReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=daily-report-" + selectedDate + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/period/export-csv")
+    public ResponseEntity<byte[]> exportPeriodReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getPeriodReport(from, to);
+        String csv = CsvExportUtil.generatePeriodReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=period-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/period/export-pdf")
+    public ResponseEntity<byte[]> exportPeriodReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getPeriodReport(from, to);
+        byte[] pdf = PdfExportUtil.generatePeriodReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=period-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/comparison/export-csv")
+    public ResponseEntity<byte[]> exportComparisonReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) List<Long> therapistIds) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+        List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
+
+        if (selectedIds.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        var report = reportService.getTherapistComparison(selectedIds, from, to);
+        String csv = CsvExportUtil.generateComparisonReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=comparison-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/comparison/export-pdf")
+    public ResponseEntity<byte[]> exportComparisonReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) List<Long> therapistIds) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+        List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
+
+        if (selectedIds.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        var report = reportService.getTherapistComparison(selectedIds, from, to);
+        byte[] pdf = PdfExportUtil.generateComparisonReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=comparison-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/patients/export-csv")
+    public ResponseEntity<byte[]> exportPatientReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getPatientAcquisitionReport(from, to);
+        String csv = CsvExportUtil.generatePatientReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=patient-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/patients/export-pdf")
+    public ResponseEntity<byte[]> exportPatientReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getPatientAcquisitionReport(from, to);
+        byte[] pdf = PdfExportUtil.generatePatientReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=patient-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/performance/export-csv")
+    public ResponseEntity<byte[]> exportPerformanceReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getProductPerformanceReport(from, to);
+        String csv = CsvExportUtil.generatePerformanceReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=performance-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/performance/export-pdf")
+    public ResponseEntity<byte[]> exportPerformanceReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        var report = reportService.getProductPerformanceReport(from, to);
+        byte[] pdf = PdfExportUtil.generatePerformanceReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=performance-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
     }
 }
