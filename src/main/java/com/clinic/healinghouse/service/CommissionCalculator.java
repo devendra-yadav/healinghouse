@@ -86,10 +86,17 @@ public class CommissionCalculator {
     public TherapistEarningsDTO calculateEarnings(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
         BigDecimal fixedSalary = zeroIfNull(therapist.getFixedMonthlySalary());
 
+        // "All" reporting figures are informational only (not payout math), so they're computed
+        // for the owner too — only commission/bonus/variable-pay are skipped for her.
         if (therapist.isOwner()) {
+            BigDecimal allServicesRevenue = calculateAllServicesRevenue(therapist, dateFrom, dateTo);
+            BigDecimal allProductsRevenue = calculateAllProductsRevenue(therapist, dateFrom, dateTo);
+            long allServicesCount = calculateAllServicesCount(therapist, dateFrom, dateTo);
+            BigDecimal bonusTaggedServicesRevenue = calculateBonusTaggedServicesRevenue(therapist, dateFrom, dateTo);
+
             return new TherapistEarningsDTO(therapist,
                     BigDecimal.ZERO, BigDecimal.ZERO, 0L,
-                    BigDecimal.ZERO, BigDecimal.ZERO, 0L, BigDecimal.ZERO,
+                    allServicesRevenue, allProductsRevenue, allServicesCount, bonusTaggedServicesRevenue,
                     BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     false, BigDecimal.ZERO, BigDecimal.ZERO, fixedSalary);
         }
