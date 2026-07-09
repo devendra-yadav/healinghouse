@@ -107,9 +107,12 @@
                             <thead>
                                 <tr>
                                     <th>Therapist</th>
-                                    <th class="text-end">Services Rev.</th>
-                                    <th class="text-end">Products Rev.</th>
-                                    <th class="text-center">Services</th>
+                                    <th class="text-end">Services Rev.(All)</th>
+                                    <th class="text-end">Products Rev.(All)</th>
+                                    <th class="text-center">Services(All)</th>
+                                    <th class="text-end">Services Rev.(Bonus tagged)</th>
+                                    <th class="text-end">Products Rev.(Commission tagged)</th>
+                                    <th class="text-center">Services(Bonus tagged)</th>
                                     <th class="text-end">Commission</th>
                                     <th class="text-center">Bonus</th>
                                     <th class="text-end">Total Variable Pay</th>
@@ -118,7 +121,10 @@
                             <tbody>
                                 <tr th:each="e : ${report.therapistEarnings}">
                                     <td th:text="${e.therapist.fullName}"></td>
-                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.servicesRevenue, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.allServicesRevenue, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.allProductsRevenue, 1, 2)}|"></td>
+                                    <td class="text-center" th:text="${e.allServicesCount}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.bonusTaggedServicesRevenue, 1, 2)}|"></td>
                                     <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
                                     <td class="text-center" th:text="${e.servicesCount}"></td>
                                     <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(e.totalCommission, 1, 2)}|"></td>

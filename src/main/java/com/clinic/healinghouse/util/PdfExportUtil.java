@@ -172,13 +172,16 @@ public class PdfExportUtil {
     }
 
     private static void addTherapistEarningsTable(Document document, List<TherapistEarningsDTO> earnings) {
-        Table table = new Table(new float[]{1.5f, 1, 1, 0.8f, 1, 1, 1, 0.8f, 1, 1, 1});
+        Table table = new Table(new float[]{1.5f, 1, 1, 0.8f, 1, 1, 0.8f, 1, 1, 1, 0.8f, 1, 1, 1});
         table.setWidth(UnitValue.createPercentValue(100));
 
         addHeaderCell(table, "Therapist");
-        addHeaderCell(table, "Svcs Revenue");
-        addHeaderCell(table, "Prod Revenue");
-        addHeaderCell(table, "Cnt");
+        addHeaderCell(table, "Svcs Rev.(All)");
+        addHeaderCell(table, "Prod Rev.(All)");
+        addHeaderCell(table, "Svcs(All)");
+        addHeaderCell(table, "Svcs Rev.(Bonus)");
+        addHeaderCell(table, "Prod Rev.(Commission)");
+        addHeaderCell(table, "Svcs(Bonus)");
         addHeaderCell(table, "Svc Comm");
         addHeaderCell(table, "Prod Comm");
         addHeaderCell(table, "Total Comm");
@@ -189,7 +192,10 @@ public class PdfExportUtil {
 
         for (TherapistEarningsDTO earning : earnings) {
             addDataCell(table, earning.therapist().getFullName());
-            addDataCell(table, formatCurrency(earning.servicesRevenue()));
+            addDataCell(table, formatCurrency(earning.allServicesRevenue()));
+            addDataCell(table, formatCurrency(earning.allProductsRevenue()));
+            addDataCell(table, String.valueOf(earning.allServicesCount()));
+            addDataCell(table, formatCurrency(earning.bonusTaggedServicesRevenue()));
             addDataCell(table, formatCurrency(earning.productsRevenue()));
             addDataCell(table, String.valueOf(earning.servicesCount()));
             addDataCell(table, formatCurrency(earning.serviceCommission()));

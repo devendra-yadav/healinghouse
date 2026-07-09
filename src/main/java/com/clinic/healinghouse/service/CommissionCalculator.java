@@ -17,28 +17,60 @@ import java.time.LocalTime;
 /**
  * Per-line therapist commission/bonus calculation (Requirements v1.2 §"Per-Line Therapist Attribution").
  * Marcia Gomes Yadav (owner) is excluded from all payout calculations — see {@link Therapist#isOwner()}.
+ * Commission only accrues on lines whose service/product is tagged {@link #COMMISSION_TAG};
+ * the bonus-threshold count only includes lines whose service is tagged {@link #BONUS_TAG}
+ * (both matched case-insensitively).
  */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class CommissionCalculator {
 
+    /** Tag (case-insensitive) that marks a service/product line as commission-eligible. */
+    public static final String COMMISSION_TAG = "Commission";
+    /** Tag (case-insensitive) that marks a service line as counting towards the performance-bonus threshold. */
+    public static final String BONUS_TAG = "Bonus";
+
     private final AppointmentServiceLineRepository serviceLineRepository;
     private final AppointmentProductLineRepository productLineRepository;
 
     public BigDecimal calculateServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRange(
-                therapist, startOf(dateFrom), endOf(dateTo));
+        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), COMMISSION_TAG);
     }
 
     public BigDecimal calculateProductsRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return productLineRepository.sumProductRevenueByTherapistAndDateRange(
-                therapist, startOf(dateFrom), endOf(dateTo));
+        return productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), COMMISSION_TAG);
     }
 
     public long calculateServicesCount(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
-        return serviceLineRepository.countServicesPerformedByTherapistAndDateRange(
+        return serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), BONUS_TAG);
+    }
+
+    /** Total services revenue for the therapist, regardless of tag — reporting only, not used in commission math. */
+    public BigDecimal calculateAllServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.sumAllServiceRevenueByTherapistAndDateRange(
                 therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Total products revenue for the therapist, regardless of tag — reporting only, not used in commission math. */
+    public BigDecimal calculateAllProductsRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return productLineRepository.sumAllProductRevenueByTherapistAndDateRange(
+                therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Total service count for the therapist, regardless of tag — reporting only, not used in bonus math. */
+    public long calculateAllServicesCount(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.countAllServicesPerformedByTherapistAndDateRange(
+                therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Revenue of Bonus-tagged service lines only — reporting only, not used in commission math. */
+    public BigDecimal calculateBonusTaggedServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), BONUS_TAG);
     }
 
     /** Bonus is all-or-nothing: the full configured amount once servicesCount meets the threshold. */
@@ -57,6 +89,7 @@ public class CommissionCalculator {
         if (therapist.isOwner()) {
             return new TherapistEarningsDTO(therapist,
                     BigDecimal.ZERO, BigDecimal.ZERO, 0L,
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0L, BigDecimal.ZERO,
                     BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     false, BigDecimal.ZERO, BigDecimal.ZERO, fixedSalary);
         }
@@ -64,6 +97,11 @@ public class CommissionCalculator {
         BigDecimal servicesRevenue = calculateServicesRevenue(therapist, dateFrom, dateTo);
         BigDecimal productsRevenue = calculateProductsRevenue(therapist, dateFrom, dateTo);
         long servicesCount = calculateServicesCount(therapist, dateFrom, dateTo);
+
+        BigDecimal allServicesRevenue = calculateAllServicesRevenue(therapist, dateFrom, dateTo);
+        BigDecimal allProductsRevenue = calculateAllProductsRevenue(therapist, dateFrom, dateTo);
+        long allServicesCount = calculateAllServicesCount(therapist, dateFrom, dateTo);
+        BigDecimal bonusTaggedServicesRevenue = calculateBonusTaggedServicesRevenue(therapist, dateFrom, dateTo);
 
         BigDecimal rate = zeroIfNull(therapist.getCommissionRate());
         BigDecimal serviceCommission = servicesRevenue.multiply(rate).setScale(2, RoundingMode.HALF_UP);
@@ -77,6 +115,7 @@ public class CommissionCalculator {
 
         return new TherapistEarningsDTO(therapist,
                 servicesRevenue, productsRevenue, servicesCount,
+                allServicesRevenue, allProductsRevenue, allServicesCount, bonusTaggedServicesRevenue,
                 serviceCommission, productCommission, totalCommission,
                 bonusEarned, bonusAmount, totalVariablePay, fixedSalary);
     }

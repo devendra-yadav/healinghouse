@@ -123,14 +123,18 @@ public class CsvExportUtil {
 
     private static void writeTherapistEarnings(CSVWriter writer, List<TherapistEarningsDTO> earnings) throws IOException {
         writer.writeNext(new String[]{
-                "Therapist", "Services Revenue", "Products Revenue", "Services Count",
+                "Therapist", "Services Rev.(All)", "Products Rev.(All)", "Services(All)",
+                "Services Rev.(Bonus tagged)", "Products Rev.(Commission tagged)", "Services(Bonus tagged)",
                 "Service Commission", "Product Commission", "Total Commission",
                 "Bonus Earned", "Bonus Amount", "Total Variable Pay", "Fixed Salary"
         });
         for (TherapistEarningsDTO earning : earnings) {
             writer.writeNext(new String[]{
                     earning.therapist().getFullName(),
-                    formatCurrency(earning.servicesRevenue()),
+                    formatCurrency(earning.allServicesRevenue()),
+                    formatCurrency(earning.allProductsRevenue()),
+                    String.valueOf(earning.allServicesCount()),
+                    formatCurrency(earning.bonusTaggedServicesRevenue()),
                     formatCurrency(earning.productsRevenue()),
                     String.valueOf(earning.servicesCount()),
                     formatCurrency(earning.serviceCommission()),

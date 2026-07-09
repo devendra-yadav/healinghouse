@@ -18,15 +18,29 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
 
     List<AppointmentProductLine> findByAppointment(Appointment appointment);
 
-    // Total products revenue for a therapist in a date range (completed appts only).
+    // Commission-eligible products revenue for a therapist in a date range (completed appts only).
     // Scoped to the line's own therapist (who actually sold/administered it), not the
-    // appointment's main therapist.
+    // appointment's main therapist. Only lines whose product carries the given tag
+    // (e.g. "Commission") count towards payout.
+    @Query("SELECT COALESCE(SUM(pl.lineTotal), 0) " +
+           "FROM AppointmentProductLine pl JOIN pl.product.tags t " +
+           "WHERE pl.therapist = :therapist " +
+           "AND LOWER(t.name) = LOWER(:tagName) " +
+           "AND pl.appointment.status = 'COMPLETED' " +
+           "AND pl.appointment.appointmentDateTime BETWEEN :start AND :end")
+    BigDecimal sumProductRevenueByTherapistAndDateRangeAndTag(
+            @Param("therapist") Therapist therapist,
+            @Param("start")     LocalDateTime start,
+            @Param("end")       LocalDateTime end,
+            @Param("tagName")   String tagName);
+
+    // All products revenue for a therapist in a date range, regardless of tag — reporting only.
     @Query("SELECT COALESCE(SUM(pl.lineTotal), 0) " +
            "FROM AppointmentProductLine pl " +
            "WHERE pl.therapist = :therapist " +
            "AND pl.appointment.status = 'COMPLETED' " +
            "AND pl.appointment.appointmentDateTime BETWEEN :start AND :end")
-    BigDecimal sumProductRevenueByTherapistAndDateRange(
+    BigDecimal sumAllProductRevenueByTherapistAndDateRange(
             @Param("therapist") Therapist therapist,
             @Param("start")     LocalDateTime start,
             @Param("end")       LocalDateTime end);

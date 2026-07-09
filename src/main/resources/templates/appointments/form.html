@@ -161,7 +161,9 @@
                                     <input type="number" name="amountPaid" id="amountPaidInput"
                                            class="form-control" min="0" step="0.01"
                                            th:value="${form.amountPaid != null ? form.amountPaid : 0}"
-                                           oninput="updateBalance()">
+                                           oninput="updateBalance()"
+                                           onfocus="clearZeroOnFocus(this)"
+                                           onblur="restoreZeroIfEmpty(this)">
                                 </div>
                             </div>
                         </div>
@@ -475,6 +477,21 @@ function updateBalance() {
     const paid  = parseFloat(document.getElementById('amountPaidInput').value) || 0;
     set('summaryAmountPaid', fmt(paid));
     set('summaryBalance',    fmt(Math.max(0, grand - paid)));
+}
+
+// Clear the default "0"/"0.00" placeholder value on focus so the user can type
+// straight in, but leave any real pre-paid amount untouched for manual editing.
+function clearZeroOnFocus(el) {
+    if (parseFloat(el.value) === 0) {
+        el.value = '';
+    }
+}
+
+function restoreZeroIfEmpty(el) {
+    if (el.value.trim() === '') {
+        el.value = '0';
+        updateBalance();
+    }
 }
 
 // ── Toggle empty-state labels and column headers ───────────────────────────
