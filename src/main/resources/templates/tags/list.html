@@ -35,8 +35,16 @@
                         <tr th:each="u, stat : ${tagUsages}">
                             <td class="text-muted" th:text="${stat.count}"></td>
                             <td><span class="fw-semibold" th:text="${u.tag.name}"></span></td>
-                            <td class="text-center" th:text="${u.serviceCount}"></td>
-                            <td class="text-center" th:text="${u.productCount}"></td>
+                            <td class="text-center">
+                                <a th:if="${u.serviceCount > 0}" th:href="@{/services(tag=${u.tag.name})}"
+                                   th:text="${u.serviceCount}"></a>
+                                <span th:unless="${u.serviceCount > 0}" th:text="${u.serviceCount}"></span>
+                            </td>
+                            <td class="text-center">
+                                <a th:if="${u.productCount > 0}" th:href="@{/products(tag=${u.tag.name})}"
+                                   th:text="${u.productCount}"></a>
+                                <span th:unless="${u.productCount > 0}" th:text="${u.productCount}"></span>
+                            </td>
                             <td class="text-center fw-semibold" th:text="${u.totalCount}"></td>
                             <td class="text-center text-nowrap">
                                 <button type="button" class="btn btn-sm btn-outline-primary me-1"
