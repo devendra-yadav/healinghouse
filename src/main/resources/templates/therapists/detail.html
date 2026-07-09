@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <!-- ── Page header ──────────────────────────────────────────────────── -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="section-header mb-0" th:text="${therapist.fullName}"></h4>
+            <span th:if="${therapist.owner}" class="badge bg-success" title="Owner — no payout calculation">Owner</span>
+            <span th:unless="${therapist.owner}" class="badge" th:classappend="${therapist.active} ? 'bg-success' : 'bg-secondary'"
+                  th:text="${therapist.active} ? 'Active' : 'Inactive'">
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <a th:href="@{/therapists/{id}/edit(id=${therapist.id})}" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Edit Therapist
+            </a>
+            <a th:href="@{/therapists}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Therapists
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Section A: Therapist Profile ────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-person-vcard me-1"></i>Therapist Profile
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted ps-0" style="width:160px">
+                                    <i class="bi bi-briefcase me-1"></i>Specialization
+                                </td>
+                                <td th:text="${therapist.specialization ?: '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-telephone me-1"></i>Phone
+                                </td>
+                                <td th:text="${therapist.phone ?: '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-envelope me-1"></i>Email
+                                </td>
+                                <td th:text="${therapist.email ?: '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-bookmark me-1"></i>Therapist Since
+                                </td>
+                                <td th:text="${therapist.createdAt != null ? #temporals.format(therapist.createdAt, 'dd MMM yyyy') : '—'}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <div th:if="${therapist.owner}" class="alert alert-light border small mb-2">
+                        <i class="bi bi-info-circle me-1"></i>Owner — no commission or bonus applies.
+                    </div>
+                    <table th:unless="${therapist.owner}" class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted ps-0" style="width:160px">
+                                    <i class="bi bi-cash-coin me-1"></i>Monthly Salary
+                                </td>
+                                <td th:text="${therapist.fixedMonthlySalary != null && therapist.fixedMonthlySalary.signum() > 0}
+                                              ? |₹ ${#numbers.formatDecimal(therapist.fixedMonthlySalary, 1, 2)}| : '—'">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-percent me-1"></i>Commission Rate
+                                </td>
+                                <td th:text="${therapist.commissionRate != null && therapist.commissionRate.signum() > 0}
+                                              ? |${#numbers.formatDecimal(therapist.commissionRate.movePointRight(2), 1, 2)}%| : '—'">
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-trophy me-1"></i>Bonus Threshold
+                                </td>
+                                <td th:text="${therapist.performanceBonusThreshold != null ? therapist.performanceBonusThreshold + ' services' : '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-gift me-1"></i>Bonus Amount
+                                </td>
+                                <td th:text="${therapist.performanceBonusAmount != null && therapist.performanceBonusAmount.signum() > 0}
+                                              ? |₹ ${#numbers.formatDecimal(therapist.performanceBonusAmount, 1, 2)}| : '—'">
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="mt-2">
+                        <span class="text-muted fw-semibold d-block small">Notes</span>
+                        <span class="small" style="white-space:pre-wrap" th:text="${therapist.notes ?: '—'}"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Shared date-range + filters (drives Section B and Section C) ──── -->
+    <form th:action="@{/therapists/{id}(id=${therapist.id})}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm"
+                           th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm"
+                           th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="s : ${statuses}"
+                                th:value="${s}" th:text="${s}"
+                                th:selected="${s.name() == selectedStatus}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small mb-1">Patient</label>
+                    <input type="text" name="patientName" class="form-control form-control-sm"
+                           placeholder="Search by patient name" th:value="${selectedPatientName}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a th:href="@{/therapists/{id}(id=${therapist.id})}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- ── Section B: Earnings Summary (selected date range) ───────────── -->
+    <h5 class="section-header mb-2">Earnings Summary</h5>
+
+    <div th:if="${totalAppointments == 0}" class="alert alert-light border text-center text-muted py-4 mb-3">
+        <i class="bi bi-calendar-x fs-4 d-block mb-2"></i>
+        No activity for this therapist in the selected period.
+    </div>
+
+    <div th:if="${totalAppointments > 0}" class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-1">
+                        <i class="bi bi-calendar2-check me-1"></i>Appointments
+                    </div>
+                    <div class="fs-4 fw-bold" th:text="${totalAppointments}"></div>
+                    <div class="small text-muted">
+                        <span th:text="${completedCount} + ' completed'"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-1">
+                        <i class="bi bi-cash-stack me-1"></i>Revenue (All)
+                    </div>
+                    <div class="fs-5 fw-bold"
+                         th:text="|₹ ${#numbers.formatDecimal(earnings.allServicesRevenue.add(earnings.allProductsRevenue), 1, 2)}|">
+                    </div>
+                    <div class="small text-muted" th:text="${earnings.allServicesCount} + ' services (all)'"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3" th:unless="${therapist.owner}">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-1">
+                        <i class="bi bi-currency-rupee me-1"></i>Total Commission
+                    </div>
+                    <div class="fs-5 fw-bold" th:text="|₹ ${#numbers.formatDecimal(earnings.totalCommission, 1, 2)}|"></div>
+                    <div class="small text-muted">
+                        Bonus:
+                        <span th:if="${earnings.bonusEarned}" class="text-success fw-semibold"
+                              th:text="|₹ ${#numbers.formatDecimal(earnings.bonusAmount, 1, 2)}|"></span>
+                        <span th:unless="${earnings.bonusEarned}">—</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3" th:unless="${therapist.owner}">
+            <div class="card shadow-sm h-100">
+                <div class="card-body">
+                    <div class="text-muted small fw-semibold mb-1">
+                        <i class="bi bi-wallet2 me-1"></i>Total Variable Pay
+                    </div>
+                    <div class="fs-5 fw-bold" th:text="|₹ ${#numbers.formatDecimal(earnings.totalVariablePay, 1, 2)}|"></div>
+                    <div class="small text-muted"
+                         th:text="'Salary: ₹' + ${#numbers.formatDecimal(earnings.fixedMonthlySalary, 1, 2)}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div th:if="${totalAppointments > 0 && !therapist.owner}" class="card shadow-sm mb-4">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th class="text-end">Services Rev.(All)</th>
+                            <th class="text-end">Products Rev.(All)</th>
+                            <th class="text-center">Services(All)</th>
+                            <th class="text-end">Services Rev.(Bonus tagged)</th>
+                            <th class="text-end">Products Rev.(Commission tagged)</th>
+                            <th class="text-center">Services(Bonus tagged)</th>
+                            <th class="text-end">Commission</th>
+                            <th class="text-center">Bonus</th>
+                            <th class="text-end">Total Variable Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(earnings.allServicesRevenue, 1, 2)}|"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(earnings.allProductsRevenue, 1, 2)}|"></td>
+                            <td class="text-center" th:text="${earnings.allServicesCount}"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(earnings.bonusTaggedServicesRevenue, 1, 2)}|"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(earnings.productsRevenue, 1, 2)}|"></td>
+                            <td class="text-center" th:text="${earnings.servicesCount}"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(earnings.totalCommission, 1, 2)}|"></td>
+                            <td class="text-center">
+                                <span th:if="${earnings.bonusEarned}" class="badge bg-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(earnings.bonusAmount, 1, 2)}|"></span>
+                                <span th:unless="${earnings.bonusEarned}" class="text-muted">—</span>
+                            </td>
+                            <td class="text-end fw-semibold"
+                                th:text="|₹ ${#numbers.formatDecimal(earnings.totalVariablePay, 1, 2)}|"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Section C: Appointment History ──────────────────────────────── -->
+    <h5 class="section-header mb-2">Appointment History</h5>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date &amp; Time</th>
+                            <th>Patient</th>
+                            <th>Role</th>
+                            <th>Services</th>
+                            <th>Products</th>
+                            <th class="text-end">Grand Total (₹)</th>
+                            <th class="text-center">Payment</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${appointments.empty}">
+                            <td colspan="9" class="text-center text-muted py-4">
+                                No appointments match these filters.
+                            </td>
+                        </tr>
+                        <tr th:each="a : ${appointments}">
+                            <td class="text-nowrap"
+                                th:text="${#temporals.format(a.appointmentDateTime, 'dd MMM yyyy, HH:mm')}">
+                            </td>
+                            <td th:text="${a.patient.fullName}"></td>
+                            <td>
+                                <span th:if="${a.therapist.id == therapist.id}" class="badge bg-primary">Main</span>
+                                <span th:unless="${a.therapist.id == therapist.id}" class="badge bg-info text-dark"
+                                      title="Handled a reassigned service/product line on this visit">Line item only</span>
+                            </td>
+                            <td class="small">
+                                <span th:if="${a.serviceLines.empty}" class="text-muted">—</span>
+                                <span th:unless="${a.serviceLines.empty}"
+                                      th:text="${a.serviceLines.size()} > 1
+                                                ? (${a.serviceLines[0].service.name} + ' +' + (${a.serviceLines.size()} - 1) + ' more')
+                                                : ${a.serviceLines[0].service.name}">
+                                </span>
+                            </td>
+                            <td class="small">
+                                <span th:if="${a.productLines.empty}" class="text-muted">—</span>
+                                <span th:unless="${a.productLines.empty}"
+                                      th:text="${a.productLines.size()} > 1
+                                                ? (${a.productLines[0].product.name} + ' +' + (${a.productLines.size()} - 1) + ' more')
+                                                : ${a.productLines[0].product.name}">
+                                </span>
+                            </td>
+                            <td class="text-end fw-semibold"
+                                th:text="${a.grandTotal != null} ? |₹ ${#numbers.formatDecimal(a.grandTotal, 1, 2)}| : '—'">
+                            </td>
+                            <td class="text-center">
+                                <span th:switch="${a.paymentStatus}">
+                                    <span th:case="'PAID'"    class="badge bg-success">Paid</span>
+                                    <span th:case="'PARTIAL'" class="badge bg-warning text-dark">Partial</span>
+                                    <span th:case="'UNPAID'"  class="badge bg-danger">Unpaid</span>
+                                    <span th:case="*"         class="badge bg-light text-muted border">—</span>
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge"
+                                      th:text="${a.status}"
+                                      th:classappend="${a.status.name() == 'COMPLETED'} ? 'bg-success' :
+                                                      (${a.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
+                                                      (${a.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
+                                                                                            'bg-primary'))">
+                                </span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:href="@{/appointments/{id}(id=${a.id},returnUrl='/therapists/' + ${therapist.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="View details">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a th:if="${a.status.name() == 'SCHEDULED'}"
+                                   th:href="@{/appointments/{id}/edit(id=${a.id},returnUrl='/therapists/' + ${therapist.id})}"
+                                   class="btn btn-sm btn-outline-secondary" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer text-muted small">
+            <span th:text="${appointments.size()} + ' appointment(s)'"></span>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

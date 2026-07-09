@@ -105,6 +105,7 @@ Patient ──< Appointment >── Therapist
 - `@EqualsAndHashCode(exclude = {"serviceLines","productLines"})` on `Appointment` avoids circular Lombok issues
 - Lazy fetching on all `@ManyToOne` associations
 - Patient detail page shows full appointment history via `PatientHistoryService` (see `requirements/Patient_History_Requirements_v1.md`)
+- Therapist detail page (`GET /therapists/{id}`) shows profile + period earnings (via `CommissionCalculator.calculateEarnings`, defaulting to current calendar month) + filterable appointment history; history includes appointments where the therapist is the main therapist **or** only handled a reassigned line item, via `AppointmentSpec.hasTherapistId` (see `requirements/Therapist_Details_Requirements_v1.md`)
 
 ## Business Rules
 
@@ -150,6 +151,7 @@ The `requirements/Healing_House_Clinic_Requirements_v1.md` file is the authorita
 - Tags feature — replaced the old category field (`Tags_Requirements_v1.md`)
 - Per-line therapist assignment on service/product lines (`Per_Line_Therapist_Assignment_Requirements_v1.md`)
 - Patient appointment history view (`Patient_History_Requirements_v1.md`)
+- Therapist detail/history view (`Therapist_Details_Requirements_v1.md`)
 - Mobile-responsive UI pass across all pages (`Responsive_UI_Requirements_v1.md`)
 - Deployment tooling: `test`/`preprod`/`prod` Spring profiles, Linux start/stop scripts, logback config, zip assembly build
 
