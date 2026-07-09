@@ -1,14 +1,20 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Therapist;
+import com.clinic.healinghouse.service.AppointmentService;
+import com.clinic.healinghouse.service.CommissionCalculator;
 import com.clinic.healinghouse.service.TherapistService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.time.LocalDate;
 
 @Controller
 @RequestMapping("/therapists")
@@ -16,12 +22,63 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 public class TherapistController {
 
     private final TherapistService therapistService;
+    private final AppointmentService appointmentService;
+    private final CommissionCalculator commissionCalculator;
 
     @GetMapping
     public String list(Model model) {
         model.addAttribute("therapists", therapistService.findAll());
         model.addAttribute("pageTitle", "Therapists");
         return "therapists/list";
+    }
+
+    // ── Detail (profile + period earnings summary + filterable appointment history) ──
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id,
+                         @RequestParam(required = false) String status,
+                         @RequestParam(required = false) String patientName,
+                         @RequestParam(required = false)
+                         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                         @RequestParam(required = false)
+                         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                         Model model, RedirectAttributes ra) {
+        try {
+            Therapist therapist = therapistService.getById(id);
+
+            LocalDate effectiveDateFrom = dateFrom != null ? dateFrom : LocalDate.now().withDayOfMonth(1);
+            LocalDate effectiveDateTo   = dateTo   != null ? dateTo   : LocalDate.now();
+
+            AppointmentStatus statusEnum = null;
+            if (status != null && !status.isBlank()) {
+                try {
+                    statusEnum = AppointmentStatus.valueOf(status.trim());
+                } catch (IllegalArgumentException ignored) {}
+            }
+
+            var appointments = appointmentService.findByFilters(
+                    statusEnum, id, effectiveDateFrom, effectiveDateTo, patientName);
+            long completedCount = appointments.stream()
+                    .filter(a -> a.getStatus() == AppointmentStatus.COMPLETED)
+                    .count();
+
+            model.addAttribute("therapist", therapist);
+            model.addAttribute("earnings",
+                    commissionCalculator.calculateEarnings(therapist, effectiveDateFrom, effectiveDateTo));
+            model.addAttribute("appointments", appointments);
+            model.addAttribute("totalAppointments", appointments.size());
+            model.addAttribute("completedCount", completedCount);
+            model.addAttribute("statuses",           AppointmentStatus.values());
+            model.addAttribute("selectedStatus",      status);
+            model.addAttribute("selectedPatientName", patientName);
+            model.addAttribute("selectedDateFrom",    effectiveDateFrom);
+            model.addAttribute("selectedDateTo",      effectiveDateTo);
+            model.addAttribute("pageTitle", "Therapist — " + therapist.getFullName());
+            return "therapists/detail";
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage",
+                    "Could not load therapist: " + (e.getMessage() != null ? e.getMessage() : "not found"));
+            return "redirect:/therapists";
+        }
     }
 
     @GetMapping("/new")
