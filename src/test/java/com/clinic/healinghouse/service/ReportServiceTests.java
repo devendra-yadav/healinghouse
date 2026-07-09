@@ -89,6 +89,7 @@ class ReportServiceTests {
 
     private TherapistEarningsDTO zeroEarnings(Therapist therapist) {
         return new TherapistEarningsDTO(therapist, BigDecimal.ZERO, BigDecimal.ZERO, 0L,
+                BigDecimal.ZERO, BigDecimal.ZERO, 0L, BigDecimal.ZERO,
                 BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
     }
 

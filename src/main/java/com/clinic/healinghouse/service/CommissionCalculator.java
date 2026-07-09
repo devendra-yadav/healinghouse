@@ -49,6 +49,30 @@ public class CommissionCalculator {
                 therapist, startOf(dateFrom), endOf(dateTo), BONUS_TAG);
     }
 
+    /** Total services revenue for the therapist, regardless of tag — reporting only, not used in commission math. */
+    public BigDecimal calculateAllServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.sumAllServiceRevenueByTherapistAndDateRange(
+                therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Total products revenue for the therapist, regardless of tag — reporting only, not used in commission math. */
+    public BigDecimal calculateAllProductsRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return productLineRepository.sumAllProductRevenueByTherapistAndDateRange(
+                therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Total service count for the therapist, regardless of tag — reporting only, not used in bonus math. */
+    public long calculateAllServicesCount(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.countAllServicesPerformedByTherapistAndDateRange(
+                therapist, startOf(dateFrom), endOf(dateTo));
+    }
+
+    /** Revenue of Bonus-tagged service lines only — reporting only, not used in commission math. */
+    public BigDecimal calculateBonusTaggedServicesRevenue(Therapist therapist, LocalDate dateFrom, LocalDate dateTo) {
+        return serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(
+                therapist, startOf(dateFrom), endOf(dateTo), BONUS_TAG);
+    }
+
     /** Bonus is all-or-nothing: the full configured amount once servicesCount meets the threshold. */
     public BigDecimal calculateBonus(Therapist therapist, long servicesCount) {
         if (therapist.isOwner()) return BigDecimal.ZERO;
@@ -65,6 +89,7 @@ public class CommissionCalculator {
         if (therapist.isOwner()) {
             return new TherapistEarningsDTO(therapist,
                     BigDecimal.ZERO, BigDecimal.ZERO, 0L,
+                    BigDecimal.ZERO, BigDecimal.ZERO, 0L, BigDecimal.ZERO,
                     BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO,
                     false, BigDecimal.ZERO, BigDecimal.ZERO, fixedSalary);
         }
@@ -72,6 +97,11 @@ public class CommissionCalculator {
         BigDecimal servicesRevenue = calculateServicesRevenue(therapist, dateFrom, dateTo);
         BigDecimal productsRevenue = calculateProductsRevenue(therapist, dateFrom, dateTo);
         long servicesCount = calculateServicesCount(therapist, dateFrom, dateTo);
+
+        BigDecimal allServicesRevenue = calculateAllServicesRevenue(therapist, dateFrom, dateTo);
+        BigDecimal allProductsRevenue = calculateAllProductsRevenue(therapist, dateFrom, dateTo);
+        long allServicesCount = calculateAllServicesCount(therapist, dateFrom, dateTo);
+        BigDecimal bonusTaggedServicesRevenue = calculateBonusTaggedServicesRevenue(therapist, dateFrom, dateTo);
 
         BigDecimal rate = zeroIfNull(therapist.getCommissionRate());
         BigDecimal serviceCommission = servicesRevenue.multiply(rate).setScale(2, RoundingMode.HALF_UP);
@@ -85,6 +115,7 @@ public class CommissionCalculator {
 
         return new TherapistEarningsDTO(therapist,
                 servicesRevenue, productsRevenue, servicesCount,
+                allServicesRevenue, allProductsRevenue, allServicesCount, bonusTaggedServicesRevenue,
                 serviceCommission, productCommission, totalCommission,
                 bonusEarned, bonusAmount, totalVariablePay, fixedSalary);
     }

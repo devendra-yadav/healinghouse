@@ -117,6 +117,16 @@ BigDecimal totalVariablePay = commission.add(bonus);
 ```
 Revenue/count inputs are attributed **per line-item therapist**, not just the appointment's main therapist.
 
+- `servicesRevenue`/`productsRevenue` (the commission base) only include lines whose `ClinicService`/`Product` carries a **`Commission`** tag (case-insensitive); untagged lines don't count towards commission. See `CommissionCalculator.COMMISSION_TAG`.
+- `servicesCount` (the bonus-threshold input) only counts service lines tagged **`Bonus`** (case-insensitive). See `CommissionCalculator.BONUS_TAG`.
+- Both filters are implemented as `JOIN ... tags t WHERE LOWER(t.name) = LOWER(:tagName)` in `AppointmentServiceLineRepository` / `AppointmentProductLineRepository` — services/products must be tagged accordingly in the Tags UI or they silently contribute ₹0 to commission/bonus reports.
+
+**`TherapistEarningsDTO`** carries both tag-filtered and untagged figures per therapist — the untagged ones are reporting-only and never feed commission/bonus math:
+- `servicesRevenue`/`productsRevenue` (Commission-tagged) and `servicesCount` (Bonus-tagged) — the payout inputs above
+- `allServicesRevenue`/`allProductsRevenue`/`allServicesCount` — totals regardless of tag
+- `bonusTaggedServicesRevenue` — revenue of Bonus-tagged service lines only (not used in payout, informational)
+- Daily/period report tables and their CSV/PDF exports show all of these as: `Services Rev.(All)`, `Products Rev.(All)`, `Services(All)`, `Services Rev.(Bonus tagged)`, `Products Rev.(Commission tagged)`, `Services(Bonus tagged)`. The comparison report only shows the tag-filtered figures.
+
 - **Marcia Gomes Yadav** (owner) — `commissionRate = 0`, `fixedMonthlySalary = 0`; skip payout calculations for her
 - Stock is decremented only when an appointment is marked `COMPLETED`
 - Status flow: `SCHEDULED` → `COMPLETED` | `CANCELLED` | `NO_SHOW`
@@ -153,8 +163,9 @@ When implementing a specific step, reference it as "Phase X Step X.Y" from the r
 - Lombok: `@Data @Builder @NoArgsConstructor @AllArgsConstructor` on entities; `@RequiredArgsConstructor` on services/controllers
 - `@CreationTimestamp` / `@UpdateTimestamp` handle audit fields automatically
 - Report/export endpoints follow `GET /reports/{report}` (HTML) + `GET /reports/{report}/export-csv` + `GET /reports/{report}/export-pdf`, all sharing the same `ReportService` query and date-range defaulting (last 30 days) logic
+- Appointment form's "Amount Paid" field auto-clears its `0`/`0.00` default on focus (`clearZeroOnFocus`/`restoreZeroIfEmpty` in `appointments/form.html`) so staff can type straight in; a real pre-paid amount is left untouched for manual editing
 
 
 ## VERY Impotant and MUST DO
 - Be very concise in your responses.
-- Dont need to be polite or humble. Give to the point answer
+- Dont need to be polite or humble. Give 'to the point' answer

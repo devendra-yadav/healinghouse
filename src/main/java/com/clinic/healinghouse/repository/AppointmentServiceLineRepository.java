@@ -50,6 +50,28 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
             @Param("end")       LocalDateTime end,
             @Param("tagName")   String tagName);
 
+    // All services revenue for a therapist in a date range, regardless of tag — reporting only.
+    @Query("SELECT COALESCE(SUM(sl.priceAtTime * sl.quantity), 0) " +
+           "FROM AppointmentServiceLine sl " +
+           "WHERE sl.therapist = :therapist " +
+           "AND sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
+    BigDecimal sumAllServiceRevenueByTherapistAndDateRange(
+            @Param("therapist") Therapist therapist,
+            @Param("start")     LocalDateTime start,
+            @Param("end")       LocalDateTime end);
+
+    // Count of all services performed by a therapist in a date range, regardless of tag — reporting only.
+    @Query("SELECT COALESCE(SUM(sl.quantity), 0) " +
+           "FROM AppointmentServiceLine sl " +
+           "WHERE sl.therapist = :therapist " +
+           "AND sl.appointment.status = 'COMPLETED' " +
+           "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end")
+    long countAllServicesPerformedByTherapistAndDateRange(
+            @Param("therapist") Therapist therapist,
+            @Param("start")     LocalDateTime start,
+            @Param("end")       LocalDateTime end);
+
     // Services revenue grouped by tag (dashboard tag breakdown / performance report).
     // A service tagged with multiple tags contributes its full line total to each tag.
     @Query("SELECT new com.clinic.healinghouse.dto.TagRevenueDTO(t.name, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +

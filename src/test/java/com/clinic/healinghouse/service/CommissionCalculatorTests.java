@@ -129,10 +129,18 @@ class CommissionCalculatorTests {
                 .thenReturn(BigDecimal.valueOf(1000));
         when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(b), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
                 .thenReturn(BigDecimal.valueOf(5000));
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+                .thenReturn(BigDecimal.ZERO);
         when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
                 .thenReturn(BigDecimal.ZERO);
         when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
                 .thenReturn(1L);
+        when(serviceLineRepository.sumAllServiceRevenueByTherapistAndDateRange(any(), any(), any()))
+                .thenReturn(BigDecimal.ZERO);
+        when(serviceLineRepository.countAllServicesPerformedByTherapistAndDateRange(any(), any(), any()))
+                .thenReturn(0L);
+        when(productLineRepository.sumAllProductRevenueByTherapistAndDateRange(any(), any(), any()))
+                .thenReturn(BigDecimal.ZERO);
 
         TherapistEarningsDTO earningsA = calculator.calculateEarnings(a, dateFrom, dateTo);
         TherapistEarningsDTO earningsB = calculator.calculateEarnings(b, dateFrom, dateTo);

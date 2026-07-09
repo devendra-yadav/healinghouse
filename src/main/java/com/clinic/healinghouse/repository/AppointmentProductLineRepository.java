@@ -34,6 +34,17 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
             @Param("end")       LocalDateTime end,
             @Param("tagName")   String tagName);
 
+    // All products revenue for a therapist in a date range, regardless of tag — reporting only.
+    @Query("SELECT COALESCE(SUM(pl.lineTotal), 0) " +
+           "FROM AppointmentProductLine pl " +
+           "WHERE pl.therapist = :therapist " +
+           "AND pl.appointment.status = 'COMPLETED' " +
+           "AND pl.appointment.appointmentDateTime BETWEEN :start AND :end")
+    BigDecimal sumAllProductRevenueByTherapistAndDateRange(
+            @Param("therapist") Therapist therapist,
+            @Param("start")     LocalDateTime start,
+            @Param("end")       LocalDateTime end);
+
     // Products revenue grouped by tag (dashboard tag breakdown / performance report).
     // A product tagged with multiple tags contributes its full line total to each tag.
     @Query("SELECT new com.clinic.healinghouse.dto.TagRevenueDTO(t.name, COALESCE(SUM(pl.lineTotal), 0)) " +
