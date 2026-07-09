@@ -20,15 +20,21 @@
 
     <!-- Search -->
     <form th:action="@{/patients}" method="get" class="mb-3">
-        <div class="input-group" style="max-width:400px;">
-            <input type="text" name="q" th:value="${q}" class="form-control"
-                   placeholder="Search by name or phone…"/>
-            <button class="btn btn-outline-secondary" type="submit">
-                <i class="bi bi-search"></i>
-            </button>
-            <a th:if="${q}" th:href="@{/patients}" class="btn btn-outline-danger">
-                <i class="bi bi-x"></i>
-            </a>
+        <div class="position-relative" style="max-width:400px;">
+            <div class="input-group">
+                <input type="text" name="q" id="patientSearchInput" th:value="${q}"
+                       class="form-control" autocomplete="off"
+                       placeholder="Search by name or phone…"/>
+                <button class="btn btn-outline-secondary" type="submit">
+                    <i class="bi bi-search"></i>
+                </button>
+                <a th:if="${q}" th:href="@{/patients}" class="btn btn-outline-danger">
+                    <i class="bi bi-x"></i>
+                </a>
+            </div>
+            <div id="patientSuggestions"
+                 class="list-group position-absolute w-100 shadow-sm d-none"
+                 style="z-index:1000; top:100%;"></div>
         </div>
     </form>
 
@@ -114,6 +120,58 @@
         document.getElementById('deleteModalBody').textContent =
             'Deactivate patient "' + btn.dataset.name + '"?';
         document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+</script>
+
+<!-- Live name/phone autocomplete for the patient search box -->
+<script th:inline="javascript">
+    const patientSearchInput = document.getElementById('patientSearchInput');
+    const patientSuggestions = document.getElementById('patientSuggestions');
+    const patientDetailBaseUrl = /*[[@{/patients/}]]*/ '/patients/';
+    let searchDebounce = null;
+
+    function hideSuggestions() {
+        patientSuggestions.classList.add('d-none');
+        patientSuggestions.innerHTML = '';
+    }
+
+    function renderSuggestions(results) {
+        if (!results.length) { hideSuggestions(); return; }
+        patientSuggestions.innerHTML = results.map(p =>
+            `<a href="${patientDetailBaseUrl}${p.id}" class="list-group-item list-group-item-action">
+                <span class="fw-semibold">${escHtml(p.fullName)}</span>
+                <span class="text-muted small ms-2">${escHtml(p.phone || '')}</span>
+             </a>`
+        ).join('');
+        patientSuggestions.classList.remove('d-none');
+    }
+
+    function escHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    patientSearchInput.addEventListener('input', function () {
+        const q = this.value.trim();
+        clearTimeout(searchDebounce);
+        if (!q) { hideSuggestions(); return; }
+        searchDebounce = setTimeout(() => {
+            fetch('/patients/search?q=' + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(renderSuggestions)
+                .catch(() => hideSuggestions());
+        }, 250);
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!patientSearchInput.contains(e.target) && !patientSuggestions.contains(e.target)) {
+            hideSuggestions();
+        }
+    });
+
+    patientSearchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideSuggestions();
     });
 </script>
 </body>

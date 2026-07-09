@@ -21,10 +21,14 @@
     <form th:action="@{/appointments}" method="get" class="card shadow-sm mb-3">
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
-                <div class="col-md-2">
-                    <label class="form-label small mb-1">Patient Name</label>
-                    <input type="text" name="patientName" class="form-control form-control-sm"
+                <div class="col-md-2 position-relative">
+                    <label class="form-label small mb-1">Patient Name / Phone</label>
+                    <input type="text" name="patientName" id="patientNameFilterInput"
+                           class="form-control form-control-sm" autocomplete="off"
                            th:value="${selectedPatientName}" placeholder="Search patient…">
+                    <div id="patientFilterSuggestions"
+                         class="list-group position-absolute w-100 shadow-sm d-none"
+                         style="z-index:1000; top:100%;"></div>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small mb-1">Therapist</label>
@@ -77,6 +81,7 @@
                             <th>#</th>
                             <th>Date &amp; Time</th>
                             <th>Patient</th>
+                            <th>Phone</th>
                             <th>Therapist</th>
                             <th class="text-end">Grand Total (₹)</th>
                             <th class="text-center">Payment</th>
@@ -86,7 +91,7 @@
                     </thead>
                     <tbody>
                         <tr th:if="${appointments.empty}">
-                            <td colspan="8" class="text-center text-muted py-4">
+                            <td colspan="9" class="text-center text-muted py-4">
                                 No appointments found.
                             </td>
                         </tr>
@@ -96,6 +101,7 @@
                                 th:text="${#temporals.format(a.appointmentDateTime, 'dd MMM yyyy, HH:mm')}">
                             </td>
                             <td th:text="${a.patient.fullName}"></td>
+                            <td th:text="${a.patient.phone ?: '—'}"></td>
                             <td th:text="${a.therapist.fullName}"></td>
                             <td class="text-end fw-semibold"
                                 th:text="${a.grandTotal != null} ? |₹ ${#numbers.formatDecimal(a.grandTotal, 1, 2)}| : '—'">
@@ -224,6 +230,65 @@ document.getElementById('cancelModal').addEventListener('show.bs.modal', functio
         'Cancel appointment for ' + btn.dataset.patient +
         ' on ' + btn.dataset.datetime + '?';
 });
+</script>
+
+<!-- Live name/phone autocomplete for the patient filter box -->
+<script>
+    const patientNameFilterInput = document.getElementById('patientNameFilterInput');
+    const patientFilterSuggestions = document.getElementById('patientFilterSuggestions');
+    let filterSearchDebounce = null;
+
+    function hideFilterSuggestions() {
+        patientFilterSuggestions.classList.add('d-none');
+        patientFilterSuggestions.innerHTML = '';
+    }
+
+    function escFilterHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderFilterSuggestions(results) {
+        if (!results.length) { hideFilterSuggestions(); return; }
+        patientFilterSuggestions.innerHTML = results.map(p =>
+            `<button type="button" class="list-group-item list-group-item-action" data-name="${escFilterHtml(p.fullName)}">
+                <span class="fw-semibold">${escFilterHtml(p.fullName)}</span>
+                <span class="text-muted small ms-2">${escFilterHtml(p.phone || '')}</span>
+             </button>`
+        ).join('');
+        patientFilterSuggestions.classList.remove('d-none');
+    }
+
+    patientNameFilterInput.addEventListener('input', function () {
+        const q = this.value.trim();
+        clearTimeout(filterSearchDebounce);
+        if (!q) { hideFilterSuggestions(); return; }
+        filterSearchDebounce = setTimeout(() => {
+            fetch('/patients/search?q=' + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(renderFilterSuggestions)
+                .catch(() => hideFilterSuggestions());
+        }, 250);
+    });
+
+    patientFilterSuggestions.addEventListener('click', function (e) {
+        const item = e.target.closest('[data-name]');
+        if (!item) return;
+        patientNameFilterInput.value = item.dataset.name;
+        hideFilterSuggestions();
+        patientNameFilterInput.form.submit();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!patientNameFilterInput.contains(e.target) && !patientFilterSuggestions.contains(e.target)) {
+            hideFilterSuggestions();
+        }
+    });
+
+    patientNameFilterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideFilterSuggestions();
+    });
 </script>
 </body>
 </html>

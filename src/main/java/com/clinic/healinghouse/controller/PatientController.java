@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
 import com.clinic.healinghouse.entity.Patient;
@@ -17,11 +18,14 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Controller
 @RequestMapping("/patients")
 @RequiredArgsConstructor
 public class PatientController {
+
+    private static final int MAX_SUGGESTIONS = 8;
 
     private final PatientService        patientService;
     private final AppointmentService    appointmentService;
@@ -34,6 +38,17 @@ public class PatientController {
         model.addAttribute("q", q);
         model.addAttribute("pageTitle", "Patients");
         return "patients/list";
+    }
+
+    /** JSON autocomplete endpoint backing the name/phone search box on the patients list. */
+    @GetMapping("/search")
+    @ResponseBody
+    public List<PatientSuggestionDTO> search(@RequestParam(required = false) String q) {
+        if (q == null || q.isBlank()) return List.of();
+        return patientService.search(q).stream()
+                .limit(MAX_SUGGESTIONS)
+                .map(p -> new PatientSuggestionDTO(p.getId(), p.getFullName(), p.getPhone()))
+                .toList();
     }
 
     // ── Detail (profile + summary stats + filterable appointment history) ──

@@ -80,7 +80,7 @@ public class AppointmentService {
                 .and(AppointmentSpec.hasStatus(status))
                 .and(AppointmentSpec.hasTherapistId(therapistId))
                 .and(AppointmentSpec.betweenDates(start, end))
-                .and(AppointmentSpec.patientNameContains(patientName))
+                .and(AppointmentSpec.patientNameOrPhoneContains(patientName))
                 .and(AppointmentSpec.hasPatientId(patientId));
 
         return appointmentRepository.findAll(spec, DATE_DESC);

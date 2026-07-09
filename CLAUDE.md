@@ -128,7 +128,7 @@ Revenue/count inputs are attributed **per line-item therapist**, not just the ap
 - `bonusTaggedServicesRevenue` — revenue of Bonus-tagged service lines only (not used in payout, informational)
 - Daily/period report tables and their CSV/PDF exports show all of these as: `Services Rev.(All)`, `Products Rev.(All)`, `Services(All)`, `Services Rev.(Bonus tagged)`, `Products Rev.(Commission tagged)`, `Services(Bonus tagged)`. The comparison report only shows the tag-filtered figures.
 
-- **Marcia Gomes Yadav** (owner) — `commissionRate = 0`, `fixedMonthlySalary = 0`; skip payout calculations for her
+- **Marcia Gomes Yadav** (owner) — `commissionRate = 0`, `fixedMonthlySalary = 0`; `CommissionCalculator` zeroes out only her commission/bonus/`totalVariablePay` — the `allServicesRevenue`/`allProductsRevenue`/`allServicesCount`/`bonusTaggedServicesRevenue` reporting figures are still computed for her (e.g. therapist detail page "Revenue (All)" card)
 - Stock is decremented only when an appointment is marked `COMPLETED`
 - Status flow: `SCHEDULED` → `COMPLETED` | `CANCELLED` | `NO_SHOW`
 - Payment methods: `CASH`, `UPI`, `BANK_TRANSFER`, `CARD`, `OTHER`

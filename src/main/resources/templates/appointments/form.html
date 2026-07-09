@@ -2,6 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <!-- Choices.js: searchable select dropdowns (patient / therapist) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css"/>
+    <style>
+        .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
+        .choices { margin-bottom: 0; }
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -28,7 +34,7 @@
                         <label class="form-label fw-semibold">
                             Patient <span class="text-danger">*</span>
                         </label>
-                        <select name="patientId" class="form-select" required>
+                        <select name="patientId" id="patientSelect" class="form-select" required>
                             <option value="">— Select Patient —</option>
                             <option th:each="p : ${patients}"
                                     th:value="${p.id}"
@@ -227,6 +233,7 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
 
 <!-- Inject service + product catalog data for JS price lookup -->
 <script th:inline="javascript">
@@ -557,6 +564,28 @@ function toggle(id, show) {
 function parseRaw(id) {
     return parseFloat(document.getElementById(id).textContent.replace(/[₹,]/g, '')) || 0;
 }
+
+// ── Searchable Patient / Therapist dropdowns ────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    new Choices('#patientSelect', {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: '— Select Patient —',
+        searchPlaceholderValue: 'Search patients…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+    new Choices('#mainTherapistSelect', {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: '— Select Therapist —',
+        searchPlaceholderValue: 'Search therapists…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+});
 
 // ── Edit mode: pre-populate rows from existing appointment data ────────────
 document.addEventListener('DOMContentLoaded', function () {
