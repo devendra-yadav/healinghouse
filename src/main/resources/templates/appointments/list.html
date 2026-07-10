@@ -103,8 +103,11 @@
                             <td th:text="${a.patient.fullName}"></td>
                             <td th:text="${a.patient.phone ?: '—'}"></td>
                             <td th:text="${a.therapist.fullName}"></td>
-                            <td class="text-end fw-semibold"
-                                th:text="${a.grandTotal != null} ? |₹ ${#numbers.formatDecimal(a.grandTotal, 1, 2)}| : '—'">
+                            <td class="text-end fw-semibold">
+                                <span th:text="${a.grandTotal != null} ? |₹ ${#numbers.formatDecimal(a.grandTotal, 1, 2)}| : '—'"></span>
+                                <span th:if="${a.discounted}" class="badge bg-info text-dark ms-1" title="Discount applied">
+                                    <i class="bi bi-tag-fill"></i>
+                                </span>
                             </td>
                             <!-- Payment status badge -->
                             <td class="text-center">
@@ -146,7 +149,8 @@
                                           method="post" class="d-inline me-1">
                                         <input type="hidden" name="returnUrl" value="/appointments">
                                         <button type="submit" class="btn btn-sm btn-outline-success"
-                                                title="Mark Completed"
+                                                th:disabled="${a.balanceDue.signum() > 0}"
+                                                th:title="${a.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : 'Mark Completed'"
                                                 onclick="return confirm('Mark this appointment as completed?')">
                                             <i class="bi bi-check-circle"></i>
                                         </button>

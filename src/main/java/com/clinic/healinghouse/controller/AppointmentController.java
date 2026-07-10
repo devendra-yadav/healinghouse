@@ -285,6 +285,7 @@ public class AppointmentController {
         model.addAttribute("productData",    productData);
         model.addAttribute("therapistData",  therapistData);
         model.addAttribute("paymentMethods", PaymentMethod.values());
+        model.addAttribute("discountTypes",  DiscountType.values());
         model.addAttribute("defaultDateTime",
                 LocalDateTime.now().withSecond(0).withNano(0)
                         .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));

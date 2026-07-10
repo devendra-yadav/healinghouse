@@ -154,6 +154,7 @@ The `requirements/Healing_House_Clinic_Requirements_v1.md` file is the authorita
 - Therapist detail/history view (`Therapist_Details_Requirements_v1.md`)
 - Mobile-responsive UI pass across all pages (`Responsive_UI_Requirements_v1.md`)
 - Deployment tooling: `test`/`preprod`/`prod` Spring profiles, Linux start/stop scripts, logback config, zip assembly build
+- Live patient name/phone autocomplete — `GET /patients/search?q=` (`PatientController`) returns JSON `PatientSuggestionDTO` (id, fullName, phone) via `PatientService.search`/`PatientRepository.searchActive`, capped at 8 results; backs the debounced typeahead on the patients list search box and the appointments list patient filter (`patients/list.html`, `appointments/list.html`). Appointment filtering matches patient name **or** phone via `AppointmentSpec.patientNameOrPhoneContains`.
 
 When implementing a specific step, reference it as "Phase X Step X.Y" from the requirements doc. `requirements/PHASE3_IMPLEMENTATION_GUIDE.md` has the detailed Phase 3 implementation notes if similar step-by-step guidance is needed for Phase 4.
 

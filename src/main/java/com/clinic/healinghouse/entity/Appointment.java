@@ -71,6 +71,20 @@ public class Appointment {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
+    @Builder.Default
+    private DiscountType discountType = DiscountType.NONE;
+
+    /** Raw value staff typed: a 0-100 percentage or a flat rupee amount, per discountType. */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal discountValue;
+
+    /** Resolved, capped rupee amount actually applied — drives grandTotal and per-line distribution. */
+    @Column(precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
     private PaymentMethod paymentMethod;
 
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
@@ -108,6 +122,11 @@ public class Appointment {
         BigDecimal total = grandTotal != null ? grandTotal : BigDecimal.ZERO;
         BigDecimal paid  = amountPaid != null ? amountPaid : BigDecimal.ZERO;
         return total.subtract(paid).max(BigDecimal.ZERO);
+    }
+
+    @Transient
+    public boolean isDiscounted() {
+        return discountAmount != null && discountAmount.signum() > 0;
     }
 
     /** "PAID" | "PARTIAL" | "UNPAID" | "N/A" — used in list/detail views. */

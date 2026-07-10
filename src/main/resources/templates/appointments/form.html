@@ -161,16 +161,42 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label fw-semibold">Amount Paid (₹)</label>
+                                <label class="form-label fw-semibold"
+                                       th:text="${editMode} ? 'Payment Received Now (₹)' : 'Amount Paid (₹)'">Amount Paid (₹)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
-                                    <input type="number" name="amountPaid" id="amountPaidInput"
+                                    <input type="number" name="newPaymentAmount" id="amountPaidInput"
                                            class="form-control" min="0" step="0.01"
-                                           th:value="${form.amountPaid != null ? form.amountPaid : 0}"
+                                           th:value="${form.newPaymentAmount != null ? form.newPaymentAmount : 0}"
                                            oninput="updateBalance()"
                                            onfocus="clearZeroOnFocus(this)"
                                            onblur="restoreZeroIfEmpty(this)">
                                 </div>
+                                <div class="form-text" th:if="${editMode}">
+                                    Added on top of the amount already prepaid — not a replacement.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Discount Type</label>
+                                <select name="discountType" id="discountTypeSelect" class="form-select"
+                                        onchange="onDiscountTypeChange()">
+                                    <option value="NONE"
+                                            th:selected="${form.discountType == null or form.discountType == 'NONE'}">No Discount</option>
+                                    <option value="PERCENTAGE"
+                                            th:selected="${form.discountType == 'PERCENTAGE'}">Percentage (%)</option>
+                                    <option value="FLAT"
+                                            th:selected="${form.discountType == 'FLAT'}">Flat Amount (₹)</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold" id="discountValueLabel">Discount Value</label>
+                                <input type="number" name="discountValue" id="discountValueInput"
+                                       class="form-control" min="0" step="0.01"
+                                       th:value="${form.discountValue != null ? form.discountValue : ''}"
+                                       oninput="updateTotals()"
+                                       disabled>
                             </div>
                         </div>
                     </div>
@@ -197,13 +223,39 @@
                                     <td class="pe-3 text-end fw-semibold"
                                         id="summaryProductTotal">₹0.00</td>
                                 </tr>
+                                <tr id="summaryDiscountRow" class="d-none">
+                                    <td class="ps-3 text-muted">Discount</td>
+                                    <td class="pe-3 text-end fw-semibold text-danger"
+                                        id="summaryDiscountAmount">- ₹0.00</td>
+                                </tr>
                                 <tr class="table-active border-top border-2">
                                     <td class="ps-3 fw-bold">Grand Total</td>
                                     <td class="pe-3 text-end fw-bold fs-5 text-success"
                                         id="summaryGrandTotal">₹0.00</td>
                                 </tr>
+                                <tr th:if="${editMode}">
+                                    <td class="ps-3 text-muted">
+                                        Amount Prepaid
+                                        <button type="button" id="editPrepaidBtn"
+                                                class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                                title="Correct prepaid amount" onclick="togglePrepaidEdit()">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </td>
+                                    <td class="pe-3 text-end">
+                                        <span id="prepaidDisplay"
+                                              th:text="|₹ ${#numbers.formatDecimal(appointment.amountPaid != null ? appointment.amountPaid : 0, 1, 2)}|">₹0.00</span>
+                                        <input type="number" id="prepaidCorrectionInput" name="prepaidCorrection"
+                                               class="form-control form-control-sm text-end d-none"
+                                               style="max-width:140px; display:inline-block;"
+                                               min="0" step="0.01"
+                                               th:value="${appointment.amountPaid != null ? appointment.amountPaid : 0}"
+                                               oninput="updateBalance()">
+                                    </td>
+                                </tr>
                                 <tr>
-                                    <td class="ps-3 text-muted">Amount Paid</td>
+                                    <td class="ps-3 text-muted"
+                                        th:text="${editMode} ? 'Payment Now' : 'Amount Paid'">Amount Paid</td>
                                     <td class="pe-3 text-end"
                                         id="summaryAmountPaid">₹0.00</td>
                                 </tr>
@@ -241,6 +293,11 @@
 const SERVICE_DATA   = /*[[${serviceData}]]*/ [];
 const PRODUCT_DATA   = /*[[${productData}]]*/ [];
 const THERAPIST_DATA  = /*[[${therapistData}]]*/ [];
+/*]]>*/
+</script>
+<script th:if="${editMode}" th:inline="javascript">
+/*<![CDATA[*/
+const EXISTING_AMOUNT_PAID = /*[[${appointment.amountPaid != null ? appointment.amountPaid : 0}]]*/ 0;
 /*]]>*/
 </script>
 
@@ -471,19 +528,80 @@ function updateTotals() {
     });
 
     const grand = sTotal + pTotal;
+
+    const discountType = document.getElementById('discountTypeSelect').value;
+    const discountRaw  = parseFloat(document.getElementById('discountValueInput').value) || 0;
+    let discountAmount = 0;
+    if (discountType === 'PERCENTAGE') {
+        discountAmount = grand * Math.min(discountRaw, 100) / 100;
+    } else if (discountType === 'FLAT') {
+        discountAmount = Math.min(discountRaw, grand);
+    }
+    const netGrand = grand - discountAmount;
+
     set('displayServiceTotal',  fmt(sTotal));
     set('displayProductTotal',  fmt(pTotal));
     set('summaryServiceTotal',  fmt(sTotal));
     set('summaryProductTotal',  fmt(pTotal));
-    set('summaryGrandTotal',    fmt(grand));
+    toggle('summaryDiscountRow', discountAmount > 0);
+    set('summaryDiscountAmount', '- ' + fmt(discountAmount));
+    set('summaryGrandTotal',    fmt(netGrand));
     updateBalance();
 }
 
+// Enables/disables the discount value input based on the selected discount type,
+// and relabels it so staff know whether they're typing a % or a ₹ amount.
+function onDiscountTypeChange() {
+    const type  = document.getElementById('discountTypeSelect').value;
+    const input = document.getElementById('discountValueInput');
+    const label = document.getElementById('discountValueLabel');
+    if (type === 'NONE') {
+        input.value = '';
+        input.disabled = true;
+        label.textContent = 'Discount Value';
+    } else {
+        input.disabled = false;
+        label.textContent = type === 'PERCENTAGE' ? 'Discount (%)' : 'Discount Amount (₹)';
+    }
+    updateTotals();
+}
+
 function updateBalance() {
-    const grand = parseRaw('summaryGrandTotal');
-    const paid  = parseFloat(document.getElementById('amountPaidInput').value) || 0;
-    set('summaryAmountPaid', fmt(paid));
-    set('summaryBalance',    fmt(Math.max(0, grand - paid)));
+    const grand   = parseRaw('summaryGrandTotal');
+    const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    let prepaid = typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0;
+    if (prepaidInput && !prepaidInput.classList.contains('d-none')) {
+        prepaid = parseFloat(prepaidInput.value) || 0;
+    }
+    const prepaidDisplay = document.getElementById('prepaidDisplay');
+    if (prepaidDisplay) prepaidDisplay.textContent = fmt(prepaid);
+
+    set('summaryAmountPaid', fmt(paidNow));
+    set('summaryBalance',    fmt(Math.max(0, grand - prepaid - paidNow)));
+}
+
+// Unlocks the "Amount Prepaid" figure for a one-off correction (e.g. a typo from a
+// previous visit). Normal payments should go through the "Payment Now" box instead —
+// that field is additive so it never overwrites what was already recorded as paid.
+function togglePrepaidEdit() {
+    const display = document.getElementById('prepaidDisplay');
+    const input   = document.getElementById('prepaidCorrectionInput');
+    const btn     = document.getElementById('editPrepaidBtn');
+    const editing = !input.classList.contains('d-none');
+    if (editing) {
+        input.value = EXISTING_AMOUNT_PAID;
+        input.classList.add('d-none');
+        display.classList.remove('d-none');
+        btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
+    } else {
+        display.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    }
+    updateBalance();
 }
 
 // Clear the default "0"/"0.00" placeholder value on focus so the user can type
@@ -599,8 +717,10 @@ document.addEventListener('DOMContentLoaded', function () {
             addProductRow(pl.productId, pl.quantity, pl.therapistId);
         });
     }
-    // Sync the amount-paid summary from the pre-filled input value
-    updateBalance();
+    // Sync the discount value input's enabled/disabled state with the pre-selected
+    // discount type, then recompute totals (also syncs the amount-paid summary).
+    onDiscountTypeChange();
+    updateTotals();
 });
 </script>
 

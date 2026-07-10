@@ -33,6 +33,8 @@
                 </a>
                 <form th:action="@{/appointments/{id}/complete(id=${appointment.id})}" method="post">
                     <button type="submit" class="btn btn-success btn-sm"
+                            th:disabled="${appointment.balanceDue.signum() > 0}"
+                            th:title="${appointment.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : ''"
                             onclick="return confirm('Mark this appointment as completed?')">
                         <i class="bi bi-check-circle me-1"></i>Complete
                     </button>
@@ -246,10 +248,15 @@
                                       ? |₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|
                                       : '—'">
                         </td>
-                        <td class="text-end pe-3 fw-semibold"
-                            th:text="${sl.lineTotal != null}
-                                      ? |₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}|
-                                      : '—'">
+                        <td class="text-end pe-3 fw-semibold">
+                            <span th:if="${sl.discountedLineTotal != null}">
+                                <span class="text-muted text-decoration-line-through small d-block"
+                                      th:text="|₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}|"></span>
+                                <span class="text-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(sl.discountedLineTotal, 1, 2)}|"></span>
+                            </span>
+                            <span th:unless="${sl.discountedLineTotal != null}"
+                                  th:text="${sl.lineTotal != null} ? |₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}| : '—'"></span>
                         </td>
                     </tr>
                 </tbody>
@@ -313,10 +320,15 @@
                                       ? |₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|
                                       : '—'">
                         </td>
-                        <td class="text-end pe-3 fw-semibold"
-                            th:text="${pl.lineTotal != null}
-                                      ? |₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}|
-                                      : '—'">
+                        <td class="text-end pe-3 fw-semibold">
+                            <span th:if="${pl.discountedLineTotal != null}">
+                                <span class="text-muted text-decoration-line-through small d-block"
+                                      th:text="|₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}|"></span>
+                                <span class="text-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(pl.discountedLineTotal, 1, 2)}|"></span>
+                            </span>
+                            <span th:unless="${pl.discountedLineTotal != null}"
+                                  th:text="${pl.lineTotal != null} ? |₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}| : '—'"></span>
                         </td>
                     </tr>
                 </tbody>
@@ -388,12 +400,31 @@
                                               : '₹0.00'">
                                 </td>
                             </tr>
+                            <tr th:if="${appointment.discounted}">
+                                <td class="ps-3 text-muted">
+                                    Discount
+                                    <span class="badge bg-info text-dark ms-1"
+                                          th:text="${appointment.discountType != null and appointment.discountType.name() == 'PERCENTAGE'}
+                                                    ? |${#numbers.formatDecimal(appointment.discountValue, 1, 0)}%|
+                                                    : 'Flat'">
+                                    </span>
+                                </td>
+                                <td class="pe-3 text-end text-danger fw-semibold"
+                                    th:text="|- ₹ ${#numbers.formatDecimal(appointment.discountAmount, 1, 2)}|">
+                                </td>
+                            </tr>
                             <tr class="border-top border-2 table-active">
                                 <td class="ps-3 fw-bold">Grand Total</td>
-                                <td class="pe-3 text-end fw-bold fs-5 text-success"
-                                    th:text="${appointment.grandTotal != null}
-                                              ? |₹ ${#numbers.formatDecimal(appointment.grandTotal, 1, 2)}|
-                                              : '₹0.00'">
+                                <td class="pe-3 text-end">
+                                    <span th:if="${appointment.discounted}"
+                                          class="text-muted text-decoration-line-through small me-2"
+                                          th:text="|₹ ${#numbers.formatDecimal(appointment.totalServiceAmount.add(appointment.totalProductAmount), 1, 2)}|">
+                                    </span>
+                                    <span class="fw-bold fs-5 text-success"
+                                          th:text="${appointment.grandTotal != null}
+                                                    ? |₹ ${#numbers.formatDecimal(appointment.grandTotal, 1, 2)}|
+                                                    : '₹0.00'">
+                                    </span>
                                 </td>
                             </tr>
                             <tr>
