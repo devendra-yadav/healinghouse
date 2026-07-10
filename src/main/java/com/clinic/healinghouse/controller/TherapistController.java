@@ -81,6 +81,22 @@ public class TherapistController {
         }
     }
 
+    // ── Calendar (read-only day/week/month schedule view) ─────────────────
+    @GetMapping("/{id}/calendar")
+    public String calendar(@PathVariable Long id, Model model, RedirectAttributes ra) {
+        try {
+            Therapist therapist = therapistService.getById(id);
+            model.addAttribute("therapist",  therapist);
+            model.addAttribute("therapists", therapistService.findAll());
+            model.addAttribute("pageTitle",  "Calendar — " + therapist.getFullName());
+            return "therapists/calendar";
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage",
+                    "Could not load therapist: " + (e.getMessage() != null ? e.getMessage() : "not found"));
+            return "redirect:/therapists";
+        }
+    }
+
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("therapist", Therapist.builder().build());

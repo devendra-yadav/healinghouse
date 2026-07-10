@@ -53,11 +53,14 @@ public class AppointmentSpec {
                         : cb.equal(root.get("patient").get("id"), patientId);
     }
 
-    public static Specification<Appointment> patientNameContains(String name) {
+    /** Matches appointments whose patient's full name OR phone contains the given text. */
+    public static Specification<Appointment> patientNameOrPhoneContains(String text) {
         return (root, query, cb) -> {
-            if (!StringUtils.hasText(name)) return cb.conjunction();
-            return cb.like(cb.lower(root.get("patient").get("fullName")),
-                           "%" + name.trim().toLowerCase() + "%");
+            if (!StringUtils.hasText(text)) return cb.conjunction();
+            String pattern = "%" + text.trim().toLowerCase() + "%";
+            return cb.or(
+                    cb.like(cb.lower(root.get("patient").get("fullName")), pattern),
+                    cb.like(cb.lower(root.get("patient").get("phone")), pattern));
         };
     }
 

@@ -2,6 +2,12 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <!-- Choices.js: searchable select dropdowns (patient / therapist) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css"/>
+    <style>
+        .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
+        .choices { margin-bottom: 0; }
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -20,15 +26,38 @@
     <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
 
+        <!-- ── Scheduling conflict warning ──────────────────────────────────── -->
+        <div class="alert alert-warning" th:if="${conflicts != null and !conflicts.isEmpty()}">
+            <h6 class="fw-semibold mb-2">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>Scheduling conflict detected
+            </h6>
+            <ul class="mb-2">
+                <li th:each="c : ${conflicts}">
+                    <strong th:text="${c.therapistName}"></strong> is already booked
+                    <span th:text="${#temporals.format(c.conflictStart, 'dd MMM, hh:mm a')}"></span>–<span
+                          th:text="${#temporals.format(c.conflictEnd, 'hh:mm a')}"></span>
+                    with <span th:text="${c.patientName}"></span>
+                    (<a th:href="@{/appointments/{id}(id=${c.conflictingAppointmentId})}" target="_blank"
+                        th:text="'Appt #' + ${c.conflictingAppointmentId}"></a>).
+                </li>
+            </ul>
+            <div class="form-check mb-0">
+                <input class="form-check-input" type="checkbox" value="true" name="forceSave" id="forceSaveCheck">
+                <label class="form-check-label" for="forceSaveCheck">
+                    Save anyway (double-booking is intentional / acceptable)
+                </label>
+            </div>
+        </div>
+
         <!-- ── Patient / Therapist / DateTime ─────────────────────────────── -->
         <div class="card shadow-sm mb-3">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">
                             Patient <span class="text-danger">*</span>
                         </label>
-                        <select name="patientId" class="form-select" required>
+                        <select name="patientId" id="patientSelect" class="form-select" required>
                             <option value="">— Select Patient —</option>
                             <option th:each="p : ${patients}"
                                     th:value="${p.id}"
@@ -37,7 +66,7 @@
                             </option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">
                             Therapist <span class="text-danger">*</span>
                         </label>
@@ -51,7 +80,7 @@
                             </option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label fw-semibold">
                             Date &amp; Time <span class="text-danger">*</span>
                         </label>
@@ -61,6 +90,21 @@
                                           ? ${#temporals.format(form.appointmentDateTime, 'yyyy-MM-dd''T''HH:mm')}
                                           : ${defaultDateTime}"
                                required>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Duration</label>
+                        <select name="durationMinutes" class="form-select">
+                            <option value="30"  th:selected="${form.durationMinutes == 30}">30 min</option>
+                            <option value="60"  th:selected="${form.durationMinutes == null or form.durationMinutes == 60}">60 min</option>
+                            <option value="90"  th:selected="${form.durationMinutes == 90}">90 min</option>
+                            <option value="120" th:selected="${form.durationMinutes == 120}">120 min</option>
+                            <option th:if="${form.durationMinutes != null and form.durationMinutes != 30
+                                             and form.durationMinutes != 60 and form.durationMinutes != 90
+                                             and form.durationMinutes != 120}"
+                                    th:value="${form.durationMinutes}"
+                                    th:text="${form.durationMinutes} + ' min'"
+                                    selected></option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -155,16 +199,42 @@
                                 </select>
                             </div>
                             <div class="col-12 col-md-6">
-                                <label class="form-label fw-semibold">Amount Paid (₹)</label>
+                                <label class="form-label fw-semibold"
+                                       th:text="${editMode} ? 'Payment Received Now (₹)' : 'Amount Paid (₹)'">Amount Paid (₹)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
-                                    <input type="number" name="amountPaid" id="amountPaidInput"
+                                    <input type="number" name="newPaymentAmount" id="amountPaidInput"
                                            class="form-control" min="0" step="0.01"
-                                           th:value="${form.amountPaid != null ? form.amountPaid : 0}"
+                                           th:value="${form.newPaymentAmount != null ? form.newPaymentAmount : 0}"
                                            oninput="updateBalance()"
                                            onfocus="clearZeroOnFocus(this)"
                                            onblur="restoreZeroIfEmpty(this)">
                                 </div>
+                                <div class="form-text" th:if="${editMode}">
+                                    Added on top of the amount already prepaid — not a replacement.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Discount Type</label>
+                                <select name="discountType" id="discountTypeSelect" class="form-select"
+                                        onchange="onDiscountTypeChange()">
+                                    <option value="NONE"
+                                            th:selected="${form.discountType == null or form.discountType == 'NONE'}">No Discount</option>
+                                    <option value="PERCENTAGE"
+                                            th:selected="${form.discountType == 'PERCENTAGE'}">Percentage (%)</option>
+                                    <option value="FLAT"
+                                            th:selected="${form.discountType == 'FLAT'}">Flat Amount (₹)</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold" id="discountValueLabel">Discount Value</label>
+                                <input type="number" name="discountValue" id="discountValueInput"
+                                       class="form-control" min="0" step="0.01"
+                                       th:value="${form.discountValue != null ? form.discountValue : ''}"
+                                       oninput="updateTotals()"
+                                       disabled>
                             </div>
                         </div>
                     </div>
@@ -191,13 +261,39 @@
                                     <td class="pe-3 text-end fw-semibold"
                                         id="summaryProductTotal">₹0.00</td>
                                 </tr>
+                                <tr id="summaryDiscountRow" class="d-none">
+                                    <td class="ps-3 text-muted">Discount</td>
+                                    <td class="pe-3 text-end fw-semibold text-danger"
+                                        id="summaryDiscountAmount">- ₹0.00</td>
+                                </tr>
                                 <tr class="table-active border-top border-2">
                                     <td class="ps-3 fw-bold">Grand Total</td>
                                     <td class="pe-3 text-end fw-bold fs-5 text-success"
                                         id="summaryGrandTotal">₹0.00</td>
                                 </tr>
+                                <tr th:if="${editMode}">
+                                    <td class="ps-3 text-muted">
+                                        Amount Prepaid
+                                        <button type="button" id="editPrepaidBtn"
+                                                class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                                                title="Correct prepaid amount" onclick="togglePrepaidEdit()">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </td>
+                                    <td class="pe-3 text-end">
+                                        <span id="prepaidDisplay"
+                                              th:text="|₹ ${#numbers.formatDecimal(appointment.amountPaid != null ? appointment.amountPaid : 0, 1, 2)}|">₹0.00</span>
+                                        <input type="number" id="prepaidCorrectionInput" name="prepaidCorrection"
+                                               class="form-control form-control-sm text-end d-none"
+                                               style="max-width:140px; display:inline-block;"
+                                               min="0" step="0.01"
+                                               th:value="${appointment.amountPaid != null ? appointment.amountPaid : 0}"
+                                               oninput="updateBalance()">
+                                    </td>
+                                </tr>
                                 <tr>
-                                    <td class="ps-3 text-muted">Amount Paid</td>
+                                    <td class="ps-3 text-muted"
+                                        th:text="${editMode} ? 'Payment Now' : 'Amount Paid'">Amount Paid</td>
                                     <td class="pe-3 text-end"
                                         id="summaryAmountPaid">₹0.00</td>
                                 </tr>
@@ -227,6 +323,7 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
 
 <!-- Inject service + product catalog data for JS price lookup -->
 <script th:inline="javascript">
@@ -236,9 +333,14 @@ const PRODUCT_DATA   = /*[[${productData}]]*/ [];
 const THERAPIST_DATA  = /*[[${therapistData}]]*/ [];
 /*]]>*/
 </script>
+<script th:if="${editMode}" th:inline="javascript">
+/*<![CDATA[*/
+const EXISTING_AMOUNT_PAID = /*[[${appointment.amountPaid != null ? appointment.amountPaid : 0}]]*/ 0;
+/*]]>*/
+</script>
 
-<!-- Edit mode: inject existing line items for pre-population -->
-<th:block th:if="${editMode}">
+<!-- Edit mode, or re-rendering after a conflict warning: inject line items for pre-population -->
+<th:block th:if="${existingServiceLines != null}">
 <script th:inline="javascript">
 /*<![CDATA[*/
 const EDIT_SERVICE_LINES = /*[[${existingServiceLines}]]*/ [];
@@ -464,19 +566,80 @@ function updateTotals() {
     });
 
     const grand = sTotal + pTotal;
+
+    const discountType = document.getElementById('discountTypeSelect').value;
+    const discountRaw  = parseFloat(document.getElementById('discountValueInput').value) || 0;
+    let discountAmount = 0;
+    if (discountType === 'PERCENTAGE') {
+        discountAmount = grand * Math.min(discountRaw, 100) / 100;
+    } else if (discountType === 'FLAT') {
+        discountAmount = Math.min(discountRaw, grand);
+    }
+    const netGrand = grand - discountAmount;
+
     set('displayServiceTotal',  fmt(sTotal));
     set('displayProductTotal',  fmt(pTotal));
     set('summaryServiceTotal',  fmt(sTotal));
     set('summaryProductTotal',  fmt(pTotal));
-    set('summaryGrandTotal',    fmt(grand));
+    toggle('summaryDiscountRow', discountAmount > 0);
+    set('summaryDiscountAmount', '- ' + fmt(discountAmount));
+    set('summaryGrandTotal',    fmt(netGrand));
     updateBalance();
 }
 
+// Enables/disables the discount value input based on the selected discount type,
+// and relabels it so staff know whether they're typing a % or a ₹ amount.
+function onDiscountTypeChange() {
+    const type  = document.getElementById('discountTypeSelect').value;
+    const input = document.getElementById('discountValueInput');
+    const label = document.getElementById('discountValueLabel');
+    if (type === 'NONE') {
+        input.value = '';
+        input.disabled = true;
+        label.textContent = 'Discount Value';
+    } else {
+        input.disabled = false;
+        label.textContent = type === 'PERCENTAGE' ? 'Discount (%)' : 'Discount Amount (₹)';
+    }
+    updateTotals();
+}
+
 function updateBalance() {
-    const grand = parseRaw('summaryGrandTotal');
-    const paid  = parseFloat(document.getElementById('amountPaidInput').value) || 0;
-    set('summaryAmountPaid', fmt(paid));
-    set('summaryBalance',    fmt(Math.max(0, grand - paid)));
+    const grand   = parseRaw('summaryGrandTotal');
+    const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    let prepaid = typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0;
+    if (prepaidInput && !prepaidInput.classList.contains('d-none')) {
+        prepaid = parseFloat(prepaidInput.value) || 0;
+    }
+    const prepaidDisplay = document.getElementById('prepaidDisplay');
+    if (prepaidDisplay) prepaidDisplay.textContent = fmt(prepaid);
+
+    set('summaryAmountPaid', fmt(paidNow));
+    set('summaryBalance',    fmt(Math.max(0, grand - prepaid - paidNow)));
+}
+
+// Unlocks the "Amount Prepaid" figure for a one-off correction (e.g. a typo from a
+// previous visit). Normal payments should go through the "Payment Now" box instead —
+// that field is additive so it never overwrites what was already recorded as paid.
+function togglePrepaidEdit() {
+    const display = document.getElementById('prepaidDisplay');
+    const input   = document.getElementById('prepaidCorrectionInput');
+    const btn     = document.getElementById('editPrepaidBtn');
+    const editing = !input.classList.contains('d-none');
+    if (editing) {
+        input.value = EXISTING_AMOUNT_PAID;
+        input.classList.add('d-none');
+        display.classList.remove('d-none');
+        btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
+    } else {
+        display.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+    }
+    updateBalance();
 }
 
 // Clear the default "0"/"0.00" placeholder value on focus so the user can type
@@ -558,6 +721,28 @@ function parseRaw(id) {
     return parseFloat(document.getElementById(id).textContent.replace(/[₹,]/g, '')) || 0;
 }
 
+// ── Searchable Patient / Therapist dropdowns ────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    new Choices('#patientSelect', {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: '— Select Patient —',
+        searchPlaceholderValue: 'Search patients…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+    new Choices('#mainTherapistSelect', {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: '— Select Therapist —',
+        searchPlaceholderValue: 'Search therapists…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+});
+
 // ── Edit mode: pre-populate rows from existing appointment data ────────────
 document.addEventListener('DOMContentLoaded', function () {
     if (typeof EDIT_SERVICE_LINES !== 'undefined') {
@@ -570,8 +755,10 @@ document.addEventListener('DOMContentLoaded', function () {
             addProductRow(pl.productId, pl.quantity, pl.therapistId);
         });
     }
-    // Sync the amount-paid summary from the pre-filled input value
-    updateBalance();
+    // Sync the discount value input's enabled/disabled state with the pre-selected
+    // discount type, then recompute totals (also syncs the amount-paid summary).
+    onDiscountTypeChange();
+    updateTotals();
 });
 </script>
 

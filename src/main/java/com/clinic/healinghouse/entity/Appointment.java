@@ -42,6 +42,11 @@ public class Appointment {
     @Column(nullable = false)
     private LocalDateTime appointmentDateTime;
 
+    /** How long the therapist is occupied for, in minutes. Drives conflict detection and the calendar view. */
+    @Column(nullable = false, columnDefinition = "INT NOT NULL DEFAULT 60")
+    @Builder.Default
+    private Integer durationMinutes = 60;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -68,6 +73,20 @@ public class Appointment {
     @Column(precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal amountPaid = BigDecimal.ZERO;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private DiscountType discountType = DiscountType.NONE;
+
+    /** Raw value staff typed: a 0-100 percentage or a flat rupee amount, per discountType. */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal discountValue;
+
+    /** Resolved, capped rupee amount actually applied — drives grandTotal and per-line distribution. */
+    @Column(precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -104,10 +123,21 @@ public class Appointment {
     }
 
     @Transient
+    public LocalDateTime getEndDateTime() {
+        int minutes = durationMinutes != null ? durationMinutes : 60;
+        return appointmentDateTime.plusMinutes(minutes);
+    }
+
+    @Transient
     public BigDecimal getBalanceDue() {
         BigDecimal total = grandTotal != null ? grandTotal : BigDecimal.ZERO;
         BigDecimal paid  = amountPaid != null ? amountPaid : BigDecimal.ZERO;
         return total.subtract(paid).max(BigDecimal.ZERO);
+    }
+
+    @Transient
+    public boolean isDiscounted() {
+        return discountAmount != null && discountAmount.signum() > 0;
     }
 
     /** "PAID" | "PARTIAL" | "UNPAID" | "N/A" — used in list/detail views. */

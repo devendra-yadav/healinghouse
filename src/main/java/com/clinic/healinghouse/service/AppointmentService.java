@@ -1,6 +1,8 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.AppointmentForm;
+import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -12,10 +14,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -80,7 +89,7 @@ public class AppointmentService {
                 .and(AppointmentSpec.hasStatus(status))
                 .and(AppointmentSpec.hasTherapistId(therapistId))
                 .and(AppointmentSpec.betweenDates(start, end))
-                .and(AppointmentSpec.patientNameContains(patientName))
+                .and(AppointmentSpec.patientNameOrPhoneContains(patientName))
                 .and(AppointmentSpec.hasPatientId(patientId));
 
         return appointmentRepository.findAll(spec, DATE_DESC);
@@ -99,6 +108,113 @@ public class AppointmentService {
         return appointmentRepository.findTodayAppointments(
                 today.atStartOfDay(),
                 today.plusDays(1).atStartOfDay());
+    }
+
+    // ── Conflict detection ───────────────────────────────────────────────────
+
+    /**
+     * Checks whether the therapist(s) on this form (main therapist + every line's therapist)
+     * are already booked on another appointment overlapping the requested time window.
+     * A therapist is "busy" for an appointment if they're the main therapist OR assigned to
+     * any of its lines (mirrors AppointmentSpec.hasTherapistId). Only SCHEDULED/COMPLETED
+     * appointments count — CANCELLED/NO_SHOW never conflict. When editing, pass the
+     * appointment's own id so it doesn't flag a conflict against itself.
+     */
+    @Transactional(readOnly = true)
+    public List<TherapistConflictDTO> findConflicts(AppointmentForm form, Long excludeAppointmentId) {
+        if (form.getAppointmentDateTime() == null) return List.of();
+
+        LocalDateTime start = form.getAppointmentDateTime();
+        int duration = form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                ? form.getDurationMinutes() : 60;
+        LocalDateTime end = start.plusMinutes(duration);
+
+        Set<Long> therapistIds = new LinkedHashSet<>();
+        if (form.getTherapistId() != null) therapistIds.add(form.getTherapistId());
+        form.getServiceLines().forEach(sl -> {
+            if (sl != null && sl.getTherapistId() != null) therapistIds.add(sl.getTherapistId());
+        });
+        form.getProductLines().forEach(pl -> {
+            if (pl != null && pl.getTherapistId() != null) therapistIds.add(pl.getTherapistId());
+        });
+        if (therapistIds.isEmpty()) return List.of();
+
+        // Widened bound (± 1 day) so appointments that straddle midnight are still caught;
+        // exact overlap is verified below, this is just a cheap pre-filter for the query.
+        LocalDateTime boundStart = start.toLocalDate().minusDays(1).atStartOfDay();
+        LocalDateTime boundEnd   = end.toLocalDate().plusDays(1).atStartOfDay();
+
+        List<TherapistConflictDTO> conflicts = new ArrayList<>();
+        for (Long therapistId : therapistIds) {
+            Specification<Appointment> spec = Specification
+                    .where(AppointmentSpec.withPatientAndTherapist())
+                    .and(AppointmentSpec.hasTherapistId(therapistId))
+                    .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+
+            String therapistName = therapistRepository.findById(therapistId)
+                    .map(Therapist::getFullName)
+                    .orElse("Therapist #" + therapistId);
+
+            for (Appointment candidate : appointmentRepository.findAll(spec)) {
+                if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
+                if (candidate.getStatus() == AppointmentStatus.CANCELLED
+                        || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
+
+                LocalDateTime candidateStart = candidate.getAppointmentDateTime();
+                LocalDateTime candidateEnd   = candidate.getEndDateTime();
+                boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
+                if (!overlaps) continue;
+
+                conflicts.add(new TherapistConflictDTO(
+                        therapistId, therapistName,
+                        candidate.getId(), candidate.getPatient().getFullName(),
+                        candidateStart, candidateEnd));
+            }
+        }
+        return conflicts;
+    }
+
+    // ── Calendar feed ────────────────────────────────────────────────────────
+
+    /**
+     * Appointments for one therapist's calendar view, within the visible date range.
+     * "This therapist" means main therapist OR any line therapist (mirrors hasTherapistId).
+     * The query window is widened by a day on each side so appointments that straddle
+     * the range boundary (e.g. started just before midnight) still show up.
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarEventDTO> findCalendarEvents(Long therapistId, LocalDateTime start, LocalDateTime end) {
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
+
+        return appointmentRepository.findAll(spec).stream()
+                .map(a -> toCalendarEvent(a, therapistId))
+                .toList();
+    }
+
+    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId) {
+        String title = appointment.getPatient().getFullName();
+        if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
+            title = title + " (with " + appointment.getTherapist().getFullName() + ")";
+        }
+        return new CalendarEventDTO(
+                appointment.getId(),
+                title,
+                appointment.getAppointmentDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                statusColor(appointment.getStatus()));
+    }
+
+    /** Mirrors the status → color convention already used in appointments/list.html. */
+    private String statusColor(AppointmentStatus status) {
+        return switch (status) {
+            case COMPLETED -> "#198754"; // bg-success
+            case CANCELLED -> "#dc3545"; // bg-danger
+            case NO_SHOW   -> "#ffc107"; // bg-warning
+            case SCHEDULED -> "#40916c"; // clinic brand green
+        };
     }
 
     // ── Create ────────────────────────────────────────────────────────────────
@@ -139,9 +255,11 @@ public class AppointmentService {
                 .patient(patient)
                 .therapist(therapist)
                 .appointmentDateTime(form.getAppointmentDateTime())
+                .durationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                        ? form.getDurationMinutes() : 60)
                 .notes(form.getNotes())
                 .paymentMethod(paymentMethod)
-                .amountPaid(form.getAmountPaid() != null ? form.getAmountPaid() : BigDecimal.ZERO)
+                .amountPaid(form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO)
                 .build();
 
         // 4. Service lines — snapshot price at booking time
@@ -202,10 +320,10 @@ public class AppointmentService {
             totalProductAmount = totalProductAmount.add(lineTotal);
         }
 
-        // 6. Set aggregate totals
+        // 6. Set aggregate totals (and apply any discount)
         appointment.setTotalServiceAmount(totalServiceAmount);
         appointment.setTotalProductAmount(totalProductAmount);
-        appointment.setGrandTotal(totalServiceAmount.add(totalProductAmount));
+        applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
 
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Created appointment id={} patient='{}' therapist='{}' grandTotal={}",
@@ -222,6 +340,10 @@ public class AppointmentService {
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException(
                     "Only SCHEDULED appointments can be marked as completed.");
+        }
+        if (appt.getBalanceDue().compareTo(BigDecimal.ZERO) > 0) {
+            throw new IllegalStateException(
+                    "Cannot complete appointment: balance due of ₹" + appt.getBalanceDue() + " must be cleared first.");
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
@@ -282,9 +404,21 @@ public class AppointmentService {
         existing.setPatient(patient);
         existing.setTherapist(therapist);
         existing.setAppointmentDateTime(form.getAppointmentDateTime());
+        existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                ? form.getDurationMinutes() : 60);
         existing.setNotes(form.getNotes());
         existing.setPaymentMethod(pm);
-        existing.setAmountPaid(form.getAmountPaid() != null ? form.getAmountPaid() : BigDecimal.ZERO);
+
+        // Amount paid is cumulative: the "prepaid" base (existing total, or a corrected value if the
+        // pencil was used) plus whatever new payment is being entered in this submission.
+        BigDecimal prepaidBase = form.getPrepaidCorrection() != null
+                ? form.getPrepaidCorrection() : existing.getAmountPaid();
+        BigDecimal newPayment = form.getNewPaymentAmount() != null
+                ? form.getNewPaymentAmount() : BigDecimal.ZERO;
+        if (prepaidBase.signum() < 0 || newPayment.signum() < 0) {
+            throw new IllegalArgumentException("Amount paid cannot be negative.");
+        }
+        existing.setAmountPaid(prepaidBase.add(newPayment));
 
         if (existing.getStatus() == AppointmentStatus.SCHEDULED) {
             List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
@@ -345,7 +479,7 @@ public class AppointmentService {
 
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
-            existing.setGrandTotal(totalServiceAmount.add(totalProductAmount));
+            applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
         }
 
         Appointment saved = appointmentRepository.save(existing);
@@ -386,6 +520,87 @@ public class AppointmentService {
         log.info("Reassigned product line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
         return saved;
+    }
+
+    // ── Discount ──────────────────────────────────────────────────────────────
+
+    /**
+     * Resolves the discount (type + raw value) against the appointment's current
+     * totalServiceAmount/totalProductAmount, distributes it proportionally across
+     * every service/product line as discountedLineTotal, and sets grandTotal to the
+     * net (post-discount) amount. Commission-relevant fields (priceAtTime, quantity,
+     * lineTotal, totalServiceAmount, totalProductAmount) are never touched here.
+     */
+    private void applyDiscount(Appointment appointment, DiscountType type, BigDecimal rawValue) {
+        BigDecimal subtotal = appointment.getTotalServiceAmount().add(appointment.getTotalProductAmount());
+
+        if (type == null || type == DiscountType.NONE || rawValue == null || rawValue.signum() <= 0) {
+            appointment.setDiscountType(DiscountType.NONE);
+            appointment.setDiscountValue(null);
+            appointment.setDiscountAmount(BigDecimal.ZERO);
+            appointment.getServiceLines().forEach(sl -> sl.setDiscountedLineTotal(null));
+            appointment.getProductLines().forEach(pl -> pl.setDiscountedLineTotal(null));
+            appointment.setGrandTotal(subtotal);
+            return;
+        }
+
+        if (type == DiscountType.PERCENTAGE && rawValue.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Percentage discount cannot exceed 100%.");
+        }
+
+        BigDecimal resolved = type == DiscountType.PERCENTAGE
+                ? subtotal.multiply(rawValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                : rawValue.setScale(2, RoundingMode.HALF_UP);
+        resolved = resolved.min(subtotal); // never exceed subtotal
+
+        appointment.setDiscountType(type);
+        appointment.setDiscountValue(rawValue);
+        appointment.setDiscountAmount(resolved);
+        distributeDiscount(appointment, subtotal, resolved);
+        appointment.setGrandTotal(subtotal.subtract(resolved));
+    }
+
+    /**
+     * Splits discountAmount proportionally across every service+product line, by each
+     * line's share of subtotal. Lines are processed smallest-raw-total first; the last
+     * (largest) line absorbs whatever rounding remainder is left, so the per-line shares
+     * always sum exactly to discountAmount and the largest line is safest to absorb it.
+     */
+    private void distributeDiscount(Appointment appointment, BigDecimal subtotal, BigDecimal discountAmount) {
+        List<DiscountableLine> lines = new ArrayList<>();
+        appointment.getServiceLines().forEach(sl ->
+                lines.add(new DiscountableLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
+        appointment.getProductLines().forEach(pl ->
+                lines.add(new DiscountableLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
+
+        if (lines.isEmpty()) return;
+        lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
+
+        BigDecimal allocated = BigDecimal.ZERO;
+        for (int i = 0; i < lines.size(); i++) {
+            DiscountableLine line = lines.get(i);
+            BigDecimal share;
+            if (i == lines.size() - 1) {
+                share = discountAmount.subtract(allocated);
+            } else {
+                share = discountAmount.multiply(line.lineRaw())
+                        .divide(subtotal, 10, RoundingMode.HALF_UP)
+                        .setScale(2, RoundingMode.HALF_UP);
+                allocated = allocated.add(share);
+            }
+            line.setter().accept(line.lineRaw().subtract(share));
+        }
+    }
+
+    private record DiscountableLine(BigDecimal lineRaw, Consumer<BigDecimal> setter) {}
+
+    private DiscountType resolveDiscountType(String raw) {
+        if (raw == null || raw.isBlank()) return DiscountType.NONE;
+        try {
+            return DiscountType.valueOf(raw.trim());
+        } catch (IllegalArgumentException ex) {
+            return DiscountType.NONE;
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

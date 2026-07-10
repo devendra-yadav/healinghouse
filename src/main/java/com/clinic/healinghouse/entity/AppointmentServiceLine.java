@@ -46,8 +46,18 @@ public class AppointmentServiceLine {
     @Column(nullable = false)
     private int quantity = 1;
 
+    /** Post-discount line total; null when the appointment has no discount applied. */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal discountedLineTotal;
+
     @Transient
     public BigDecimal getLineTotal() {
         return priceAtTime.multiply(BigDecimal.valueOf(quantity));
+    }
+
+    /** Discounted total if a discount has been distributed to this line, else the raw line total. */
+    @Transient
+    public BigDecimal getEffectiveLineTotal() {
+        return discountedLineTotal != null ? discountedLineTotal : getLineTotal();
     }
 }

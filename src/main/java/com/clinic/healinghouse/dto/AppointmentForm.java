@@ -25,9 +25,20 @@ public class AppointmentForm {
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime appointmentDateTime;
 
+    private Integer durationMinutes = 60;
+
     private String notes;
     private String paymentMethod;   // kept as String to avoid enum binding errors on empty selection
-    private BigDecimal amountPaid = BigDecimal.ZERO;
+
+    private String discountType;    // "NONE" | "PERCENTAGE" | "FLAT" — kept as String, same reason as paymentMethod
+    /** Percentage (0-100) or flat rupee amount, per discountType. Null/0 = no discount. */
+    private BigDecimal discountValue;
+
+    /** Payment being entered in this submission — added on top of any existing amount paid (edit mode) or the whole initial payment (create mode). */
+    private BigDecimal newPaymentAmount = BigDecimal.ZERO;
+
+    /** Only set when the "correct prepaid amount" pencil was used in edit mode; null means keep the existing stored amount. */
+    private BigDecimal prepaidCorrection;
 
     private List<ServiceLineForm> serviceLines = new ArrayList<>();
     private List<ProductLineForm> productLines  = new ArrayList<>();
@@ -38,9 +49,12 @@ public class AppointmentForm {
         f.setPatientId(appt.getPatient().getId());
         f.setTherapistId(appt.getTherapist().getId());
         f.setAppointmentDateTime(appt.getAppointmentDateTime());
+        f.setDurationMinutes(appt.getDurationMinutes());
         f.setNotes(appt.getNotes());
         f.setPaymentMethod(appt.getPaymentMethod() != null ? appt.getPaymentMethod().name() : null);
-        f.setAmountPaid(appt.getAmountPaid() != null ? appt.getAmountPaid() : BigDecimal.ZERO);
+        f.setDiscountType(appt.getDiscountType() != null ? appt.getDiscountType().name() : "NONE");
+        f.setDiscountValue(appt.getDiscountValue());
+        // newPaymentAmount defaults to 0 (nothing entered yet); prepaidCorrection stays null (no correction).
         appt.getServiceLines().forEach(sl -> {
             ServiceLineForm s = new ServiceLineForm();
             s.setServiceId(sl.getService().getId());

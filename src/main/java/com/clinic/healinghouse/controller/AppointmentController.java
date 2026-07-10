@@ -1,6 +1,8 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.dto.AppointmentForm;
+import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.service.*;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,9 +66,15 @@ public class AppointmentController {
 
     // ── New form ──────────────────────────────────────────────────────────
     @GetMapping("/new")
-    public String newForm(Model model) {
+    public String newForm(@RequestParam(required = false) Long therapistId,
+                          @RequestParam(required = false)
+                          @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime appointmentDateTime,
+                          Model model) {
         populateFormModel(model);
-        model.addAttribute("form", new AppointmentForm());
+        AppointmentForm form = new AppointmentForm();
+        if (therapistId != null) form.setTherapistId(therapistId);
+        if (appointmentDateTime != null) form.setAppointmentDateTime(appointmentDateTime);
+        model.addAttribute("form", form);
         model.addAttribute("editMode",   false);
         model.addAttribute("formAction", "/appointments/save");
         model.addAttribute("cancelUrl",  "/appointments");
@@ -72,10 +82,49 @@ public class AppointmentController {
         return "appointments/form";
     }
 
+    // ── Calendar feed (JSON, consumed by therapists/calendar.html) ───────────
+    @GetMapping("/calendar-feed")
+    @ResponseBody
+    public List<CalendarEventDTO> calendarFeed(@RequestParam Long therapistId,
+                                               @RequestParam String start,
+                                               @RequestParam String end) {
+        return appointmentService.findCalendarEvents(therapistId, parseCalendarBound(start), parseCalendarBound(end));
+    }
+
+    /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date. */
+    private LocalDateTime parseCalendarBound(String raw) {
+        try {
+            return OffsetDateTime.parse(raw).toLocalDateTime();
+        } catch (DateTimeParseException e1) {
+            try {
+                return LocalDateTime.parse(raw);
+            } catch (DateTimeParseException e2) {
+                return LocalDate.parse(raw).atStartOfDay();
+            }
+        }
+    }
+
     // ── Save (create) ─────────────────────────────────────────────────────
     @PostMapping("/save")
     public String save(@ModelAttribute("form") AppointmentForm form,
+                       @RequestParam(defaultValue = "false") boolean forceSave,
+                       Model model,
                        RedirectAttributes ra) {
+        if (!forceSave) {
+            List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, null);
+            if (!conflicts.isEmpty()) {
+                populateFormModel(model);
+                model.addAttribute("form",                 form);
+                model.addAttribute("conflicts",             conflicts);
+                model.addAttribute("existingServiceLines",  form.getServiceLines());
+                model.addAttribute("existingProductLines",  form.getProductLines());
+                model.addAttribute("editMode",   false);
+                model.addAttribute("formAction", "/appointments/save");
+                model.addAttribute("cancelUrl",  "/appointments");
+                model.addAttribute("pageTitle",  "New Appointment");
+                return "appointments/form";
+            }
+        }
         try {
             Appointment saved = appointmentService.createAppointment(form);
             ra.addFlashAttribute("successMessage",
@@ -155,10 +204,29 @@ public class AppointmentController {
     public String update(@PathVariable Long id,
                          @ModelAttribute("form") AppointmentForm form,
                          @RequestParam(required = false) String returnUrl,
+                         @RequestParam(defaultValue = "false") boolean forceSave,
+                         Model model,
                          RedirectAttributes ra) {
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
+        if (!forceSave) {
+            List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, id);
+            if (!conflicts.isEmpty()) {
+                populateFormModel(model);
+                model.addAttribute("form",                 form);
+                model.addAttribute("conflicts",             conflicts);
+                model.addAttribute("existingServiceLines",  form.getServiceLines());
+                model.addAttribute("existingProductLines",  form.getProductLines());
+                model.addAttribute("editMode",   true);
+                model.addAttribute("formAction", "/appointments/" + id + "/update");
+                model.addAttribute("returnUrl",  returnUrl);
+                model.addAttribute("cancelUrl",  (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id);
+                model.addAttribute("pageTitle",  "Edit Appointment #" + id);
+                model.addAttribute("appointment", appointmentService.getById(id));
+                return "appointments/form";
+            }
+        }
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
@@ -285,6 +353,7 @@ public class AppointmentController {
         model.addAttribute("productData",    productData);
         model.addAttribute("therapistData",  therapistData);
         model.addAttribute("paymentMethods", PaymentMethod.values());
+        model.addAttribute("discountTypes",  DiscountType.values());
         model.addAttribute("defaultDateTime",
                 LocalDateTime.now().withSecond(0).withNano(0)
                         .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")));
