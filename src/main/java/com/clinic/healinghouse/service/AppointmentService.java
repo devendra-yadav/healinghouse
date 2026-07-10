@@ -1,6 +1,8 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.AppointmentForm;
+import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
 import jakarta.persistence.EntityNotFoundException;
@@ -16,9 +18,12 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 @Service
@@ -105,6 +110,113 @@ public class AppointmentService {
                 today.plusDays(1).atStartOfDay());
     }
 
+    // ── Conflict detection ───────────────────────────────────────────────────
+
+    /**
+     * Checks whether the therapist(s) on this form (main therapist + every line's therapist)
+     * are already booked on another appointment overlapping the requested time window.
+     * A therapist is "busy" for an appointment if they're the main therapist OR assigned to
+     * any of its lines (mirrors AppointmentSpec.hasTherapistId). Only SCHEDULED/COMPLETED
+     * appointments count — CANCELLED/NO_SHOW never conflict. When editing, pass the
+     * appointment's own id so it doesn't flag a conflict against itself.
+     */
+    @Transactional(readOnly = true)
+    public List<TherapistConflictDTO> findConflicts(AppointmentForm form, Long excludeAppointmentId) {
+        if (form.getAppointmentDateTime() == null) return List.of();
+
+        LocalDateTime start = form.getAppointmentDateTime();
+        int duration = form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                ? form.getDurationMinutes() : 60;
+        LocalDateTime end = start.plusMinutes(duration);
+
+        Set<Long> therapistIds = new LinkedHashSet<>();
+        if (form.getTherapistId() != null) therapistIds.add(form.getTherapistId());
+        form.getServiceLines().forEach(sl -> {
+            if (sl != null && sl.getTherapistId() != null) therapistIds.add(sl.getTherapistId());
+        });
+        form.getProductLines().forEach(pl -> {
+            if (pl != null && pl.getTherapistId() != null) therapistIds.add(pl.getTherapistId());
+        });
+        if (therapistIds.isEmpty()) return List.of();
+
+        // Widened bound (± 1 day) so appointments that straddle midnight are still caught;
+        // exact overlap is verified below, this is just a cheap pre-filter for the query.
+        LocalDateTime boundStart = start.toLocalDate().minusDays(1).atStartOfDay();
+        LocalDateTime boundEnd   = end.toLocalDate().plusDays(1).atStartOfDay();
+
+        List<TherapistConflictDTO> conflicts = new ArrayList<>();
+        for (Long therapistId : therapistIds) {
+            Specification<Appointment> spec = Specification
+                    .where(AppointmentSpec.withPatientAndTherapist())
+                    .and(AppointmentSpec.hasTherapistId(therapistId))
+                    .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+
+            String therapistName = therapistRepository.findById(therapistId)
+                    .map(Therapist::getFullName)
+                    .orElse("Therapist #" + therapistId);
+
+            for (Appointment candidate : appointmentRepository.findAll(spec)) {
+                if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
+                if (candidate.getStatus() == AppointmentStatus.CANCELLED
+                        || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
+
+                LocalDateTime candidateStart = candidate.getAppointmentDateTime();
+                LocalDateTime candidateEnd   = candidate.getEndDateTime();
+                boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
+                if (!overlaps) continue;
+
+                conflicts.add(new TherapistConflictDTO(
+                        therapistId, therapistName,
+                        candidate.getId(), candidate.getPatient().getFullName(),
+                        candidateStart, candidateEnd));
+            }
+        }
+        return conflicts;
+    }
+
+    // ── Calendar feed ────────────────────────────────────────────────────────
+
+    /**
+     * Appointments for one therapist's calendar view, within the visible date range.
+     * "This therapist" means main therapist OR any line therapist (mirrors hasTherapistId).
+     * The query window is widened by a day on each side so appointments that straddle
+     * the range boundary (e.g. started just before midnight) still show up.
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarEventDTO> findCalendarEvents(Long therapistId, LocalDateTime start, LocalDateTime end) {
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
+
+        return appointmentRepository.findAll(spec).stream()
+                .map(a -> toCalendarEvent(a, therapistId))
+                .toList();
+    }
+
+    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId) {
+        String title = appointment.getPatient().getFullName();
+        if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
+            title = title + " (with " + appointment.getTherapist().getFullName() + ")";
+        }
+        return new CalendarEventDTO(
+                appointment.getId(),
+                title,
+                appointment.getAppointmentDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                statusColor(appointment.getStatus()));
+    }
+
+    /** Mirrors the status → color convention already used in appointments/list.html. */
+    private String statusColor(AppointmentStatus status) {
+        return switch (status) {
+            case COMPLETED -> "#198754"; // bg-success
+            case CANCELLED -> "#dc3545"; // bg-danger
+            case NO_SHOW   -> "#ffc107"; // bg-warning
+            case SCHEDULED -> "#40916c"; // clinic brand green
+        };
+    }
+
     // ── Create ────────────────────────────────────────────────────────────────
 
     /**
@@ -143,6 +255,8 @@ public class AppointmentService {
                 .patient(patient)
                 .therapist(therapist)
                 .appointmentDateTime(form.getAppointmentDateTime())
+                .durationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                        ? form.getDurationMinutes() : 60)
                 .notes(form.getNotes())
                 .paymentMethod(paymentMethod)
                 .amountPaid(form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO)
@@ -290,6 +404,8 @@ public class AppointmentService {
         existing.setPatient(patient);
         existing.setTherapist(therapist);
         existing.setAppointmentDateTime(form.getAppointmentDateTime());
+        existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                ? form.getDurationMinutes() : 60);
         existing.setNotes(form.getNotes());
         existing.setPaymentMethod(pm);
 

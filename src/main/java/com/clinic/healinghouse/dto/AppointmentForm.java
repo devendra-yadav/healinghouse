@@ -25,6 +25,8 @@ public class AppointmentForm {
     @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm")
     private LocalDateTime appointmentDateTime;
 
+    private Integer durationMinutes = 60;
+
     private String notes;
     private String paymentMethod;   // kept as String to avoid enum binding errors on empty selection
 
@@ -47,6 +49,7 @@ public class AppointmentForm {
         f.setPatientId(appt.getPatient().getId());
         f.setTherapistId(appt.getTherapist().getId());
         f.setAppointmentDateTime(appt.getAppointmentDateTime());
+        f.setDurationMinutes(appt.getDurationMinutes());
         f.setNotes(appt.getNotes());
         f.setPaymentMethod(appt.getPaymentMethod() != null ? appt.getPaymentMethod().name() : null);
         f.setDiscountType(appt.getDiscountType() != null ? appt.getDiscountType().name() : "NONE");

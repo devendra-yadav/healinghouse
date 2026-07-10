@@ -42,6 +42,11 @@ public class Appointment {
     @Column(nullable = false)
     private LocalDateTime appointmentDateTime;
 
+    /** How long the therapist is occupied for, in minutes. Drives conflict detection and the calendar view. */
+    @Column(nullable = false, columnDefinition = "INT NOT NULL DEFAULT 60")
+    @Builder.Default
+    private Integer durationMinutes = 60;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default
@@ -115,6 +120,12 @@ public class Appointment {
             if (!pl.getTherapist().getId().equals(therapist.getId())) others.put(pl.getTherapist().getId(), pl.getTherapist());
         });
         return new ArrayList<>(others.values());
+    }
+
+    @Transient
+    public LocalDateTime getEndDateTime() {
+        int minutes = durationMinutes != null ? durationMinutes : 60;
+        return appointmentDateTime.plusMinutes(minutes);
     }
 
     @Transient
