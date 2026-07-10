@@ -213,6 +213,10 @@
                                 <div class="form-text" th:if="${editMode}">
                                     Added on top of the amount already prepaid — not a replacement.
                                 </div>
+                                <div id="paymentExceedsAlert" class="alert alert-danger py-2 px-3 mt-2 mb-0 d-none">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    <span id="paymentExceedsMessage"></span>
+                                </div>
                             </div>
                         </div>
                         <div class="row g-3">
@@ -618,6 +622,22 @@ function updateBalance() {
 
     set('summaryAmountPaid', fmt(paidNow));
     set('summaryBalance',    fmt(Math.max(0, grand - prepaid - paidNow)));
+
+    checkPaymentExceedsTotal(grand, prepaid, paidNow);
+}
+
+// Warns (and, on submit, blocks) if the total amount paid would exceed the grand total.
+function checkPaymentExceedsTotal(grand, prepaid, paidNow) {
+    const alertBox = document.getElementById('paymentExceedsAlert');
+    const excess = (prepaid + paidNow) - grand;
+    if (excess > 0.001) {
+        document.getElementById('paymentExceedsMessage').textContent =
+            'Amount paid exceeds the grand total by ' + fmt(excess) + '. Please correct it before saving.';
+        alertBox.classList.remove('d-none');
+        return true;
+    }
+    alertBox.classList.add('d-none');
+    return false;
 }
 
 // Unlocks the "Amount Prepaid" figure for a one-off correction (e.g. a typo from a
@@ -709,6 +729,20 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
             '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>' +
             '<span class="text-danger fw-semibold">Please add at least one service before saving.</span>';
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+    }
+
+    updateBalance();
+    const grand   = parseRaw('summaryGrandTotal');
+    const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    let prepaid = typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0;
+    if (prepaidInput && !prepaidInput.classList.contains('d-none')) {
+        prepaid = parseFloat(prepaidInput.value) || 0;
+    }
+    if (checkPaymentExceedsTotal(grand, prepaid, paidNow)) {
+        e.preventDefault();
+        document.getElementById('paymentExceedsAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 });
 
