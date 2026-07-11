@@ -8,6 +8,9 @@ import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.colors.Color;
 import com.itextpdf.kernel.colors.ColorConstants;
 import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.events.Event;
+import com.itextpdf.kernel.events.IEventHandler;
+import com.itextpdf.kernel.events.PdfDocumentEvent;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
@@ -17,12 +20,12 @@ import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
+import com.itextpdf.kernel.pdf.xobject.PdfFormXObject;
 import com.itextpdf.layout.Canvas;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.Cell;
-import com.itextpdf.layout.element.Div;
 import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.LineSeparator;
 import com.itextpdf.layout.element.Paragraph;
@@ -67,6 +70,7 @@ public class PdfExportUtil {
 
     private static final ThreadLocal<PdfFont> CURRENT_REGULAR_FONT = new ThreadLocal<>();
     private static final ThreadLocal<PdfFont> CURRENT_BOLD_FONT = new ThreadLocal<>();
+    private static final ThreadLocal<FooterEventHandler> CURRENT_FOOTER_HANDLER = new ThreadLocal<>();
 
     static {
         try {
@@ -215,14 +219,30 @@ public class PdfExportUtil {
         document.setFont(regularFont());
         document.setFontSize(9.5f);
         document.setFontColor(TEXT_DARK);
+
+        // Footers must be stamped as each page finishes (via an END_PAGE event), not in a
+        // post-hoc loop after all content has been added: iText's Document auto-flushes a
+        // page's underlying PdfDictionary once a later page is started (a memory-saving
+        // measure), so a naive "loop pdfDoc.getPage(1..N)" run after document.add() finds
+        // earlier pages already flushed and throws a NullPointerException from
+        // PdfPage.getPageSize() — any report spanning 2+ pages hit this on export.
+        FooterEventHandler footerHandler = new FooterEventHandler();
+        pdfDoc.addEventHandler(PdfDocumentEvent.END_PAGE, footerHandler);
+        CURRENT_FOOTER_HANDLER.set(footerHandler);
+
         return document;
     }
 
     private static void finish(Document document, PdfDocument pdfDoc) {
-        stampFooters(pdfDoc);
+        // The "of N" total page count isn't known until every page has been laid out, so each
+        // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
+        // the real count once, right before close — safe because the XObject is its own
+        // indirect object and isn't flushed just because the page referencing it already was.
+        CURRENT_FOOTER_HANDLER.get().writeTotalPageCount(pdfDoc);
         document.close();
         CURRENT_REGULAR_FONT.remove();
         CURRENT_BOLD_FONT.remove();
+        CURRENT_FOOTER_HANDLER.remove();
     }
 
     private static void addLetterhead(Document document, String title, String subtitle) {
@@ -265,36 +285,58 @@ public class PdfExportUtil {
     }
 
     /**
-     * Adds a titled table as a single atomic block. Tables normally split across a page break
-     * on their own (desirable for long tables — the header row repeats), but a plain heading
-     * added just before one doesn't share in that: if the table itself doesn't fit, only it
-     * moves to the next page, leaving the heading orphaned at the bottom of the previous one.
-     * Wrapping both in a keep-together Div moves the whole section together instead.
+     * Adds a titled table. A plain heading added just before a table doesn't share in the
+     * table's own page-break handling (desirable for long tables — the header row repeats):
+     * if the table doesn't fit, only it moves to the next page, leaving the heading orphaned
+     * at the bottom of the previous one. setKeepWithNext (rather than wrapping the whole
+     * section, table included, in a keep-together block) glues just the heading to the start
+     * of the table, so only the heading jumps to the next page while the table is still free
+     * to split across as many pages as it needs. A keep-together Div was tried here previously,
+     * but for tables tall enough that heading+full-table never fits on any single page, iText
+     * forces the layout anyway and corrupts the page tree (a later NPE while stamping footers) —
+     * see the "Cannot invoke Map.get because this.map is null" bug in PdfPage.getPageSize().
      */
     private static void addSection(Document document, String title, Table table) {
-        Div section = new Div().setKeepTogether(true);
-        section.add(sectionTitleParagraph(title));
-        section.add(sectionRuleLine());
-        section.add(table);
-        document.add(section);
+        document.add(sectionTitleParagraph(title));
+        document.add(sectionRuleLine());
+        document.add(table);
     }
 
     private static Paragraph sectionTitleParagraph(String title) {
         return new Paragraph(title)
                 .setFont(boldFont()).setFontSize(11.5f).setFontColor(BRAND_DARK)
-                .setMarginTop(12).setMarginBottom(2);
+                .setMarginTop(12).setMarginBottom(2)
+                .setKeepWithNext(true);
     }
 
     private static LineSeparator sectionRuleLine() {
-        return new LineSeparator(new SolidLine(0.75f)).setStrokeColor(BORDER_COLOR).setMarginBottom(6);
+        return new LineSeparator(new SolidLine(0.75f)).setStrokeColor(BORDER_COLOR).setMarginBottom(6)
+                .setKeepWithNext(true);
     }
 
-    private static void stampFooters(PdfDocument pdfDoc) {
-        int totalPages = pdfDoc.getNumberOfPages();
-        for (int i = 1; i <= totalPages; i++) {
-            PdfPage page = pdfDoc.getPage(i);
+    /**
+     * Stamps the footer rule + "Confidential" text + "Page N of {total}" on each page as it
+     * finishes, rather than in a loop after the fact (see {@link #newDocument} for why the
+     * latter crashes on multi-page documents). The total-page-count digits live in a small
+     * shared {@link PdfFormXObject} placeholder that every page's footer references but that
+     * only {@link #writeTotalPageCount} actually draws into, once the real total is known.
+     */
+    private static class FooterEventHandler implements IEventHandler {
+        private static final float TOTAL_PLACEHOLDER_WIDTH = 22f;
+        private static final float TOTAL_PLACEHOLDER_HEIGHT = 10f;
+
+        private final PdfFormXObject totalPagesPlaceholder =
+                new PdfFormXObject(new Rectangle(0, 0, TOTAL_PLACEHOLDER_WIDTH, TOTAL_PLACEHOLDER_HEIGHT));
+
+        @Override
+        public void handleEvent(Event event) {
+            PdfDocumentEvent docEvent = (PdfDocumentEvent) event;
+            PdfDocument pdfDoc = docEvent.getDocument();
+            PdfPage page = docEvent.getPage();
+            int pageNumber = pdfDoc.getPageNumber(page);
             Rectangle pageSize = page.getPageSize();
             float footerY = pageSize.getBottom() + 26;
+            float pageLabelRight = pageSize.getRight() - MARGIN_SIDE - TOTAL_PLACEHOLDER_WIDTH;
 
             PdfCanvas pdfCanvas = new PdfCanvas(page);
             pdfCanvas.saveState()
@@ -309,8 +351,17 @@ public class PdfExportUtil {
                 canvas.setFont(regularFont()).setFontSize(8).setFontColor(TEXT_MUTED);
                 canvas.showTextAligned("Healing House Clinic — Confidential, for internal use only",
                         pageSize.getLeft() + MARGIN_SIDE, footerY, TextAlignment.LEFT);
-                canvas.showTextAligned("Page " + i + " of " + totalPages,
-                        pageSize.getRight() - MARGIN_SIDE, footerY, TextAlignment.RIGHT);
+                canvas.showTextAligned("Page " + pageNumber + " of ",
+                        pageLabelRight, footerY, TextAlignment.RIGHT);
+            }
+            pdfCanvas.addXObjectAt(totalPagesPlaceholder, pageLabelRight, footerY - 2.5f);
+            pdfCanvas.release();
+        }
+
+        void writeTotalPageCount(PdfDocument pdfDoc) {
+            try (Canvas canvas = new Canvas(totalPagesPlaceholder, pdfDoc)) {
+                canvas.setFont(regularFont()).setFontSize(8).setFontColor(TEXT_MUTED);
+                canvas.showTextAligned(String.valueOf(pdfDoc.getNumberOfPages()), 0, 2.5f, TextAlignment.LEFT);
             }
         }
     }
