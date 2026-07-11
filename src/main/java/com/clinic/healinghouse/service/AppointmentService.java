@@ -325,6 +325,12 @@ public class AppointmentService {
         appointment.setTotalProductAmount(totalProductAmount);
         applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
 
+        if (appointment.getAmountPaid().compareTo(appointment.getGrandTotal()) > 0) {
+            throw new IllegalArgumentException(
+                    "Amount paid (₹" + appointment.getAmountPaid()
+                    + ") cannot exceed the grand total (₹" + appointment.getGrandTotal() + ").");
+        }
+
         Appointment saved = appointmentRepository.save(appointment);
         log.info("Created appointment id={} patient='{}' therapist='{}' grandTotal={}",
                 saved.getId(), patient.getFullName(), therapist.getFullName(), saved.getGrandTotal());
@@ -480,6 +486,12 @@ public class AppointmentService {
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
             applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
+        }
+
+        if (existing.getAmountPaid().compareTo(existing.getGrandTotal()) > 0) {
+            throw new IllegalArgumentException(
+                    "Amount paid (₹" + existing.getAmountPaid()
+                    + ") cannot exceed the grand total (₹" + existing.getGrandTotal() + ").");
         }
 
         Appointment saved = appointmentRepository.save(existing);

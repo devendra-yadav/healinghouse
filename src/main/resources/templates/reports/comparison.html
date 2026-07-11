@@ -70,18 +70,42 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="fw-semibold">Services Revenue</td>
+                                <td class="fw-semibold">Services Rev.(All)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
-                                    th:text="|₹ ${#numbers.formatDecimal(e.servicesRevenue, 1, 2)}|"></td>
+                                    th:text="|₹ ${#numbers.formatDecimal(e.allServicesRevenue, 1, 2)}|"></td>
                             </tr>
                             <tr>
-                                <td class="fw-semibold">Products Revenue</td>
+                                <td class="fw-semibold">Products Rev.(All)</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.allProductsRevenue, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Services(All)</td>
+                                <td th:each="e : ${report.therapistEarnings}" th:text="${e.allServicesCount}"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Services Rev.(Bonus tagged)</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.bonusTaggedServicesRevenue, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Products Rev.(Commission tagged)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
                                     th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
                             </tr>
                             <tr>
-                                <td class="fw-semibold">Services Count</td>
+                                <td class="fw-semibold">Services(Bonus tagged)</td>
                                 <td th:each="e : ${report.therapistEarnings}" th:text="${e.servicesCount}"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Service Commission</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.serviceCommission, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Product Commission</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.productCommission, 1, 2)}|"></td>
                             </tr>
                             <tr>
                                 <td class="fw-semibold">Total Commission</td>
@@ -91,15 +115,24 @@
                             <tr>
                                 <td class="fw-semibold">Bonus</td>
                                 <td th:each="e : ${report.therapistEarnings}">
-                                    <span th:if="${e.bonusEarned}" class="badge bg-success"
-                                          th:text="|₹ ${#numbers.formatDecimal(e.bonusAmount, 1, 2)}|"></span>
-                                    <span th:unless="${e.bonusEarned}" class="text-muted">—</span>
+                                    <span th:if="${e.bonusEarned}" class="badge bg-success">Yes</span>
+                                    <span th:unless="${e.bonusEarned}" class="text-muted">No</span>
                                 </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Bonus Amount</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.bonusAmount, 1, 2)}|"></td>
                             </tr>
                             <tr class="table-light">
                                 <td class="fw-bold">Total Variable Pay</td>
                                 <td th:each="e : ${report.therapistEarnings}" class="fw-bold"
                                     th:text="|₹ ${#numbers.formatDecimal(e.totalVariablePay, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="fw-semibold">Fixed Salary</td>
+                                <td th:each="e : ${report.therapistEarnings}"
+                                    th:text="|₹ ${#numbers.formatDecimal(e.fixedMonthlySalary, 1, 2)}|"></td>
                             </tr>
                         </tbody>
                     </table>
