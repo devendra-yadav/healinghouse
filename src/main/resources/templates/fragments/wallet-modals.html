@@ -19,7 +19,7 @@
                 </h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form th:action="@{/patients/{patientId}/wallet/topup(patientId=${patientId} ?: 0)}" method="post"
+            <form id="topUpModalForm" th:action="@{/patients/{patientId}/wallet/topup(patientId=${patientId} ?: 0)}" method="post"
                   th:target="${openInNewTab} ? '_blank' : '_self'">
                 <div class="modal-body">
                     <input type="hidden" name="patientId" id="topUpModalPatientId" th:value="${patientId}">
