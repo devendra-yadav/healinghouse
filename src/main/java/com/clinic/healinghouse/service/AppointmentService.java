@@ -8,6 +8,8 @@ import com.clinic.healinghouse.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class AppointmentService {
     private final ProductRepository                productRepository;
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
+    private final WalletService                    walletService;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
@@ -93,6 +96,56 @@ public class AppointmentService {
                 .and(AppointmentSpec.hasPatientId(patientId));
 
         return appointmentRepository.findAll(spec, DATE_DESC);
+    }
+
+    /** Same as the patient-scoped overload, but paginated (used by the Appointments list, Patient Detail and Therapist Detail history tables). */
+    @Transactional(readOnly = true)
+    public Page<Appointment> findByFilters(AppointmentStatus status,
+                                           Long therapistId,
+                                           LocalDate dateFrom,
+                                           LocalDate dateTo,
+                                           String patientName,
+                                           Long patientId,
+                                           Pageable pageable) {
+        LocalDateTime start = dateFrom != null ? dateFrom.atStartOfDay()      : null;
+        LocalDateTime end   = dateTo   != null ? dateTo.atTime(LocalTime.MAX) : null;
+
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(AppointmentSpec.hasStatus(status))
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(start, end))
+                .and(AppointmentSpec.patientNameOrPhoneContains(patientName))
+                .and(AppointmentSpec.hasPatientId(patientId));
+
+        return appointmentRepository.findAll(spec, pageable);
+    }
+
+    /**
+     * Counts appointments matching the given filters that are also COMPLETED — used by the Therapist
+     * Detail "Appointments" summary card, which needs a completed-count across the full filtered range,
+     * not just the current page. AND-ing {@code status} with COMPLETED reproduces the pre-pagination
+     * behaviour (filtering the completed-count within whatever status the user already selected).
+     */
+    @Transactional(readOnly = true)
+    public long countCompleted(AppointmentStatus status,
+                               Long therapistId,
+                               LocalDate dateFrom,
+                               LocalDate dateTo,
+                               String patientName,
+                               Long patientId) {
+        LocalDateTime start = dateFrom != null ? dateFrom.atStartOfDay()      : null;
+        LocalDateTime end   = dateTo   != null ? dateTo.atTime(LocalTime.MAX) : null;
+
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.hasStatus(status))
+                .and(AppointmentSpec.hasStatus(AppointmentStatus.COMPLETED))
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(start, end))
+                .and(AppointmentSpec.patientNameOrPhoneContains(patientName))
+                .and(AppointmentSpec.hasPatientId(patientId));
+
+        return appointmentRepository.count(spec);
     }
 
     /** Shortcut: all appointments ordered by date descending (no filter). */
@@ -325,6 +378,18 @@ public class AppointmentService {
         appointment.setTotalProductAmount(totalProductAmount);
         applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
 
+        // 6b. Wallet balance applied — a payment source alongside cash/UPI/card, never a discount.
+        // Silently capped at grandTotal (mirrors applyDiscount's resolved.min(subtotal)) rather than
+        // rejected, so it composes cleanly with the exceeds-grandTotal guard below.
+        BigDecimal walletRequested = form.getWalletAmountApplied() != null
+                ? form.getWalletAmountApplied() : BigDecimal.ZERO;
+        if (walletRequested.signum() < 0) {
+            throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
+        }
+        walletRequested = walletRequested.min(appointment.getGrandTotal());
+        appointment.setWalletAmountApplied(walletRequested);
+        appointment.setAmountPaid(appointment.getAmountPaid().add(walletRequested));
+
         if (appointment.getAmountPaid().compareTo(appointment.getGrandTotal()) > 0) {
             throw new IllegalArgumentException(
                     "Amount paid (₹" + appointment.getAmountPaid()
@@ -332,6 +397,14 @@ public class AppointmentService {
         }
 
         Appointment saved = appointmentRepository.save(appointment);
+
+        // Debited last so it's the only step that can still fail after every other validation
+        // passed — @Transactional rolls the whole method back on an insufficient-balance failure,
+        // no manual compensation needed.
+        if (walletRequested.signum() > 0) {
+            walletService.applyToAppointment(patient.getId(), saved.getId(), walletRequested);
+        }
+
         log.info("Created appointment id={} patient='{}' therapist='{}' grandTotal={}",
                 saved.getId(), patient.getFullName(), therapist.getFullName(), saved.getGrandTotal());
         return saved;
@@ -368,6 +441,7 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
+        reverseFullWalletIfAny(appt);
         restoreProductStock(appt);
         Appointment saved = appointmentRepository.save(appt);
         log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
@@ -383,6 +457,7 @@ public class AppointmentService {
             throw new IllegalStateException("Only SCHEDULED appointments can be marked as no-show.");
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
+        reverseFullWalletIfAny(appt);
         restoreProductStock(appt);
         Appointment saved = appointmentRepository.save(appt);
         log.info("Appointment id={} marked NO_SHOW", saved.getId());
@@ -488,6 +563,23 @@ public class AppointmentService {
             applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
         }
 
+        // Wallet balance applied — a target, not a delta: it's the total wallet-sourced amount this
+        // appointment should now carry, silently capped at the (possibly just-shrunk) grandTotal. The
+        // capping IS the auto-reversal trigger for a discount added/increased or a line removed: whenever
+        // grandTotal drops below the previously-applied amount, the delta below comes out negative.
+        BigDecimal previousWalletApplied = existing.getWalletAmountApplied() != null
+                ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
+        BigDecimal walletRequested = form.getWalletAmountApplied() != null
+                ? form.getWalletAmountApplied() : previousWalletApplied;
+        if (walletRequested.signum() < 0) {
+            throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
+        }
+        walletRequested = walletRequested.min(existing.getGrandTotal());
+        BigDecimal walletDelta = walletRequested.subtract(previousWalletApplied);
+
+        existing.setAmountPaid(existing.getAmountPaid().subtract(previousWalletApplied).add(walletRequested));
+        existing.setWalletAmountApplied(walletRequested);
+
         if (existing.getAmountPaid().compareTo(existing.getGrandTotal()) > 0) {
             throw new IllegalArgumentException(
                     "Amount paid (₹" + existing.getAmountPaid()
@@ -495,6 +587,13 @@ public class AppointmentService {
         }
 
         Appointment saved = appointmentRepository.save(existing);
+
+        if (walletDelta.signum() > 0) {
+            walletService.applyToAppointment(existing.getPatient().getId(), saved.getId(), walletDelta);
+        } else if (walletDelta.signum() < 0) {
+            walletService.reverseForAppointment(existing.getPatient().getId(), saved.getId(), walletDelta.abs());
+        }
+
         log.info("Updated appointment id={}", saved.getId());
         return saved;
     }
@@ -630,5 +729,15 @@ public class AppointmentService {
             p.setStockQuantity(p.getStockQuantity() + pl.getQuantity());
         }
         // Product changes are flushed automatically within the same transaction
+    }
+
+    /** Credits back any wallet-sourced payment on an appointment that's being cancelled/no-showed. */
+    private void reverseFullWalletIfAny(Appointment appt) {
+        BigDecimal applied = appt.getWalletAmountApplied();
+        if (applied != null && applied.signum() > 0) {
+            walletService.reverseForAppointment(appt.getPatient().getId(), appt.getId(), applied);
+            appt.setAmountPaid(appt.getAmountPaid().subtract(applied).max(BigDecimal.ZERO));
+            appt.setWalletAmountApplied(BigDecimal.ZERO);
+        }
     }
 }

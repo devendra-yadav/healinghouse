@@ -61,7 +61,7 @@
                             <option value="">— Select Patient —</option>
                             <option th:each="p : ${patients}"
                                     th:value="${p.id}"
-                                    th:text="${p.fullName}"
+                                    th:text="${p.fullName + ' ( ' + p.phone + ' )'}"
                                     th:selected="${p.id == form.patientId}">
                             </option>
                         </select>
@@ -221,6 +221,64 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-12 col-md-6">
+                                <label class="form-label fw-semibold">Apply from Wallet (₹)</label>
+
+                                <!-- Edit mode: the already-applied amount is read-only; staff types an
+                                     ADDITIONAL amount to draw now. The pencil lets staff retype the total
+                                     directly for a one-off correction (mirrors "Amount Prepaid" above) —
+                                     this replaces a single field that used to represent the running total,
+                                     which staff kept mistaking for an incremental "amount to add" box. -->
+                                <div th:if="${editMode}">
+                                    <div class="input-group mb-2">
+                                        <span class="input-group-text">Already applied</span>
+                                        <span id="walletAppliedDisplay" class="form-control bg-light"
+                                              th:text="|₹ ${#numbers.formatDecimal(appointment.walletAmountApplied != null ? appointment.walletAmountApplied : 0, 1, 2)}|">₹0.00</span>
+                                        <input type="number" name="walletAmountApplied" id="walletAppliedInput"
+                                               class="form-control d-none" min="0" step="0.01"
+                                               th:value="${appointment.walletAmountApplied != null ? appointment.walletAmountApplied : 0}"
+                                               oninput="updateBalance()">
+                                        <button type="button" id="editWalletAppliedBtn" class="btn btn-outline-secondary"
+                                                title="Correct total wallet amount applied" onclick="toggleWalletAppliedEdit()">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </div>
+                                    <label class="form-label small text-muted mb-1">Additional from Wallet Now (₹)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">₹</span>
+                                        <input type="number" id="walletAdditionalInput"
+                                               class="form-control" min="0" step="0.01" value="0"
+                                               oninput="updateBalance()"
+                                               onfocus="clearZeroOnFocus(this)"
+                                               onblur="restoreZeroIfEmpty(this)">
+                                    </div>
+                                </div>
+
+                                <!-- Create mode: no prior amount, so a single direct-entry field is unambiguous -->
+                                <div class="input-group" th:unless="${editMode}">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" name="walletAmountApplied" id="walletAppliedInput"
+                                           class="form-control" min="0" step="0.01"
+                                           th:value="${form.walletAmountApplied != null ? form.walletAmountApplied : 0}"
+                                           oninput="updateBalance()"
+                                           onfocus="clearZeroOnFocus(this)"
+                                           onblur="restoreZeroIfEmpty(this)">
+                                </div>
+
+                                <div class="form-text">
+                                    Available balance: <span id="walletBalanceDisplay" class="fw-semibold">₹0.00</span>
+                                    <a href="#" id="walletTopUpLink" class="ms-1 disabled"
+                                       data-bs-toggle="modal" data-bs-target="#topUpModal">Top Up</a>
+                                    <button type="button" class="btn btn-link btn-sm p-0 ms-1"
+                                            onclick="refreshWalletBalance()">Refresh</button>
+                                </div>
+                                <div id="walletExceedsAlert" class="alert alert-danger py-2 px-3 mt-2 mb-0 d-none">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                                    <span id="walletExceedsMessage"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
                                 <label class="form-label fw-semibold">Discount Type</label>
                                 <select name="discountType" id="discountTypeSelect" class="form-select"
                                         onchange="onDiscountTypeChange()">
@@ -275,6 +333,10 @@
                                     <td class="pe-3 text-end fw-bold fs-5 text-success"
                                         id="summaryGrandTotal">₹0.00</td>
                                 </tr>
+                                <tr>
+                                    <td class="ps-3 text-muted">Applied from Wallet</td>
+                                    <td class="pe-3 text-end fw-semibold" id="summaryWalletApplied">₹0.00</td>
+                                </tr>
                                 <tr th:if="${editMode}">
                                     <td class="ps-3 text-muted">
                                         Amount Prepaid
@@ -325,6 +387,8 @@
     </form>
 </main>
 
+<th:block th:replace="~{fragments/wallet-modals :: topUpModal(${editMode} ? ${appointment.patient.id} : null, ${walletBalance}, null, true)}"/>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
@@ -335,11 +399,13 @@
 const SERVICE_DATA   = /*[[${serviceData}]]*/ [];
 const PRODUCT_DATA   = /*[[${productData}]]*/ [];
 const THERAPIST_DATA  = /*[[${therapistData}]]*/ [];
+let currentWalletBalance = /*[[${walletBalance != null ? walletBalance : 0}]]*/ 0;
 /*]]>*/
 </script>
 <script th:if="${editMode}" th:inline="javascript">
 /*<![CDATA[*/
 const EXISTING_AMOUNT_PAID = /*[[${appointment.amountPaid != null ? appointment.amountPaid : 0}]]*/ 0;
+const EXISTING_WALLET_APPLIED = /*[[${appointment.walletAmountApplied != null ? appointment.walletAmountApplied : 0}]]*/ 0;
 /*]]>*/
 </script>
 
@@ -608,25 +674,92 @@ function onDiscountTypeChange() {
     updateTotals();
 }
 
+// walletAppliedInput always carries the actual target total that gets submitted.
+// In edit mode's normal (additive) state it's kept in sync here from the "additional"
+// box; the pencil-edit ("correction") state lets staff type the target directly instead.
+function computeWalletApplied() {
+    const walletInput = document.getElementById('walletAppliedInput');
+    const walletAdditionalInput = document.getElementById('walletAdditionalInput');
+    const usingWalletCorrection = walletAdditionalInput ? walletAdditionalInput.disabled : false;
+    let walletApplied;
+    if (walletAdditionalInput && !usingWalletCorrection) {
+        walletApplied = (typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0)
+                       + (parseFloat(walletAdditionalInput.value) || 0);
+        walletInput.value = walletApplied;
+    } else {
+        walletApplied = parseFloat(walletInput.value) || 0;
+    }
+    return walletApplied;
+}
+
+// "Amount Prepaid" = everything already committed to this appointment excluding the new
+// cash payment being entered right now — previous cash plus the (possibly just-updated)
+// wallet contribution. Shared by updateBalance() and the submit handler so both agree.
+function computePrepaid(walletApplied) {
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    const usingPrepaidCorrection = prepaidInput && !prepaidInput.classList.contains('d-none');
+    if (usingPrepaidCorrection) {
+        return parseFloat(prepaidInput.value) || 0;
+    }
+    const existingCashOnly = (typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0)
+                            - (typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0);
+    return existingCashOnly + walletApplied;
+}
+
 function updateBalance() {
     const grand   = parseRaw('summaryGrandTotal');
     const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+    const walletApplied = computeWalletApplied();
+    const prepaid = computePrepaid(walletApplied);
 
-    const prepaidInput = document.getElementById('prepaidCorrectionInput');
-    let prepaid = typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0;
-    if (prepaidInput && !prepaidInput.classList.contains('d-none')) {
-        prepaid = parseFloat(prepaidInput.value) || 0;
-    }
     const prepaidDisplay = document.getElementById('prepaidDisplay');
     if (prepaidDisplay) prepaidDisplay.textContent = fmt(prepaid);
 
+    set('summaryWalletApplied', fmt(walletApplied));
     set('summaryAmountPaid', fmt(paidNow));
     set('summaryBalance',    fmt(Math.max(0, grand - prepaid - paidNow)));
 
-    checkPaymentExceedsTotal(grand, prepaid, paidNow);
+    // Attribute an overpayment to whichever field actually caused it: if the wallet
+    // portion alone (plus any pre-existing cash) already covers or exceeds the grand
+    // total, that's a wallet problem — the "Payment Received Now" exceeds-check only
+    // runs once the wallet side isn't already the culprit, so the right box explains it.
+    const walletIssue = checkWalletIssues(walletApplied, grand, prepaid);
+    if (!walletIssue) {
+        checkPaymentExceedsTotal(grand, prepaid, paidNow);
+    } else {
+        document.getElementById('paymentExceedsAlert').classList.add('d-none');
+    }
+}
+
+// Wallet box owns two independent concerns: (1) does the wallet actually have enough
+// balance for what's being requested (currentWalletBalance is the *remaining* balance —
+// it already excludes whatever this appointment previously drew, so only the amount
+// ABOVE what's already applied counts against it), and (2) would applying this much
+// wallet alone push the appointment's total paid over its grand total.
+function checkWalletIssues(walletApplied, grand, prepaid) {
+    const alertBox = document.getElementById('walletExceedsAlert');
+    const existing = typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0;
+    const additionalRequested = walletApplied - existing;
+
+    if (additionalRequested - currentWalletBalance > 0.001) {
+        document.getElementById('walletExceedsMessage').textContent =
+            'Wallet amount exceeds available balance of ' + fmt(currentWalletBalance) + '.';
+        alertBox.classList.remove('d-none');
+        return true;
+    }
+    if (prepaid - grand > 0.001) {
+        document.getElementById('walletExceedsMessage').textContent =
+            'Wallet amount applied would make the total paid exceed the grand total by ' + fmt(prepaid - grand) + '.';
+        alertBox.classList.remove('d-none');
+        return true;
+    }
+    alertBox.classList.add('d-none');
+    return false;
 }
 
 // Warns (and, on submit, blocks) if the total amount paid would exceed the grand total.
+// Only called once checkWalletIssues has ruled out the wallet as the cause, so this
+// alert always means the new cash payment ("Payment Received Now") is what's excessive.
 function checkPaymentExceedsTotal(grand, prepaid, paidNow) {
     const alertBox = document.getElementById('paymentExceedsAlert');
     const excess = (prepaid + paidNow) - grand;
@@ -647,17 +780,54 @@ function togglePrepaidEdit() {
     const display = document.getElementById('prepaidDisplay');
     const input   = document.getElementById('prepaidCorrectionInput');
     const btn     = document.getElementById('editPrepaidBtn');
+    const walletInput = document.getElementById('walletAppliedInput');
+    const walletAdditionalInput = document.getElementById('walletAdditionalInput');
+    const editWalletBtn = document.getElementById('editWalletAppliedBtn');
     const editing = !input.classList.contains('d-none');
     if (editing) {
         input.value = EXISTING_AMOUNT_PAID;
         input.classList.add('d-none');
         display.classList.remove('d-none');
         btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
+        if (walletInput) walletInput.disabled = false;
+        if (walletAdditionalInput) walletAdditionalInput.disabled = false;
+        if (editWalletBtn) editWalletBtn.disabled = false;
     } else {
         display.classList.add('d-none');
         input.classList.remove('d-none');
         input.focus();
         btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        // Mutual exclusion: the prepaid pencil overrides the whole "already paid" figure,
+        // so the wallet-applied amount can't be independently adjusted at the same time.
+        if (walletInput) walletInput.disabled = true;
+        if (walletAdditionalInput) walletAdditionalInput.disabled = true;
+        if (editWalletBtn) editWalletBtn.disabled = true;
+    }
+    updateBalance();
+}
+
+// Toggles between the normal additive "Additional from Wallet Now" box and a direct
+// correction of the total wallet-applied figure (e.g. fixing a mistaken entry from a
+// previous visit). Mirrors togglePrepaidEdit's display/input swap.
+function toggleWalletAppliedEdit() {
+    const display = document.getElementById('walletAppliedDisplay');
+    const input   = document.getElementById('walletAppliedInput');
+    const btn     = document.getElementById('editWalletAppliedBtn');
+    const additionalInput = document.getElementById('walletAdditionalInput');
+    const editing = !input.classList.contains('d-none');
+    if (editing) {
+        input.value = typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0;
+        input.classList.add('d-none');
+        display.classList.remove('d-none');
+        btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
+        if (additionalInput) { additionalInput.disabled = false; additionalInput.value = 0; }
+    } else {
+        display.classList.add('d-none');
+        input.classList.remove('d-none');
+        input.focus();
+        btn.innerHTML = '<i class="bi bi-x-lg"></i>';
+        // Mutual exclusion: directly correcting the total overrides the additive box.
+        if (additionalInput) additionalInput.disabled = true;
     }
     updateBalance();
 }
@@ -733,12 +903,15 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
     }
 
     updateBalance();
-    const grand   = parseRaw('summaryGrandTotal');
-    const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
-    const prepaidInput = document.getElementById('prepaidCorrectionInput');
-    let prepaid = typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0;
-    if (prepaidInput && !prepaidInput.classList.contains('d-none')) {
-        prepaid = parseFloat(prepaidInput.value) || 0;
+    const grand         = parseRaw('summaryGrandTotal');
+    const paidNow        = parseFloat(document.getElementById('amountPaidInput').value) || 0;
+    const walletApplied  = computeWalletApplied();
+    const prepaid        = computePrepaid(walletApplied);
+
+    if (checkWalletIssues(walletApplied, grand, prepaid)) {
+        e.preventDefault();
+        document.getElementById('walletExceedsAlert').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
     }
     if (checkPaymentExceedsTotal(grand, prepaid, paidNow)) {
         e.preventDefault();
@@ -751,8 +924,26 @@ function set(id, val) { document.getElementById(id).textContent = val; }
 function toggle(id, show) {
     document.getElementById(id).classList.toggle('d-none', !show);
 }
+// Wallet balance is only worth calling out when there's something to spend — a ₹0
+// balance stays plain text so it doesn't compete visually with the exceeds-balance alert.
+function renderWalletBalance(bal) {
+    const el = document.getElementById('walletBalanceDisplay');
+    el.textContent = fmt(bal);
+    const hasBalance = bal > 0;
+    el.classList.toggle('badge', hasBalance);
+    el.classList.toggle('bg-success', hasBalance);
+    el.classList.toggle('text-white', hasBalance);
+    el.classList.toggle('fs-6', hasBalance);
+}
 function parseRaw(id) {
     return parseFloat(document.getElementById(id).textContent.replace(/[₹,]/g, '')) || 0;
+}
+// The topUpModal form's action is rendered server-side with the patient id known at page
+// load (null in create mode until a patient is picked) — keep it in sync client-side too,
+// otherwise it stays pointed at the placeholder "/patients/0/wallet/topup".
+function updateTopUpFormAction(pid) {
+    const form = document.getElementById('topUpModalForm');
+    if (form && pid) form.action = '/patients/' + pid + '/wallet/topup';
 }
 
 // ── Searchable Patient / Therapist dropdowns ────────────────────────────────
@@ -775,7 +966,38 @@ document.addEventListener('DOMContentLoaded', function () {
         searchResultLimit: 50,
         fuseOptions: { threshold: 0.3 }
     });
+
+    // Balance display: server-rendered already in edit mode (currentWalletBalance init'd
+    // from ${walletBalance}); in create mode it's fetched here once a patient is picked.
+    renderWalletBalance(currentWalletBalance);
+    document.getElementById('walletTopUpLink').classList.toggle('disabled', !document.getElementById('patientSelect').value);
+    updateTopUpFormAction(document.getElementById('patientSelect').value);
+    document.getElementById('patientSelect').addEventListener('change', function () {
+        const pid = this.value;
+        const topUpLink = document.getElementById('walletTopUpLink');
+        const hiddenPid = document.getElementById('topUpModalPatientId');
+        if (hiddenPid) hiddenPid.value = pid || '';
+        topUpLink.classList.toggle('disabled', !pid);
+        updateTopUpFormAction(pid);
+        if (!pid) {
+            currentWalletBalance = 0;
+            renderWalletBalance(0);
+            updateBalance();
+            return;
+        }
+        fetch('/patients/' + pid + '/wallet/balance')
+            .then(r => r.json())
+            .then(bal => {
+                currentWalletBalance = bal;
+                renderWalletBalance(bal);
+                updateBalance();
+            });
+    });
 });
+
+function refreshWalletBalance() {
+    document.getElementById('patientSelect').dispatchEvent(new Event('change'));
+}
 
 // ── Edit mode: pre-populate rows from existing appointment data ────────────
 document.addEventListener('DOMContentLoaded', function () {

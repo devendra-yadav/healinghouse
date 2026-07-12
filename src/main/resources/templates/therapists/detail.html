@@ -351,8 +351,25 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer text-muted small">
-            <span th:text="${appointments.size()} + ' appointment(s)'"></span>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${appointments.totalElements} + ' appointment(s) total'"></span>
+            <div th:if="${appointments.totalPages > 1}" class="d-flex align-items-center gap-2">
+                <span class="text-muted small"
+                      th:text="'Page ' + (${appointments.number} + 1) + ' of ' + ${appointments.totalPages}">
+                </span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!appointments.hasPrevious()} ? 'disabled'"
+                       th:href="@{/therapists/{id}(id=${therapist.id},status=${selectedStatus},patientName=${selectedPatientName},dateFrom=${selectedDateFrom},dateTo=${selectedDateTo},page=${appointments.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!appointments.hasNext()} ? 'disabled'"
+                       th:href="@{/therapists/{id}(id=${therapist.id},status=${selectedStatus},patientName=${selectedPatientName},dateFrom=${selectedDateFrom},dateTo=${selectedDateTo},page=${appointments.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </main>

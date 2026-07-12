@@ -40,6 +40,14 @@ public class AppointmentForm {
     /** Only set when the "correct prepaid amount" pencil was used in edit mode; null means keep the existing stored amount. */
     private BigDecimal prepaidCorrection;
 
+    /**
+     * Total wallet-sourced amount this appointment should carry — a target, not a delta
+     * (unlike newPaymentAmount). Null/absent on create means 0; on edit it is pre-populated
+     * from the appointment's current walletAmountApplied. AppointmentService computes the
+     * delta against the appointment's current value and issues a USAGE or REVERSAL for it.
+     */
+    private BigDecimal walletAmountApplied;
+
     private List<ServiceLineForm> serviceLines = new ArrayList<>();
     private List<ProductLineForm> productLines  = new ArrayList<>();
 
@@ -54,6 +62,7 @@ public class AppointmentForm {
         f.setPaymentMethod(appt.getPaymentMethod() != null ? appt.getPaymentMethod().name() : null);
         f.setDiscountType(appt.getDiscountType() != null ? appt.getDiscountType().name() : "NONE");
         f.setDiscountValue(appt.getDiscountValue());
+        f.setWalletAmountApplied(appt.getWalletAmountApplied());
         // newPaymentAmount defaults to 0 (nothing entered yet); prepaidCorrection stays null (no correction).
         appt.getServiceLines().forEach(sl -> {
             ServiceLineForm s = new ServiceLineForm();

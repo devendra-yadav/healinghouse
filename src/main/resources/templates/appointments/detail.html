@@ -25,6 +25,11 @@
             </span>
         </div>
         <div class="d-flex align-items-center gap-2">
+            <!-- Wallet quick action — not status-gated, a patient's balance can be topped up any time -->
+            <button type="button" class="btn btn-outline-success btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#topUpModal">
+                <i class="bi bi-wallet2 me-1"></i>Top Up Wallet
+            </button>
             <!-- Status actions — SCHEDULED only -->
             <span th:if="${appointment.status.name() == 'SCHEDULED'}" class="d-flex gap-2">
                 <a th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"
@@ -73,8 +78,12 @@
         <!-- Patient card -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header py-2 fw-semibold">
-                    <i class="bi bi-person me-1"></i>Patient
+                <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-person me-1"></i>Patient</span>
+                    <a th:href="@{/patients/{id}(id=${appointment.patient.id})}"
+                       class="btn btn-sm btn-outline-secondary" title="View patient profile">
+                        <i class="bi bi-person-lines-fill me-1"></i>View Profile
+                    </a>
                 </div>
                 <div class="card-body">
                     <h6 class="fw-bold mb-2" th:text="${appointment.patient.fullName}"></h6>
@@ -115,6 +124,21 @@
                                     <i class="bi bi-geo-alt me-1"></i>Address
                                 </td>
                                 <td th:text="${appointment.patient.address}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-wallet2 me-1"></i>Wallet Balance
+                                </td>
+                                <td>
+                                    <span th:if="${walletBalance != null and walletBalance.signum() > 0}"
+                                          class="badge bg-success fs-6"
+                                          th:text="|₹ ${#numbers.formatDecimal(walletBalance, 1, 2)}|">
+                                    </span>
+                                    <span th:unless="${walletBalance != null and walletBalance.signum() > 0}"
+                                          class="text-muted"
+                                          th:text="|₹ ${#numbers.formatDecimal(walletBalance ?: 0, 1, 2)}|">
+                                    </span>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
@@ -441,6 +465,14 @@
                                               : '₹0.00'">
                                 </td>
                             </tr>
+                            <tr th:if="${appointment.walletAmountApplied != null and appointment.walletAmountApplied.signum() > 0}">
+                                <td class="ps-3 text-muted">
+                                    <i class="bi bi-wallet2 me-1"></i>Paid from Wallet
+                                </td>
+                                <td class="pe-3 text-end fw-semibold"
+                                    th:text="|₹ ${#numbers.formatDecimal(appointment.walletAmountApplied, 1, 2)}|">
+                                </td>
+                            </tr>
                             <tr class="border-top">
                                 <td class="ps-3 text-muted">Balance Due</td>
                                 <td class="pe-3 text-end fw-bold"
@@ -493,6 +525,9 @@
         </div>
     </div>
 </div>
+
+<th:block th:replace="~{fragments/wallet-modals :: topUpModal(${appointment.patient.id}, ${walletBalance}, '/appointments/' + ${appointment.id}, false)}"/>
+<th:block th:replace="~{fragments/wallet-modals :: refundModal(${appointment.patient.id}, ${walletBalance}, '/appointments/' + ${appointment.id})}"/>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>

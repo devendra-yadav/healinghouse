@@ -6,6 +6,8 @@ import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.service.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,6 +30,7 @@ public class AppointmentController {
     private final AppointmentService appointmentService;
     private final PatientService     patientService;
     private final TherapistService   therapistService;
+    private final WalletService      walletService;
     private final TreatmentService   treatmentService;
     private final ProductService     productService;
 
@@ -40,6 +43,7 @@ public class AppointmentController {
                        @RequestParam(required = false)
                        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                        @RequestParam(required = false) String patientName,
+                       @RequestParam(defaultValue = "0") int page,
                        Model model) {
 
         AppointmentStatus statusEnum = null;
@@ -49,8 +53,8 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
-        List<Appointment> appointments =
-                appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName);
+        var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
+                null, PageRequest.of(page, 20, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
 
         model.addAttribute("appointments",       appointments);
         model.addAttribute("therapists",         therapistService.findAll());
@@ -144,8 +148,10 @@ public class AppointmentController {
                          @RequestParam(required = false) String returnUrl,
                          Model model, RedirectAttributes ra) {
         try {
-            model.addAttribute("appointment", appointmentService.getById(id));
+            Appointment appt = appointmentService.getById(id);
+            model.addAttribute("appointment", appt);
             model.addAttribute("therapists", therapistService.findAll());
+            model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
             model.addAttribute("returnUrl", returnUrl);
             model.addAttribute("pageTitle", "Appointment Details");
             return "appointments/detail";
@@ -186,6 +192,7 @@ public class AppointmentController {
             model.addAttribute("form",                 AppointmentForm.from(appt));
             model.addAttribute("existingServiceLines", existingServiceLines);
             model.addAttribute("existingProductLines", existingProductLines);
+            model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
             model.addAttribute("editMode",   true);
             model.addAttribute("formAction", "/appointments/" + id + "/update");
             model.addAttribute("returnUrl",  returnUrl);
@@ -223,7 +230,9 @@ public class AppointmentController {
                 model.addAttribute("returnUrl",  returnUrl);
                 model.addAttribute("cancelUrl",  (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id);
                 model.addAttribute("pageTitle",  "Edit Appointment #" + id);
-                model.addAttribute("appointment", appointmentService.getById(id));
+                Appointment appt = appointmentService.getById(id);
+                model.addAttribute("appointment", appt);
+                model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
                 return "appointments/form";
             }
         }
