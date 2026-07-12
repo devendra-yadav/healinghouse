@@ -92,6 +92,11 @@ public class Appointment {
     @Column(length = 20)
     private PaymentMethod paymentMethod;
 
+    /** Current wallet-sourced portion of amountPaid — mirrors discountAmount as a resolved, persisted value. */
+    @Column(name = "wallet_amount_applied", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal walletAmountApplied = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<AppointmentServiceLine> serviceLines = new ArrayList<>();

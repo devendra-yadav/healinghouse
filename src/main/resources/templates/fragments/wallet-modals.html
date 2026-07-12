@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: topUpModal
+     Usage: <th:block th:replace="~{fragments/wallet-modals :: topUpModal(${patientId}, ${walletBalance}, ${returnUrl})}"/>
+     Optional 4th arg openInNewTab=true submits the form in a new tab (used on the
+     appointment form so an in-progress booking is never at risk of being lost).
+     patientId may be null (e.g. not yet selected on the New Appointment form) — JS fills
+     #topUpModalPatientId once a patient is chosen.
+     ═══════════════════════════════════════════ -->
+<div th:fragment="topUpModal(patientId, walletBalance, returnUrl, openInNewTab)"
+     class="modal fade" id="topUpModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="bi bi-wallet2 text-success me-2"></i>Top Up Prepaid Balance
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/patients/{patientId}/wallet/topup(patientId=${patientId} ?: 0)}" method="post"
+                  th:target="${openInNewTab} ? '_blank' : '_self'">
+                <div class="modal-body">
+                    <input type="hidden" name="patientId" id="topUpModalPatientId" th:value="${patientId}">
+                    <input type="hidden" name="returnUrl" th:value="${returnUrl}">
+                    <p class="text-muted small mb-3">
+                        Current balance:
+                        <strong th:text="|₹ ${#numbers.formatDecimal(walletBalance ?: 0, 1, 2)}|"></strong>
+                    </p>
+                    <label class="form-label fw-semibold">Amount (₹)</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">₹</span>
+                        <input type="number" name="amount" class="form-control" min="0.01" step="0.01" required>
+                    </div>
+                    <label class="form-label fw-semibold">Payment Method</label>
+                    <select name="paymentMethod" class="form-select mb-3" required>
+                        <option value="CASH">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="CARD">Card</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                    <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea name="note" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-hh">
+                        <i class="bi bi-plus-lg me-1"></i>Top Up
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: refundModal
+     Usage: <th:block th:replace="~{fragments/wallet-modals :: refundModal(${patientId}, ${walletBalance}, ${returnUrl})}"/>
+     ═══════════════════════════════════════════ -->
+<div th:fragment="refundModal(patientId, walletBalance, returnUrl)" class="modal fade" id="refundModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">
+                    <i class="bi bi-arrow-return-left text-warning me-2"></i>Refund Prepaid Balance
+                </h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/patients/{patientId}/wallet/refund(patientId=${patientId} ?: 0)}" method="post">
+                <div class="modal-body">
+                    <input type="hidden" name="returnUrl" th:value="${returnUrl}">
+                    <p class="text-muted small mb-3">
+                        Current balance:
+                        <strong th:text="|₹ ${#numbers.formatDecimal(walletBalance ?: 0, 1, 2)}|"></strong>
+                    </p>
+                    <label class="form-label fw-semibold">Amount (₹)</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">₹</span>
+                        <input type="number" name="amount" class="form-control" min="0.01" step="0.01"
+                               th:max="${walletBalance}" required>
+                    </div>
+                    <label class="form-label fw-semibold">Refunded Via</label>
+                    <select name="paymentMethod" class="form-select mb-3" required>
+                        <option value="CASH">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="CARD">Card</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                    <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea name="note" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-return-left me-1"></i>Refund
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+</html>

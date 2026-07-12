@@ -8,8 +8,11 @@ import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.PatientHistoryService;
 import com.clinic.healinghouse.service.PatientService;
 import com.clinic.healinghouse.service.TherapistService;
+import com.clinic.healinghouse.service.WalletService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -31,10 +34,13 @@ public class PatientController {
     private final AppointmentService    appointmentService;
     private final TherapistService      therapistService;
     private final PatientHistoryService patientHistoryService;
+    private final WalletService         walletService;
 
     @GetMapping
-    public String list(@RequestParam(required = false) String q, Model model) {
-        model.addAttribute("patients", patientService.search(q));
+    public String list(@RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "0") int page,
+                       Model model) {
+        model.addAttribute("patients", patientService.search(q, PageRequest.of(page, 20)));
         model.addAttribute("q", q);
         model.addAttribute("pageTitle", "Patients");
         return "patients/list";
@@ -60,6 +66,8 @@ public class PatientController {
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                          @RequestParam(required = false)
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                         @RequestParam(defaultValue = "0") int walletPage,
+                         @RequestParam(defaultValue = "0") int page,
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
@@ -74,7 +82,11 @@ public class PatientController {
             model.addAttribute("patient", patient);
             model.addAttribute("summary", patientHistoryService.summarize(patient));
             model.addAttribute("appointments",
-                    appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, null, id));
+                    appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, null, id,
+                            PageRequest.of(page, 10, Sort.by(Sort.Direction.DESC, "appointmentDateTime"))));
+            model.addAttribute("walletBalance", walletService.getBalance(id));
+            model.addAttribute("walletTransactions", walletService.getTransactionHistory(id,
+                    PageRequest.of(walletPage, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
             model.addAttribute("therapists",      therapistService.findAll());
             model.addAttribute("statuses",        AppointmentStatus.values());
             model.addAttribute("selectedStatus",  status);
