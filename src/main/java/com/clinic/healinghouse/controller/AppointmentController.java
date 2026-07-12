@@ -1,7 +1,10 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.dto.AppointmentForm;
+import com.clinic.healinghouse.dto.CalendarActionResponseDTO;
 import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.RescheduleRequestDTO;
+import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.service.*;
@@ -105,6 +108,32 @@ public class AppointmentController {
             } catch (DateTimeParseException e2) {
                 return LocalDate.parse(raw).atStartOfDay();
             }
+        }
+    }
+
+    // ── Reschedule (drag/resize on the therapist calendar) ──────────────────
+    @PostMapping("/{id}/reschedule")
+    @ResponseBody
+    public RescheduleResponseDTO reschedule(@PathVariable Long id, @RequestBody RescheduleRequestDTO req) {
+        try {
+            return appointmentService.rescheduleAppointment(
+                    id, req.appointmentDateTime(), req.durationMinutes(), req.forceSave());
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            return new RescheduleResponseDTO(false, msg == null || msg.isBlank() ? "Reschedule failed." : msg, List.of());
+        }
+    }
+
+    // ── Cancel from the therapist calendar (JSON, no page navigation) ────────
+    @PostMapping("/{id}/cancel-from-calendar")
+    @ResponseBody
+    public CalendarActionResponseDTO cancelFromCalendar(@PathVariable Long id) {
+        try {
+            appointmentService.cancelAppointment(id, "Cancelled via calendar");
+            return new CalendarActionResponseDTO(true, "Appointment cancelled.");
+        } catch (Exception e) {
+            String msg = e.getMessage();
+            return new CalendarActionResponseDTO(false, msg == null || msg.isBlank() ? "Cancel failed." : msg);
         }
     }
 

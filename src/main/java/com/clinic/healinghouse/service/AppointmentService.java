@@ -2,6 +2,7 @@ package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -227,6 +229,23 @@ public class AppointmentService {
         return conflicts;
     }
 
+    /**
+     * Latest appointment date for this therapist (main or line therapist), any status, if any.
+     * Used by the Therapist Detail page to auto-widen its default "to" date filter so an
+     * appointment dragged forward on the calendar — or one dragged forward and then cancelled —
+     * doesn't silently fall outside the default month-to-date history/earnings view. Not scoped
+     * to SCHEDULED only: once a dragged appointment is cancelled it must still count here, or the
+     * widened range collapses back to "today" and the cancelled appointment disappears again.
+     */
+    @Transactional(readOnly = true)
+    public Optional<LocalDate> findLatestAppointmentDate(Long therapistId) {
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.hasTherapistId(therapistId));
+        return appointmentRepository.findAll(spec).stream()
+                .map(a -> a.getAppointmentDateTime().toLocalDate())
+                .max(Comparator.naturalOrder());
+    }
+
     // ── Calendar feed ────────────────────────────────────────────────────────
 
     /**
@@ -257,16 +276,51 @@ public class AppointmentService {
                 title,
                 appointment.getAppointmentDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                statusColor(appointment.getStatus()));
+                statusColor(appointment.getStatus()),
+                appointment.getStatus().name());
+    }
+
+    // ── Reschedule (drag/resize on the therapist calendar) ──────────────────
+
+    /**
+     * Applies a drag (new appointmentDateTime) or resize (new durationMinutes) from the
+     * calendar. Only these two fields change — patient/therapist/lines/discount/wallet are
+     * untouched, so grandTotal and everything derived from it stay exactly as they were.
+     * Re-runs the same conflict check as the form (main + line therapists), excluding this
+     * appointment's own id, honoring forceSave the same way the form's "Save anyway" does.
+     */
+    public RescheduleResponseDTO rescheduleAppointment(Long id, LocalDateTime newStart, Integer newDuration, boolean forceSave) {
+        Appointment appt = getById(id);
+        if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
+            throw new IllegalStateException("Only SCHEDULED appointments can be rescheduled.");
+        }
+        if (newStart == null || newDuration == null || newDuration <= 0) {
+            throw new IllegalArgumentException("A valid date/time and duration are required.");
+        }
+
+        AppointmentForm probe = AppointmentForm.from(appt);
+        probe.setAppointmentDateTime(newStart);
+        probe.setDurationMinutes(newDuration);
+
+        List<TherapistConflictDTO> conflicts = findConflicts(probe, id);
+        if (!conflicts.isEmpty() && !forceSave) {
+            return new RescheduleResponseDTO(false, "Scheduling conflict detected.", conflicts);
+        }
+
+        appt.setAppointmentDateTime(newStart);
+        appt.setDurationMinutes(newDuration);
+        appointmentRepository.save(appt);
+        log.info("Appointment id={} rescheduled to start={} duration={}min", id, newStart, newDuration);
+        return new RescheduleResponseDTO(true, "Rescheduled.", List.of());
     }
 
     /** Mirrors the status → color convention already used in appointments/list.html. */
     private String statusColor(AppointmentStatus status) {
         return switch (status) {
-            case COMPLETED -> "#198754"; // bg-success
-            case CANCELLED -> "#dc3545"; // bg-danger
-            case NO_SHOW   -> "#ffc107"; // bg-warning
-            case SCHEDULED -> "#40916c"; // clinic brand green
+            case COMPLETED -> "#198754"; // bg-success  (green)
+            case CANCELLED -> "#dc3545"; // bg-danger   (red)
+            case NO_SHOW   -> "#ffc107"; // bg-warning  (yellow)
+            case SCHEDULED -> "#0d6efd"; // bg-primary  (blue) — matches appointments/list.html's status badge
         };
     }
 

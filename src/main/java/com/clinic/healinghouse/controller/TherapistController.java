@@ -49,7 +49,18 @@ public class TherapistController {
             Therapist therapist = therapistService.getById(id);
 
             LocalDate effectiveDateFrom = dateFrom != null ? dateFrom : LocalDate.now().withDayOfMonth(1);
-            LocalDate effectiveDateTo   = dateTo   != null ? dateTo   : LocalDate.now();
+            LocalDate effectiveDateTo;
+            if (dateTo != null) {
+                effectiveDateTo = dateTo;
+            } else {
+                // Default upper bound is "today", widened to the therapist's furthest-out
+                // appointment (any status) if one exists beyond today — otherwise an appointment
+                // dragged forward on the calendar (or dragged forward then cancelled) would
+                // silently vanish from this default view.
+                LocalDate today = LocalDate.now();
+                LocalDate latestAppointment = appointmentService.findLatestAppointmentDate(id).orElse(today);
+                effectiveDateTo = latestAppointment.isAfter(today) ? latestAppointment : today;
+            }
 
             AppointmentStatus statusEnum = null;
             if (status != null && !status.isBlank()) {
