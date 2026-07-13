@@ -72,7 +72,9 @@
                     <div>
                         <div class="fw-semibold fs-4"
                              th:text="|₹ ${#numbers.formatDecimal(report.summary.totalServicesRevenue, 1, 2)}|">—</div>
-                        <small class="text-muted">Services Revenue</small>
+                        <small class="text-muted" title="Calculated before any discount — this is the base used for therapist commission, not the amount actually charged.">
+                            Services Revenue (Pre-Discount) <i class="bi bi-info-circle"></i>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -84,7 +86,9 @@
                     <div>
                         <div class="fw-semibold fs-4"
                              th:text="|₹ ${#numbers.formatDecimal(report.summary.totalProductsRevenue, 1, 2)}|">—</div>
-                        <small class="text-muted">Products Revenue</small>
+                        <small class="text-muted" title="Calculated before any discount — this is the base used for therapist commission, not the amount actually charged.">
+                            Products Revenue (Pre-Discount) <i class="bi bi-info-circle"></i>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -104,11 +108,11 @@
                     <thead>
                         <tr>
                             <th>Therapist</th>
-                            <th class="text-end">Services Rev.(All)</th>
-                            <th class="text-end">Products Rev.(All)</th>
+                            <th class="text-end" title="Calculated before any discount.">Services Rev.(All, Pre-Discount)</th>
+                            <th class="text-end" title="Calculated before any discount.">Products Rev.(All, Pre-Discount)</th>
                             <th class="text-center">Services(All)</th>
-                            <th class="text-end">Services Rev.(Bonus tagged)</th>
-                            <th class="text-end">Products Rev.(Commission tagged)</th>
+                            <th class="text-end" title="Calculated before any discount.">Services Rev.(Bonus tagged, Pre-Discount)</th>
+                            <th class="text-end" title="Calculated before any discount.">Products Rev.(Commission tagged, Pre-Discount)</th>
                             <th class="text-center">Services(Bonus tagged)</th>
                             <th class="text-end">Commission</th>
                             <th class="text-center">Bonus</th>

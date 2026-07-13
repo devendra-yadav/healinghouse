@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Actual Revenue</h4>
+    <p class="text-muted small mb-3">
+        Real, post-discount figures — what the clinic actually billed and collected. See the other reports for
+        pre-discount figures used in therapist commission.
+    </p>
+
+    <!-- Filters -->
+    <form th:action="@{/reports/revenue}" method="get" class="card shadow-sm mb-3">
+        <input type="hidden" name="size" th:value="${report.appointments.size}"/>
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 position-relative">
+                    <label class="form-label small mb-1">Patient Name / Phone</label>
+                    <input type="text" name="patientName" id="patientNameFilterInput"
+                           class="form-control form-control-sm" autocomplete="off"
+                           th:value="${selectedPatientName}" placeholder="Search patient…">
+                    <div id="patientFilterSuggestions"
+                         class="list-group position-absolute w-100 shadow-sm d-none"
+                         style="z-index:1000; top:100%;"></div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Therapist</label>
+                    <select name="therapistId" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="t : ${allTherapists}"
+                                th:value="${t.id}" th:text="${t.fullName}"
+                                th:selected="${t.id == selectedTherapistId}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Status</label>
+                    <select name="status" class="form-select form-select-sm">
+                        <option value="COMPLETED" th:selected="${selectedStatus == 'COMPLETED'}">Completed (default)</option>
+                        <option value="ALL" th:selected="${selectedStatus == 'ALL'}">All statuses</option>
+                        <option th:each="s : ${statuses}" th:if="${s.name() != 'COMPLETED'}"
+                                th:value="${s}" th:text="${s}"
+                                th:selected="${s.name() == selectedStatus}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Payment Method</label>
+                    <select name="paymentMethod" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="m : ${paymentMethods}"
+                                th:value="${m}" th:text="${m}"
+                                th:selected="${m == selectedPaymentMethod}">
+                        </option>
+                    </select>
+                </div>
+            </div>
+            <div class="row g-2 align-items-end mt-1">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Service</label>
+                    <select name="serviceId" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="s : ${allServices}"
+                                th:value="${s.id}" th:text="${s.name}"
+                                th:selected="${s.id == selectedServiceId}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Product</label>
+                    <select name="productId" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="p : ${allProducts}"
+                                th:value="${p.id}" th:text="${p.name}"
+                                th:selected="${p.id == selectedProductId}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">Tag</label>
+                    <select name="tagName" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="t : ${allTags}"
+                                th:value="${t.name}" th:text="${t.name}"
+                                th:selected="${t.name == selectedTagName}">
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-center">
+                    <div class="form-check mt-3">
+                        <input type="checkbox" name="discountedOnly" value="true" id="discountedOnlyCheck"
+                               class="form-check-input" th:checked="${selectedDiscountedOnly}">
+                        <label class="form-check-label small" for="discountedOnlyCheck">Discounted only</label>
+                    </div>
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                    <a th:href="@{/reports/revenue}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+                <div class="col-md-2 d-flex gap-1 ms-auto">
+                    <a th:href="@{/reports/revenue/export-csv(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as CSV">
+                        <i class="bi bi-file-earmark-csv"></i> CSV
+                    </a>
+                    <a th:href="@{/reports/revenue/export-pdf(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-secondary"><i class="bi bi-receipt"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.grossRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Gross Revenue (Pre-Discount)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-warning"><i class="bi bi-tags"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.comboDiscount, 1, 2)}|">—</div>
+                        <small class="text-muted">Combo Discounts Given</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-warning"><i class="bi bi-tag"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.manualDiscount, 1, 2)}|">—</div>
+                        <small class="text-muted">Manual Discounts Given</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white border-success">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-currency-rupee"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.netRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Net Revenue (Billed)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-primary"><i class="bi bi-cash-coin"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.collected, 1, 2)}|">—</div>
+                        <small class="text-muted">Collected</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-danger"><i class="bi bi-hourglass-split"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.outstanding, 1, 2)}|">—</div>
+                        <small class="text-muted">Outstanding</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-info"><i class="bi bi-wallet2"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.walletFunded, 1, 2)}|">—</div>
+                        <small class="text-muted">Wallet-Funded Portion</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-piggy-bank"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.advanceReceived, 1, 2)}|">—</div>
+                        <small class="text-muted" title="Amount already paid on Scheduled appointments not yet resolved, plus Cancelled/No-Show appointments where the clinic keeps it — included in Net Revenue and Collected above.">
+                            Advance Payments <i class="bi bi-info-circle"></i>
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-secondary"><i class="bi bi-calendar2-check"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="${report.summary.appointmentCount}">—</div>
+                        <small class="text-muted">Completed Appointments</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend -->
+    <div class="row g-4 mb-1">
+        <div class="col-12">
+            <h6 class="section-header mb-3">Net Revenue Trend</h6>
+            <div th:if="${report.trend.labels.empty}" class="coming-soon-card">
+                <i class="bi bi-graph-up fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No completed appointments in this range.</span>
+            </div>
+            <div th:unless="${report.trend.labels.empty}" class="card shadow-sm p-3">
+                <canvas id="revenueTrendChart" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <!-- By payment method -->
+        <div class="col-12 col-lg-4">
+            <h6 class="section-header mb-3">Collected by Payment Method</h6>
+            <div th:if="${report.byPaymentMethod.empty}" class="coming-soon-card">
+                <i class="bi bi-credit-card fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No collections in this range.</span>
+            </div>
+            <div th:unless="${report.byPaymentMethod.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr><th>Method</th><th class="text-end">Amount</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="m : ${report.byPaymentMethod}">
+                                    <td th:text="${m.label}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(m.amount, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- By therapist -->
+        <div class="col-12 col-lg-8">
+            <h6 class="section-header mb-3">Revenue by Therapist</h6>
+            <div th:if="${report.byTherapist.empty}" class="coming-soon-card">
+                <i class="bi bi-person-badge fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No therapist activity in this range.</span>
+            </div>
+            <div th:unless="${report.byTherapist.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Therapist</th>
+                                    <th class="text-end">Gross Revenue</th>
+                                    <th class="text-end">Discount</th>
+                                    <th class="text-end">Net Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="t : ${report.byTherapist}">
+                                    <td th:text="${t.therapistName}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(t.grossRevenue, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(t.discountAmount, 1, 2)}|"></td>
+                                    <td class="text-end fw-semibold" th:text="|₹ ${#numbers.formatDecimal(t.netRevenue, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Services net revenue -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Net Revenue by Service</h6>
+            <div th:if="${report.servicesNetRevenue.empty}" class="coming-soon-card">
+                <i class="bi bi-clipboard2-pulse fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No service revenue in this range.</span>
+            </div>
+            <div th:unless="${report.servicesNetRevenue.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr><th>Service</th><th class="text-center">Bookings</th><th class="text-end">Net Revenue</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="s : ${report.servicesNetRevenue}">
+                                    <td>
+                                        <span th:text="${s.name}"></span>
+                                        <span th:each="tag : ${s.tags}" class="badge bg-light text-dark border ms-1" th:text="${tag}"></span>
+                                    </td>
+                                    <td class="text-center" th:text="${s.bookingsCount}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(s.netRevenue, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Products net revenue -->
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Net Revenue by Product</h6>
+            <div th:if="${report.productsNetRevenue.empty}" class="coming-soon-card">
+                <i class="bi bi-bag-heart fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No product revenue in this range.</span>
+            </div>
+            <div th:unless="${report.productsNetRevenue.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr><th>Product</th><th class="text-center">Units Sold</th><th class="text-end">Net Revenue</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="p : ${report.productsNetRevenue}">
+                                    <td>
+                                        <span th:text="${p.name}"></span>
+                                        <span th:each="tag : ${p.tags}" class="badge bg-light text-dark border ms-1" th:text="${tag}"></span>
+                                    </td>
+                                    <td class="text-center" th:text="${p.bookingsCount}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(p.netRevenue, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Appointment drill-down -->
+        <div class="col-12">
+            <h6 class="section-header mb-3">
+                Appointments
+                <span class="text-muted small fw-normal">(status filter applies here only — summary above always stays Completed-only, plus advance payments from Scheduled/Cancelled/No-Show)</span>
+            </h6>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date &amp; Time</th>
+                                    <th>Patient</th>
+                                    <th>Therapist</th>
+                                    <th class="text-center">Status</th>
+                                    <th class="text-end">Gross</th>
+                                    <th class="text-end">Discount</th>
+                                    <th class="text-end">Net</th>
+                                    <th class="text-end">Collected</th>
+                                    <th class="text-end">Outstanding</th>
+                                    <th>Payment Method</th>
+                                    <th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:if="${report.appointments.empty}">
+                                    <td colspan="11" class="text-center text-muted py-4">No appointments found.</td>
+                                </tr>
+                                <tr th:each="row : ${report.appointments}">
+                                    <td class="text-nowrap" th:text="${#temporals.format(row.dateTime, 'dd MMM yyyy, HH:mm')}"></td>
+                                    <td th:text="${row.patientName}"></td>
+                                    <td th:text="${row.therapistName}"></td>
+                                    <td class="text-center">
+                                        <span class="badge"
+                                              th:text="${row.status}"
+                                              th:classappend="${row.status.name() == 'COMPLETED'} ? 'bg-success' :
+                                                              (${row.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
+                                                              (${row.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
+                                                                                                    'bg-primary'))">
+                                        </span>
+                                    </td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.gross, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.discount, 1, 2)}|"></td>
+                                    <td class="text-end fw-semibold" th:text="|₹ ${#numbers.formatDecimal(row.net, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.collected, 1, 2)}|"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.outstanding, 1, 2)}|"></td>
+                                    <td th:text="${row.paymentMethod ?: '—'}"></td>
+                                    <td class="text-center">
+                                        <a th:href="@{/appointments/{id}(id=${row.appointmentId})}"
+                                           class="btn btn-sm btn-outline-secondary" title="View details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="text-muted small" th:text="${report.appointments.totalElements} + ' appointment(s) total'"></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span th:if="${report.appointments.totalPages > 1}" class="text-muted small"
+                              th:text="'Page ' + (${report.appointments.number} + 1) + ' of ' + ${report.appointments.totalPages}">
+                        </span>
+                        <div th:if="${report.appointments.totalPages > 1}" class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary"
+                               th:classappend="${!report.appointments.hasPrevious()} ? 'disabled'"
+                               th:href="@{/reports/revenue(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly}, size=${report.appointments.size}, page=${report.appointments.number - 1})}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                            <a class="btn btn-outline-secondary"
+                               th:classappend="${!report.appointments.hasNext()} ? 'disabled'"
+                               th:href="@{/reports/revenue(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly}, size=${report.appointments.size}, page=${report.appointments.number + 1})}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:inline="javascript">
+    /*[# th:if="${not report.trend.labels.empty}"]*/
+    const trendLabels = /*[[${report.trend.labels}]]*/ [];
+    const trendValues = /*[[${report.trend.values}]]*/ [];
+
+    new Chart(document.getElementById('revenueTrendChart'), {
+        type: 'line',
+        data: {
+            labels: trendLabels,
+            datasets: [{
+                label: 'Net Revenue',
+                data: trendValues,
+                borderColor: '#2d6a4f',
+                backgroundColor: 'rgba(45,106,79,0.15)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: { legend: { display: false } }
+        }
+    });
+    /*[/]*/
+</script>
+
+<!-- Live name/phone autocomplete for the patient filter box -->
+<script>
+    const patientNameFilterInput = document.getElementById('patientNameFilterInput');
+    const patientFilterSuggestions = document.getElementById('patientFilterSuggestions');
+    let filterSearchDebounce = null;
+
+    function hideFilterSuggestions() {
+        patientFilterSuggestions.classList.add('d-none');
+        patientFilterSuggestions.innerHTML = '';
+    }
+
+    function escFilterHtml(s) {
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderFilterSuggestions(results) {
+        if (!results.length) { hideFilterSuggestions(); return; }
+        patientFilterSuggestions.innerHTML = results.map(p =>
+            `<button type="button" class="list-group-item list-group-item-action" data-name="${escFilterHtml(p.fullName)}">
+                <span class="fw-semibold">${escFilterHtml(p.fullName)}</span>
+                <span class="text-muted small ms-2">${escFilterHtml(p.phone || '')}</span>
+             </button>`
+        ).join('');
+        patientFilterSuggestions.classList.remove('d-none');
+    }
+
+    patientNameFilterInput.addEventListener('input', function () {
+        const q = this.value.trim();
+        clearTimeout(filterSearchDebounce);
+        if (!q) { hideFilterSuggestions(); return; }
+        filterSearchDebounce = setTimeout(() => {
+            fetch('/patients/search?q=' + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(renderFilterSuggestions)
+                .catch(() => hideFilterSuggestions());
+        }, 250);
+    });
+
+    patientFilterSuggestions.addEventListener('click', function (e) {
+        const item = e.target.closest('[data-name]');
+        if (!item) return;
+        patientNameFilterInput.value = item.dataset.name;
+        hideFilterSuggestions();
+        patientNameFilterInput.form.submit();
+    });
+
+    document.addEventListener('click', function (e) {
+        if (!patientNameFilterInput.contains(e.target) && !patientFilterSuggestions.contains(e.target)) {
+            hideFilterSuggestions();
+        }
+    });
+
+    patientNameFilterInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') hideFilterSuggestions();
+    });
+</script>
+</body>
+</html>

@@ -70,12 +70,12 @@
                         </thead>
                         <tbody>
                             <tr>
-                                <td class="fw-semibold">Services Rev.(All)</td>
+                                <td class="fw-semibold" title="Calculated before any discount.">Services Rev.(All, Pre-Discount)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
                                     th:text="|₹ ${#numbers.formatDecimal(e.allServicesRevenue, 1, 2)}|"></td>
                             </tr>
                             <tr>
-                                <td class="fw-semibold">Products Rev.(All)</td>
+                                <td class="fw-semibold" title="Calculated before any discount.">Products Rev.(All, Pre-Discount)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
                                     th:text="|₹ ${#numbers.formatDecimal(e.allProductsRevenue, 1, 2)}|"></td>
                             </tr>
@@ -84,12 +84,12 @@
                                 <td th:each="e : ${report.therapistEarnings}" th:text="${e.allServicesCount}"></td>
                             </tr>
                             <tr>
-                                <td class="fw-semibold">Services Rev.(Bonus tagged)</td>
+                                <td class="fw-semibold" title="Calculated before any discount.">Services Rev.(Bonus tagged, Pre-Discount)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
                                     th:text="|₹ ${#numbers.formatDecimal(e.bonusTaggedServicesRevenue, 1, 2)}|"></td>
                             </tr>
                             <tr>
-                                <td class="fw-semibold">Products Rev.(Commission tagged)</td>
+                                <td class="fw-semibold" title="Calculated before any discount.">Products Rev.(Commission tagged, Pre-Discount)</td>
                                 <td th:each="e : ${report.therapistEarnings}"
                                     th:text="|₹ ${#numbers.formatDecimal(e.productsRevenue, 1, 2)}|"></td>
                             </tr>
