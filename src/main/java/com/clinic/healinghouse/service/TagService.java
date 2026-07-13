@@ -10,6 +10,8 @@ import com.clinic.healinghouse.repository.TagRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -50,6 +52,15 @@ public class TagService {
                         clinicServiceRepository.countByTagsId(t.getId()),
                         productRepository.countByTagsId(t.getId())))
                 .toList();
+    }
+
+    /** Paginated variant, used by the tags list page. */
+    @Transactional(readOnly = true)
+    public Page<TagUsage> findAllWithUsage(Pageable pageable) {
+        return tagRepository.findAllByOrderByNameAsc(pageable)
+                .map(t -> new TagUsage(t,
+                        clinicServiceRepository.countByTagsId(t.getId()),
+                        productRepository.countByTagsId(t.getId())));
     }
 
     /** Looks up a tag by case-insensitive name, creating it if it doesn't exist yet. */

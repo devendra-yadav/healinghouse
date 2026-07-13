@@ -5,6 +5,7 @@ import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.CommissionCalculator;
 import com.clinic.healinghouse.service.TherapistService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -28,8 +29,11 @@ public class TherapistController {
     private final CommissionCalculator commissionCalculator;
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("therapists", therapistService.findAll());
+    public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
+                       Model model) {
+        int pageSize = PaginationUtil.clampPageSize(size);
+        model.addAttribute("therapists", therapistService.findAll(PageRequest.of(page, pageSize)));
         model.addAttribute("pageTitle", "Therapists");
         return "therapists/list";
     }

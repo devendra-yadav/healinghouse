@@ -8,6 +8,7 @@ import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.service.*;
+import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -47,6 +48,7 @@ public class AppointmentController {
                        @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                        @RequestParam(required = false) String patientName,
                        @RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
                        Model model) {
 
         AppointmentStatus statusEnum = null;
@@ -56,8 +58,9 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
+        int pageSize = PaginationUtil.clampPageSize(size);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
-                null, PageRequest.of(page, 20, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
+                null, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
 
         model.addAttribute("appointments",       appointments);
         model.addAttribute("therapists",         therapistService.findAll());

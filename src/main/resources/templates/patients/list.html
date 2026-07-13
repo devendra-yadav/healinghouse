@@ -20,6 +20,7 @@
 
     <!-- Search -->
     <form th:action="@{/patients}" method="get" class="mb-3">
+        <input type="hidden" name="size" th:value="${patients.size}"/>
         <div class="position-relative" style="max-width:400px;">
             <div class="input-group">
                 <input type="text" name="q" id="patientSearchInput" th:value="${q}"
@@ -87,19 +88,27 @@
         </div>
         <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span class="text-muted small" th:text="${patients.totalElements} + ' patient(s) found'"></span>
-            <div th:if="${patients.totalPages > 1}" class="d-flex align-items-center gap-2">
-                <span class="text-muted small"
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/patients(q=${q},size=${s},page=0)}"
+                            th:selected="${s == patients.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${patients.totalPages > 1}" class="text-muted small"
                       th:text="'Page ' + (${patients.number} + 1) + ' of ' + ${patients.totalPages}">
                 </span>
-                <div class="btn-group btn-group-sm">
+                <div th:if="${patients.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!patients.hasPrevious()} ? 'disabled'"
-                       th:href="@{/patients(q=${q},page=${patients.number - 1})}">
+                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number - 1})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!patients.hasNext()} ? 'disabled'"
-                       th:href="@{/patients(q=${q},page=${patients.number + 1})}">
+                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number + 1})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
