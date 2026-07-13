@@ -7,6 +7,12 @@
     <style>
         .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
         .choices { margin-bottom: 0; }
+        .service-row .choices__inner, .product-row .choices__inner {
+            min-height: calc(1.5em + 0.5rem + 2px); padding: 0.25rem 0.5rem; font-size: .875rem;
+        }
+        .service-row .choices__list--dropdown .choices__item, .product-row .choices__list--dropdown .choices__item {
+            font-size: .875rem;
+        }
         .combo-line-row { border-left: 3px solid #0dcaf0; padding-left: 6px; }
         .combo-group-header { border-left: 3px solid #0dcaf0; }
     </style>
@@ -470,6 +476,21 @@ function buildOptions(data, idField, nameField) {
     ).join('');
 }
 
+// ── Searchable service/product select (Choices.js) — used on dynamically ──
+// added, non-locked service/product rows so staff can type-to-filter instead
+// of scrolling a long catalog list.
+function initItemSelect(sel, placeholder) {
+    return new Choices(sel, {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: placeholder,
+        searchPlaceholderValue: 'Search…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+}
+
 // ── Service rows ──────────────────────────────────────────────────────────
 // comboGroupKey is only passed for a combo's own lines — those render "locked" (static
 // item/qty text plus a hidden input carrying the real value) since combo composition can't
@@ -529,11 +550,14 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
     if (locked) {
         const s = serviceMap[preselectId];
         row.querySelector('.s-rate').textContent = s ? fmt(s.price) + ' ea.' : '—';
-    } else if (preselectId) {
+    } else {
         const sel = row.querySelector('.s-select');
-        sel.value = String(preselectId);
-        onServiceChange(sel);
-        if (preselectQty) row.querySelector('.s-qty').value = preselectQty;
+        const choicesInstance = initItemSelect(sel, '— Service —');
+        if (preselectId) {
+            choicesInstance.setChoiceByValue(String(preselectId));
+            onServiceChange(sel);
+            if (preselectQty) row.querySelector('.s-qty').value = preselectQty;
+        }
     }
     updateTotals();
     toggleUI();
@@ -611,11 +635,14 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
                 (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
             row.querySelector('.p-rate').textContent = fmt(p.price) + ' ea.';
         }
-    } else if (preselectId) {
+    } else {
         const sel = row.querySelector('.p-select');
-        sel.value = String(preselectId);
-        onProductChange(sel);
-        if (preselectQty) row.querySelector('.p-qty').value = preselectQty;
+        const choicesInstance = initItemSelect(sel, '— Product —');
+        if (preselectId) {
+            choicesInstance.setChoiceByValue(String(preselectId));
+            onProductChange(sel);
+            if (preselectQty) row.querySelector('.p-qty').value = preselectQty;
+        }
     }
     updateTotals();
     toggleUI();

@@ -28,14 +28,16 @@ public class TreatmentController {
     private final TagService tagService;
 
     @GetMapping
-    public String list(@RequestParam(required = false) String tag,
+    public String list(@RequestParam(required = false) String q,
+                       @RequestParam(required = false) String tag,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("services", treatmentService.search(null, tag, PageRequest.of(page, pageSize)));
+        model.addAttribute("services", treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("selectedTag", tag);
+        model.addAttribute("q", q);
         model.addAttribute("pageTitle", "Services");
         return "services/list";
     }
