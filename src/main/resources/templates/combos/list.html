@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Combos')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Combos</h4>
+        <a th:href="@{/combos/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Combo
+        </a>
+    </div>
+
+    <div class="mb-3" style="max-width:400px;">
+        <form th:action="@{/combos}" method="get" class="input-group">
+            <input type="text" name="q" th:value="${q}" class="form-control"
+                   placeholder="Search combos by name…"/>
+            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Combo Name</th>
+                            <th>Items</th>
+                            <th class="text-end">Original Price (₹)</th>
+                            <th class="text-end">Combo Price (₹)</th>
+                            <th class="text-center">Savings</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${combos.empty}">
+                            <td colspan="7" class="text-center text-muted py-4">No combos found.</td>
+                        </tr>
+                        <tr th:each="c, stat : ${combos}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${c.name}"></span>
+                                <div th:if="${c.description}" class="text-muted small text-truncate"
+                                     style="max-width:280px;" th:text="${c.description}"></div>
+                                <span th:unless="${c.active}" class="badge bg-secondary">Inactive</span>
+                            </td>
+                            <td class="small text-muted" th:text="${comboService.toSuggestion(c).itemsSummary}"></td>
+                            <td class="text-end"
+                                th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(c), 1, 2)}|"></td>
+                            <td class="text-end fw-semibold"
+                                th:text="|₹ ${#numbers.formatDecimal(comboService.computeComboPrice(c), 1, 2)}|"></td>
+                            <td class="text-center">
+                                <span th:if="${comboService.computeComboPrice(c).compareTo(comboService.computeOriginalPrice(c)) &lt; 0}"
+                                      class="badge bg-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(c).subtract(comboService.computeComboPrice(c)), 1, 2)} off|"></span>
+                                <span th:unless="${comboService.computeComboPrice(c).compareTo(comboService.computeOriginalPrice(c)) &lt; 0}"
+                                      class="text-muted">—</span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:href="@{/combos/{id}/edit(id=${c.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${c.active}"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-name=${c.name}, data-url=@{/combos/{id}/deactivate(id=${c.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${combos.totalElements} + ' combo(s)'"></span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/combos(q=${q},size=${s},page=0)}"
+                            th:selected="${s == combos.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${combos.totalPages > 1}" class="text-muted small"
+                      th:text="'Page ' + (${combos.number} + 1) + ' of ' + ${combos.totalPages}">
+                </span>
+                <div th:if="${combos.totalPages > 1}" class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!combos.hasPrevious()} ? 'disabled'"
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!combos.hasNext()} ? 'disabled'"
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Deactivate Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deactivate</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Deactivate combo "' + btn.dataset.name + '"?';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

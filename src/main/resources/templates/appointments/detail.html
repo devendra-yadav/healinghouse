@@ -221,7 +221,94 @@
         </div>
     </div>
 
-    <!-- ── Row 2: Services table ─────────────────────────────────────────── -->
+    <!-- ── Row 2a: Combo packages used on this appointment (only if any) ──── -->
+    <div th:if="${!appointment.combos.empty}" class="mb-3">
+        <h6 class="text-muted mb-2"><i class="bi bi-boxes me-1"></i>Combo Packages</h6>
+        <div th:each="ac : ${appointment.combos}" class="card shadow-sm mb-2 border-info">
+            <div class="card-header py-2 fw-semibold d-flex flex-wrap justify-content-between align-items-center gap-2"
+                 style="background:rgba(13,202,240,.08)">
+                <span>
+                    <i class="bi bi-boxes me-1"></i><span th:text="${ac.comboNameSnapshot}"></span>
+                    <span class="badge bg-info text-dark ms-1"
+                          th:text="${ac.discountType != null and ac.discountType.name() == 'PERCENTAGE'}
+                                    ? |${#numbers.formatDecimal(ac.discountValue, 1, 0)}%|
+                                    : 'Flat'">
+                    </span>
+                </span>
+                <span th:if="${ac.discountAmount.signum() > 0}" class="badge bg-success"
+                      th:text="|Combo savings: ₹ ${#numbers.formatDecimal(ac.discountAmount, 1, 2)}|">
+                </span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0 align-middle">
+                        <tbody>
+                            <tr th:each="sl : ${appointment.getServiceLinesForCombo(ac)}">
+                                <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
+                                <td>
+                                    <form method="post"
+                                          th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
+                                          class="d-flex align-items-center gap-1">
+                                        <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                                        <select name="therapistId" class="form-select form-select-sm"
+                                                style="min-width:150px" onchange="this.form.submit()">
+                                            <option th:each="t : ${therapists}"
+                                                    th:value="${t.id}"
+                                                    th:text="${t.fullName}"
+                                                    th:selected="${t.id == sl.therapist.id}">
+                                            </option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td class="text-center" th:text="${sl.quantity}"></td>
+                                <td class="text-end pe-3 fw-semibold">
+                                    <span th:if="${sl.discountedLineTotal != null}">
+                                        <span class="text-muted text-decoration-line-through small d-block"
+                                              th:text="|₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}|"></span>
+                                        <span class="text-success"
+                                              th:text="|₹ ${#numbers.formatDecimal(sl.discountedLineTotal, 1, 2)}|"></span>
+                                    </span>
+                                    <span th:unless="${sl.discountedLineTotal != null}"
+                                          th:text="|₹ ${#numbers.formatDecimal(sl.lineTotal, 1, 2)}|"></span>
+                                </td>
+                            </tr>
+                            <tr th:each="pl : ${appointment.getProductLinesForCombo(ac)}">
+                                <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
+                                <td>
+                                    <form method="post"
+                                          th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
+                                          class="d-flex align-items-center gap-1">
+                                        <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                                        <select name="therapistId" class="form-select form-select-sm"
+                                                style="min-width:150px" onchange="this.form.submit()">
+                                            <option th:each="t : ${therapists}"
+                                                    th:value="${t.id}"
+                                                    th:text="${t.fullName}"
+                                                    th:selected="${t.id == pl.therapist.id}">
+                                            </option>
+                                        </select>
+                                    </form>
+                                </td>
+                                <td class="text-center" th:text="${pl.quantity}"></td>
+                                <td class="text-end pe-3 fw-semibold">
+                                    <span th:if="${pl.discountedLineTotal != null}">
+                                        <span class="text-muted text-decoration-line-through small d-block"
+                                              th:text="|₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}|"></span>
+                                        <span class="text-success"
+                                              th:text="|₹ ${#numbers.formatDecimal(pl.discountedLineTotal, 1, 2)}|"></span>
+                                    </span>
+                                    <span th:unless="${pl.discountedLineTotal != null}"
+                                          th:text="|₹ ${#numbers.formatDecimal(pl.lineTotal, 1, 2)}|"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Row 2: Services table (standalone lines only — combo lines are shown above) ── -->
     <div class="card shadow-sm mb-3">
         <div class="card-header py-2 fw-semibold">
             <i class="bi bi-scissors me-1"></i>Services
@@ -240,12 +327,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:if="${appointment.serviceLines.empty}">
+                    <tr th:if="${appointment.standaloneServiceLines.empty}">
                         <td colspan="6" class="text-center text-muted py-3 ps-3">
-                            No services recorded.
+                            No standalone services recorded.
                         </td>
                     </tr>
-                    <tr th:each="sl : ${appointment.serviceLines}">
+                    <tr th:each="sl : ${appointment.standaloneServiceLines}">
                         <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
                         <td>
                             <form method="post"
@@ -290,11 +377,9 @@
                 </tbody>
                 <tfoot>
                     <tr class="table-light border-top border-2">
-                        <td colspan="5" class="text-end fw-semibold ps-3 py-2">Services Total</td>
+                        <td colspan="5" class="text-end fw-semibold ps-3 py-2">Standalone Services Total</td>
                         <td class="text-end pe-3 fw-bold py-2"
-                            th:text="${appointment.totalServiceAmount != null}
-                                      ? |₹ ${#numbers.formatDecimal(appointment.totalServiceAmount, 1, 2)}|
-                                      : '₹0.00'">
+                            th:text="|₹ ${#numbers.formatDecimal(appointment.standaloneServiceTotal, 1, 2)}|">
                         </td>
                     </tr>
                 </tfoot>
@@ -304,7 +389,7 @@
     </div>
 
     <!-- ── Row 3: Products table (only if used) ──────────────────────────── -->
-    <div th:if="${!appointment.productLines.empty}" class="card shadow-sm mb-3">
+    <div th:if="${!appointment.standaloneProductLines.empty}" class="card shadow-sm mb-3">
         <div class="card-header py-2 fw-semibold">
             <i class="bi bi-box-seam me-1"></i>Products
         </div>
@@ -321,7 +406,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr th:each="pl : ${appointment.productLines}">
+                    <tr th:each="pl : ${appointment.standaloneProductLines}">
                         <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
                         <td>
                             <form method="post"
@@ -362,11 +447,9 @@
                 </tbody>
                 <tfoot>
                     <tr class="table-light border-top border-2">
-                        <td colspan="4" class="text-end fw-semibold ps-3 py-2">Products Total</td>
+                        <td colspan="4" class="text-end fw-semibold ps-3 py-2">Standalone Products Total</td>
                         <td class="text-end pe-3 fw-bold py-2"
-                            th:text="${appointment.totalProductAmount != null}
-                                      ? |₹ ${#numbers.formatDecimal(appointment.totalProductAmount, 1, 2)}|
-                                      : '₹0.00'">
+                            th:text="|₹ ${#numbers.formatDecimal(appointment.standaloneProductTotal, 1, 2)}|">
                         </td>
                     </tr>
                 </tfoot>
@@ -428,6 +511,12 @@
                                               : '₹0.00'">
                                 </td>
                             </tr>
+                            <tr th:if="${appointment.totalComboDiscount.signum() > 0}">
+                                <td class="ps-3 text-muted">Combo Savings</td>
+                                <td class="pe-3 text-end text-danger fw-semibold"
+                                    th:text="|- ₹ ${#numbers.formatDecimal(appointment.totalComboDiscount, 1, 2)}|">
+                                </td>
+                            </tr>
                             <tr th:if="${appointment.discounted}">
                                 <td class="ps-3 text-muted">
                                     Discount
@@ -444,7 +533,7 @@
                             <tr class="border-top border-2 table-active">
                                 <td class="ps-3 fw-bold">Grand Total</td>
                                 <td class="pe-3 text-end">
-                                    <span th:if="${appointment.discounted}"
+                                    <span th:if="${appointment.discounted or appointment.totalComboDiscount.signum() > 0}"
                                           class="text-muted text-decoration-line-through small me-2"
                                           th:text="|₹ ${#numbers.formatDecimal(appointment.totalServiceAmount.add(appointment.totalProductAmount), 1, 2)}|">
                                     </span>

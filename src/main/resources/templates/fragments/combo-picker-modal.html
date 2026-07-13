@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: comboPickerModal
+     Usage: <th:block th:replace="~{fragments/combo-picker-modal :: comboPickerModal}"/>
+
+     Unlike fragments/wallet-modals.html's modals, this is NOT a <form method="post"> —
+     selecting a combo injects rows into the already-open appointment form via JS
+     (addComboGroup(), see appointments/form.html's <script> block) rather than navigating
+     away. Stays open after each "Add" so multiple combos can be added in one visit.
+     ═══════════════════════════════════════════ -->
+<div th:fragment="comboPickerModal" class="modal fade" id="comboPickerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-boxes me-2"></i>Choose Combo</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="comboPickerSearchInput" class="form-control mb-3" autocomplete="off"
+                       placeholder="Search combos by name…">
+                <div id="comboPickerResults" class="list-group"></div>
+                <div id="comboPickerEmpty" class="text-muted small text-center py-3">
+                    <i class="bi bi-info-circle me-1"></i>Type to search active combos.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Done</button>
+            </div>
+        </div>
+    </div>
+</div>
+</html>

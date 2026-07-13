@@ -23,8 +23,8 @@ import java.util.Map;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(exclude = {"serviceLines", "productLines"})
-@ToString(exclude = {"serviceLines", "productLines"})
+@EqualsAndHashCode(exclude = {"serviceLines", "productLines", "combos"})
+@ToString(exclude = {"serviceLines", "productLines", "combos"})
 public class Appointment {
 
     @Id
@@ -105,6 +105,10 @@ public class Appointment {
     @Builder.Default
     private List<AppointmentProductLine> productLines = new ArrayList<>();
 
+    @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<AppointmentCombo> combos = new ArrayList<>();
+
     @CreationTimestamp
     @Column(updatable = false)
     private LocalDateTime createdAt;
@@ -143,6 +147,53 @@ public class Appointment {
     @Transient
     public boolean isDiscounted() {
         return discountAmount != null && discountAmount.signum() > 0;
+    }
+
+    /** Sum of every combo's own resolved discount on this appointment — separate from the whole-appointment discountAmount. */
+    @Transient
+    public BigDecimal getTotalComboDiscount() {
+        return combos.stream()
+                .map(AppointmentCombo::getDiscountAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // Template-friendly line filters — kept here rather than as inline SpEL selection expressions
+    // (Thymeleaf's `.?[...]` operator evaluates its predicate with the candidate element as root,
+    // so an outer th:each variable like a combo isn't visible inside it; see detail.html).
+    @Transient
+    public List<AppointmentServiceLine> getStandaloneServiceLines() {
+        return serviceLines.stream().filter(sl -> sl.getAppointmentCombo() == null).toList();
+    }
+
+    @Transient
+    public List<AppointmentProductLine> getStandaloneProductLines() {
+        return productLines.stream().filter(pl -> pl.getAppointmentCombo() == null).toList();
+    }
+
+    /** Raw (undiscounted) total of standalone service lines only — what the Services table's footer should show, not totalServiceAmount (which also includes combo lines shown separately). */
+    @Transient
+    public BigDecimal getStandaloneServiceTotal() {
+        return getStandaloneServiceLines().stream()
+                .map(AppointmentServiceLine::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Raw (undiscounted) total of standalone product lines only — mirrors getStandaloneServiceTotal. */
+    @Transient
+    public BigDecimal getStandaloneProductTotal() {
+        return getStandaloneProductLines().stream()
+                .map(AppointmentProductLine::getLineTotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    @Transient
+    public List<AppointmentServiceLine> getServiceLinesForCombo(AppointmentCombo ac) {
+        return serviceLines.stream().filter(sl -> sl.getAppointmentCombo() == ac).toList();
+    }
+
+    @Transient
+    public List<AppointmentProductLine> getProductLinesForCombo(AppointmentCombo ac) {
+        return productLines.stream().filter(pl -> pl.getAppointmentCombo() == ac).toList();
     }
 
     /** "PAID" | "PARTIAL" | "UNPAID" | "N/A" — used in list/detail views. */

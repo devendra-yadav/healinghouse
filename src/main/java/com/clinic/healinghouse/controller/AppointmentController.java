@@ -37,6 +37,7 @@ public class AppointmentController {
     private final WalletService      walletService;
     private final TreatmentService   treatmentService;
     private final ProductService     productService;
+    private final ComboService       comboService;
 
     // ── List ──────────────────────────────────────────────────────────────
     @GetMapping
@@ -154,6 +155,7 @@ public class AppointmentController {
                 model.addAttribute("conflicts",             conflicts);
                 model.addAttribute("existingServiceLines",  form.getServiceLines());
                 model.addAttribute("existingProductLines",  form.getProductLines());
+                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
                 model.addAttribute("editMode",   false);
                 model.addAttribute("formAction", "/appointments/save");
                 model.addAttribute("cancelUrl",  "/appointments");
@@ -209,6 +211,7 @@ public class AppointmentController {
                         m.put("serviceId",   sl.getService().getId());
                         m.put("quantity",    sl.getQuantity());
                         m.put("therapistId", sl.getTherapist().getId());
+                        m.put("comboGroupKey", sl.getAppointmentCombo() != null ? "combo-" + sl.getAppointmentCombo().getId() : null);
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
@@ -217,6 +220,7 @@ public class AppointmentController {
                         m.put("productId",   pl.getProduct().getId());
                         m.put("quantity",    pl.getQuantity());
                         m.put("therapistId", pl.getTherapist().getId());
+                        m.put("comboGroupKey", pl.getAppointmentCombo() != null ? "combo-" + pl.getAppointmentCombo().getId() : null);
                         return m;
                     }).toList();
 
@@ -224,6 +228,7 @@ public class AppointmentController {
             model.addAttribute("form",                 AppointmentForm.from(appt));
             model.addAttribute("existingServiceLines", existingServiceLines);
             model.addAttribute("existingProductLines", existingProductLines);
+            model.addAttribute("existingComboGroups",  existingComboGroupsFromAppointment(appt));
             model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
             model.addAttribute("editMode",   true);
             model.addAttribute("formAction", "/appointments/" + id + "/update");
@@ -257,6 +262,7 @@ public class AppointmentController {
                 model.addAttribute("conflicts",             conflicts);
                 model.addAttribute("existingServiceLines",  form.getServiceLines());
                 model.addAttribute("existingProductLines",  form.getProductLines());
+                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
                 model.addAttribute("editMode",   true);
                 model.addAttribute("formAction", "/appointments/" + id + "/update");
                 model.addAttribute("returnUrl",  returnUrl);
@@ -359,6 +365,37 @@ public class AppointmentController {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /** Combo group metadata for edit-mode pre-population, keyed the same way AppointmentForm.from does. */
+    private List<Map<String, Object>> existingComboGroupsFromAppointment(Appointment appt) {
+        return appt.getCombos().stream()
+                .map(ac -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("groupKey", "combo-" + ac.getId());
+                    m.put("comboId", ac.getCombo().getId());
+                    m.put("comboName", ac.getComboNameSnapshot());
+                    m.put("discountType", ac.getDiscountType() != null ? ac.getDiscountType().name() : "NONE");
+                    m.put("discountValue", ac.getDiscountValue() != null ? ac.getDiscountValue() : java.math.BigDecimal.ZERO);
+                    return m;
+                }).toList();
+    }
+
+    /** Same shape as above, but re-rendering after a conflict warning — combo names looked up live since the submitted form only carries comboId/groupKey. */
+    private List<Map<String, Object>> existingComboGroupsFromForm(AppointmentForm form) {
+        return form.getComboSelections().stream()
+                .filter(sel -> sel != null && sel.getComboId() != null && sel.getGroupKey() != null && !sel.getGroupKey().isBlank())
+                .map(sel -> {
+                    Combo combo = comboService.getById(sel.getComboId());
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("groupKey", sel.getGroupKey());
+                    m.put("comboId", combo.getId());
+                    m.put("comboName", combo.getName());
+                    m.put("discountType", combo.getDiscountType() != null ? combo.getDiscountType().name() : "NONE");
+                    m.put("discountValue", combo.getDiscountValue() != null ? combo.getDiscountValue() : java.math.BigDecimal.ZERO);
+                    return m;
+                }).toList();
+    }
+
     private void populateFormModel(Model model) {
         List<Map<String, Object>> serviceData = treatmentService.findAll().stream()
                 .map(s -> {

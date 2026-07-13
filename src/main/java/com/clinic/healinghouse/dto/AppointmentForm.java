@@ -51,6 +51,15 @@ public class AppointmentForm {
     private List<ServiceLineForm> serviceLines = new ArrayList<>();
     private List<ProductLineForm> productLines  = new ArrayList<>();
 
+    /**
+     * Combos added this submission. groupKey is a client-generated token (e.g. "combo-1") that the
+     * corresponding service/product line rows in the same submission carry in their own comboGroupKey
+     * field, so the server can regroup them into one AppointmentCombo per selection. The server never
+     * trusts a client-sent discount — it re-resolves discountType/discountValue from the live Combo
+     * catalog entry by comboId (see AppointmentService).
+     */
+    private List<ComboSelectionForm> comboSelections = new ArrayList<>();
+
     /** Pre-populate form fields from an existing appointment (used in edit flow). */
     public static AppointmentForm from(Appointment appt) {
         AppointmentForm f = new AppointmentForm();
@@ -64,11 +73,28 @@ public class AppointmentForm {
         f.setDiscountValue(appt.getDiscountValue());
         f.setWalletAmountApplied(appt.getWalletAmountApplied());
         // newPaymentAmount defaults to 0 (nothing entered yet); prepaidCorrection stays null (no correction).
+
+        // groupKey only needs to be stable for this one page load/regroup — every save re-derives
+        // fresh AppointmentCombo rows from that submission's groupings, so it need not match whatever
+        // the client generated when the combo was originally added.
+        java.util.Map<Long, String> groupKeyByComboId = new java.util.LinkedHashMap<>();
+        appt.getCombos().forEach(ac -> {
+            String groupKey = "combo-" + ac.getId();
+            groupKeyByComboId.put(ac.getId(), groupKey);
+            ComboSelectionForm sel = new ComboSelectionForm();
+            sel.setComboId(ac.getCombo().getId());
+            sel.setGroupKey(groupKey);
+            f.getComboSelections().add(sel);
+        });
+
         appt.getServiceLines().forEach(sl -> {
             ServiceLineForm s = new ServiceLineForm();
             s.setServiceId(sl.getService().getId());
             s.setQuantity(sl.getQuantity());
             s.setTherapistId(sl.getTherapist().getId());
+            if (sl.getAppointmentCombo() != null) {
+                s.setComboGroupKey(groupKeyByComboId.get(sl.getAppointmentCombo().getId()));
+            }
             f.getServiceLines().add(s);
         });
         appt.getProductLines().forEach(pl -> {
@@ -76,6 +102,9 @@ public class AppointmentForm {
             p.setProductId(pl.getProduct().getId());
             p.setQuantity(pl.getQuantity());
             p.setTherapistId(pl.getTherapist().getId());
+            if (pl.getAppointmentCombo() != null) {
+                p.setComboGroupKey(groupKeyByComboId.get(pl.getAppointmentCombo().getId()));
+            }
             f.getProductLines().add(p);
         });
         return f;
@@ -87,6 +116,8 @@ public class AppointmentForm {
         private int  quantity = 1;
         /** Null means "use the appointment's main therapist" — resolved server-side. */
         private Long therapistId;
+        /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
+        private String comboGroupKey;
     }
 
     @Data
@@ -95,5 +126,13 @@ public class AppointmentForm {
         private int  quantity = 1;
         /** Null means "use the appointment's main therapist" — resolved server-side. */
         private Long therapistId;
+        /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
+        private String comboGroupKey;
+    }
+
+    @Data
+    public static class ComboSelectionForm {
+        private Long comboId;
+        private String groupKey;
     }
 }
