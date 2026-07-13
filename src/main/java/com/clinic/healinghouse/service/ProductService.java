@@ -6,6 +6,8 @@ import com.clinic.healinghouse.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -43,6 +45,18 @@ public class ProductService {
     public List<Product> search(String query) {
         if (!StringUtils.hasText(query)) return findAll();
         return productRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim());
+    }
+
+    /** Paginated variant, used by the products list page; tag filter takes precedence over search. */
+    @Transactional(readOnly = true)
+    public Page<Product> search(String query, String tagName, Pageable pageable) {
+        if (StringUtils.hasText(tagName)) {
+            return productRepository.findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(tagName, pageable);
+        }
+        if (StringUtils.hasText(query)) {
+            return productRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim(), pageable);
+        }
+        return productRepository.findByActiveTrueOrderByNameAsc(pageable);
     }
 
     @Transactional(readOnly = true)

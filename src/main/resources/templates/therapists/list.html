@@ -82,8 +82,33 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer text-muted small">
-            <span th:text="${therapists.size()} + ' therapist(s)'"></span>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${therapists.totalElements} + ' therapist(s)'"></span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/therapists(size=${s},page=0)}"
+                            th:selected="${s == therapists.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${therapists.totalPages > 1}" class="text-muted small"
+                      th:text="'Page ' + (${therapists.number} + 1) + ' of ' + ${therapists.totalPages}">
+                </span>
+                <div th:if="${therapists.totalPages > 1}" class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!therapists.hasPrevious()} ? 'disabled'"
+                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!therapists.hasNext()} ? 'disabled'"
+                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </main>

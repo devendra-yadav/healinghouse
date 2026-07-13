@@ -6,6 +6,7 @@ public record CalendarEventDTO(
         String title,
         String start,
         String end,
-        String color
+        String color,
+        String status
 ) {
 }

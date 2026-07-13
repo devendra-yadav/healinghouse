@@ -4,8 +4,10 @@ import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TreatmentService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -26,10 +28,12 @@ public class TreatmentController {
     private final TagService tagService;
 
     @GetMapping
-    public String list(@RequestParam(required = false) String tag, Model model) {
-        model.addAttribute("services", StringUtils.hasText(tag)
-                ? treatmentService.findByTag(tag)
-                : treatmentService.findAll());
+    public String list(@RequestParam(required = false) String tag,
+                       @RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
+                       Model model) {
+        int pageSize = PaginationUtil.clampPageSize(size);
+        model.addAttribute("services", treatmentService.search(null, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("selectedTag", tag);
         model.addAttribute("pageTitle", "Services");

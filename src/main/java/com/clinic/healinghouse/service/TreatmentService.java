@@ -6,6 +6,8 @@ import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -44,6 +46,18 @@ public class TreatmentService {
     public List<ClinicService> search(String query) {
         if (!StringUtils.hasText(query)) return findAll();
         return clinicServiceRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim());
+    }
+
+    /** Paginated variant, used by the services list page; tag filter takes precedence over search. */
+    @Transactional(readOnly = true)
+    public Page<ClinicService> search(String query, String tagName, Pageable pageable) {
+        if (StringUtils.hasText(tagName)) {
+            return clinicServiceRepository.findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(tagName, pageable);
+        }
+        if (StringUtils.hasText(query)) {
+            return clinicServiceRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim(), pageable);
+        }
+        return clinicServiceRepository.findByActiveTrueOrderByNameAsc(pageable);
     }
 
     /** tagNames are resolved via find-or-create (see {@link TagService#findOrCreate}) before saving. */

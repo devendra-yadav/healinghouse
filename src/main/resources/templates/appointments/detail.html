@@ -82,7 +82,7 @@
                     <span><i class="bi bi-person me-1"></i>Patient</span>
                     <a th:href="@{/patients/{id}(id=${appointment.patient.id})}"
                        class="btn btn-sm btn-outline-secondary" title="View patient profile">
-                        <i class="bi bi-person-lines-fill me-1"></i>View Profile
+                        <i class="bi bi-person-lines-fill me-1"></i>View Patient
                     </a>
                 </div>
                 <div class="card-body">
@@ -161,8 +161,12 @@
         <!-- Appointment meta card -->
         <div class="col-md-6">
             <div class="card shadow-sm h-100">
-                <div class="card-header py-2 fw-semibold">
-                    <i class="bi bi-calendar2-check me-1"></i>Appointment Details
+                <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-calendar2-check me-1"></i>Appointment Details</span>
+                    <a th:href="@{/therapists/{id}(id=${appointment.therapist.id})}"
+                       class="btn btn-sm btn-outline-secondary" title="View therapist profile">
+                        <i class="bi bi-person-lines-fill me-1"></i>View Therapist
+                    </a>
                 </div>
                 <div class="card-body">
                     <table class="table table-sm table-borderless mb-0 small">

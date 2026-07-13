@@ -2,7 +2,9 @@ package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.service.TagService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -20,8 +22,11 @@ public class TagController {
     private final TagService tagService;
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("tagUsages", tagService.findAllWithUsage());
+    public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
+                       Model model) {
+        int pageSize = PaginationUtil.clampPageSize(size);
+        model.addAttribute("tagUsages", tagService.findAllWithUsage(PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("pageTitle", "Tags");
         return "tags/list";

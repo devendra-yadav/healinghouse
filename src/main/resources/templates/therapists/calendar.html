@@ -28,6 +28,14 @@
             .fc .fc-list-day-text, .fc .fc-list-day-side-text { font-size: .82rem; }
             .fc .fc-daygrid-day-number { font-size: .78rem; }
         }
+
+        .fc-event-delete-btn {
+            position: absolute; top: 1px; right: 2px; z-index: 5;
+            width: 15px; height: 15px; line-height: 15px; text-align: center;
+            font-size: .7rem; font-weight: bold; border-radius: 50%;
+            background: rgba(255,255,255,.85); color: #b02a37; cursor: pointer;
+        }
+        .fc-event-delete-btn:hover { background: #fff; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -57,6 +65,11 @@
         </div>
     </div>
 
+    <div id="calendarAlert" class="alert alert-warning d-none" role="alert">
+        <div id="calendarAlertBody"></div>
+        <div class="mt-2 d-flex gap-2" id="calendarAlertActions"></div>
+    </div>
+
     <div class="card shadow-sm">
         <div class="card-body">
             <div id="therapistCalendar"></div>
@@ -66,9 +79,30 @@
     <p class="text-muted small mt-2">
         <i class="bi bi-info-circle me-1"></i>
         Click an appointment to open it, or click an empty slot to start a new booking for
-        <span th:text="${therapist.fullName}"></span> at that time.
+        <span th:text="${therapist.fullName}"></span> at that time. Scheduled appointments can be
+        dragged to reschedule, resized to change duration, or removed with the
+        <i class="bi bi-x-circle"></i> icon.
     </p>
 </main>
+
+<!-- Cancel confirmation modal (calendar delete action) -->
+<div class="modal fade" id="cancelConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Appointment?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">This will cancel <strong id="cancelConfirmEventTitle"></strong>. This cannot be undone from the calendar.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Keep Appointment</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">Cancel Appointment</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
@@ -87,6 +121,111 @@ function toDateTimeParam(date) {
         + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
 
+// Local-time "yyyy-MM-ddTHH:mm:ss" for the reschedule JSON payload (LocalDateTime on the server).
+function toIsoLocal(date) {
+    return toDateTimeParam(date) + ':' + pad(date.getSeconds());
+}
+
+function minutesBetween(start, end) {
+    return Math.round((end.getTime() - start.getTime()) / 60000);
+}
+
+function hideCalendarAlert() {
+    const alertEl = document.getElementById('calendarAlert');
+    alertEl.classList.add('d-none');
+    document.getElementById('calendarAlertBody').innerHTML = '';
+    document.getElementById('calendarAlertActions').innerHTML = '';
+}
+
+function showErrorAlert(message) {
+    const alertEl = document.getElementById('calendarAlert');
+    alertEl.classList.remove('d-none', 'alert-warning');
+    alertEl.classList.add('alert-danger');
+    document.getElementById('calendarAlertBody').textContent = message;
+    document.getElementById('calendarAlertActions').innerHTML = '';
+}
+
+function showConflictAlert(conflicts, onForce, onDecline) {
+    const alertEl = document.getElementById('calendarAlert');
+    alertEl.classList.remove('d-none', 'alert-danger');
+    alertEl.classList.add('alert-warning');
+
+    const body = document.getElementById('calendarAlertBody');
+    body.innerHTML = '';
+    const heading = document.createElement('div');
+    heading.className = 'fw-semibold mb-1';
+    heading.textContent = 'Scheduling conflict:';
+    body.appendChild(heading);
+    const list = document.createElement('ul');
+    list.className = 'mb-0';
+    conflicts.forEach(function (c) {
+        const li = document.createElement('li');
+        li.textContent = c.therapistName + ' is already booked with ' + c.patientName
+                + ' (Appt #' + c.conflictingAppointmentId + ').';
+        list.appendChild(li);
+    });
+    body.appendChild(list);
+
+    const actions = document.getElementById('calendarAlertActions');
+    actions.innerHTML = '';
+    const forceBtn = document.createElement('button');
+    forceBtn.type = 'button';
+    forceBtn.className = 'btn btn-sm btn-warning';
+    forceBtn.textContent = 'Save Anyway';
+    forceBtn.onclick = function () { hideCalendarAlert(); onForce(); };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.type = 'button';
+    cancelBtn.className = 'btn btn-sm btn-outline-secondary';
+    cancelBtn.textContent = 'Undo';
+    cancelBtn.onclick = function () { hideCalendarAlert(); onDecline(); };
+    actions.appendChild(forceBtn);
+    actions.appendChild(cancelBtn);
+}
+
+function submitReschedule(info, forceSave) {
+    const ev = info.event;
+    const start = ev.start;
+    const end = ev.end || new Date(start.getTime() + 60 * 60000);
+    const duration = minutesBetween(start, end);
+
+    fetch('/appointments/' + ev.id + '/reschedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            appointmentDateTime: toIsoLocal(start),
+            durationMinutes: duration,
+            forceSave: forceSave
+        })
+    })
+        .then(function (res) { return res.json(); })
+        .then(function (result) {
+            if (result.success) {
+                hideCalendarAlert();
+                return;
+            }
+            if (result.conflicts && result.conflicts.length > 0) {
+                showConflictAlert(result.conflicts,
+                        function () { submitReschedule(info, true); },
+                        function () { info.revert(); });
+            } else {
+                info.revert();
+                showErrorAlert(result.message || 'Could not reschedule this appointment.');
+            }
+        })
+        .catch(function () {
+            info.revert();
+            showErrorAlert('Network error — could not reschedule this appointment.');
+        });
+}
+
+let pendingCancelEvent = null;
+
+function requestCancel(eventObj) {
+    pendingCancelEvent = eventObj;
+    document.getElementById('cancelConfirmEventTitle').textContent = eventObj.title;
+    new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const calendarEl = document.getElementById('therapistCalendar');
     // Below 576px, a 7-column time grid has no room to breathe — fall back to a
@@ -103,12 +242,31 @@ document.addEventListener('DOMContentLoaded', function () {
             : false,
         height: 'auto',
         nowIndicator: true,
+        editable: true,
+        snapDuration: '00:15:00',
         events: function (fetchInfo, successCallback, failureCallback) {
             fetch('/appointments/calendar-feed?therapistId=' + THERAPIST_ID
                     + '&start=' + encodeURIComponent(fetchInfo.startStr)
                     + '&end=' + encodeURIComponent(fetchInfo.endStr))
                 .then(function (res) { return res.json(); })
-                .then(successCallback)
+                .then(function (events) {
+                    // Only SCHEDULED appointments are draggable/resizable/deletable —
+                    // completed/cancelled/no-show ones render read-only on the calendar.
+                    successCallback(events.map(function (ev) {
+                        const isScheduled = ev.status === 'SCHEDULED';
+                        return {
+                            id: ev.id,
+                            title: ev.title,
+                            start: ev.start,
+                            end: ev.end,
+                            color: ev.color,
+                            editable: isScheduled,
+                            startEditable: isScheduled,
+                            durationEditable: isScheduled,
+                            extendedProps: { status: ev.status }
+                        };
+                    }));
+                })
                 .catch(failureCallback);
         },
         eventClick: function (info) {
@@ -117,9 +275,47 @@ document.addEventListener('DOMContentLoaded', function () {
         dateClick: function (info) {
             window.location.href = '/appointments/new?therapistId=' + THERAPIST_ID
                     + '&appointmentDateTime=' + encodeURIComponent(toDateTimeParam(info.date));
+        },
+        eventDrop: function (info) { submitReschedule(info, false); },
+        eventResize: function (info) { submitReschedule(info, false); },
+        eventDidMount: function (info) {
+            if (info.event.extendedProps.status !== 'SCHEDULED') return;
+            const btn = document.createElement('span');
+            btn.className = 'fc-event-delete-btn';
+            btn.title = 'Cancel appointment';
+            btn.textContent = '×';
+            btn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                e.preventDefault();
+                requestCancel(info.event);
+            });
+            info.el.style.position = 'relative';
+            info.el.appendChild(btn);
         }
     });
     calendar.render();
+
+    document.getElementById('confirmCancelBtn').addEventListener('click', function () {
+        if (!pendingCancelEvent) return;
+        const ev = pendingCancelEvent;
+        fetch('/appointments/' + ev.id + '/cancel-from-calendar', { method: 'POST' })
+            .then(function (res) { return res.json(); })
+            .then(function (result) {
+                if (result.success) {
+                    ev.remove();
+                    hideCalendarAlert();
+                } else {
+                    showErrorAlert(result.message || 'Could not cancel this appointment.');
+                }
+            })
+            .catch(function () {
+                showErrorAlert('Network error — could not cancel this appointment.');
+            })
+            .finally(function () {
+                pendingCancelEvent = null;
+                bootstrap.Modal.getInstance(document.getElementById('cancelConfirmModal')).hide();
+            });
+    });
 });
 </script>
 

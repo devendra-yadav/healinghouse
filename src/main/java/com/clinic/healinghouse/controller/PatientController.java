@@ -9,6 +9,7 @@ import com.clinic.healinghouse.service.PatientHistoryService;
 import com.clinic.healinghouse.service.PatientService;
 import com.clinic.healinghouse.service.TherapistService;
 import com.clinic.healinghouse.service.WalletService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -39,8 +40,10 @@ public class PatientController {
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        model.addAttribute("patients", patientService.search(q, PageRequest.of(page, 20)));
+        int pageSize = PaginationUtil.clampPageSize(size);
+        model.addAttribute("patients", patientService.search(q, PageRequest.of(page, pageSize)));
         model.addAttribute("q", q);
         model.addAttribute("pageTitle", "Patients");
         return "patients/list";

@@ -19,11 +19,11 @@
 
     <!-- Tag filter chips -->
     <div class="d-flex flex-wrap gap-2 mb-3">
-        <a th:href="@{/services}"
+        <a th:href="@{/services(size=${services.size})}"
            th:classappend="${selectedTag == null} ? 'btn-success' : 'btn-outline-secondary'"
            class="btn btn-sm">All</a>
         <a th:each="t : ${allTags}"
-           th:href="@{/services(tag=${t.name})}"
+           th:href="@{/services(tag=${t.name},size=${services.size})}"
            th:text="${t.name}"
            th:classappend="${t.name == selectedTag} ? 'btn-success' : 'btn-outline-secondary'"
            class="btn btn-sm">
@@ -81,8 +81,33 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer text-muted small">
-            <span th:text="${services.size()} + ' service(s)'"></span>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${services.totalElements} + ' service(s)'"></span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/services(tag=${selectedTag},size=${s},page=0)}"
+                            th:selected="${s == services.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${services.totalPages > 1}" class="text-muted small"
+                      th:text="'Page ' + (${services.number} + 1) + ' of ' + ${services.totalPages}">
+                </span>
+                <div th:if="${services.totalPages > 1}" class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!services.hasPrevious()} ? 'disabled'"
+                       th:href="@{/services(tag=${selectedTag},size=${services.size},page=${services.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!services.hasNext()} ? 'disabled'"
+                       th:href="@{/services(tag=${selectedTag},size=${services.size},page=${services.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </main>

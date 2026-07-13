@@ -5,6 +5,8 @@ import com.clinic.healinghouse.repository.TherapistRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,6 +36,12 @@ public class TherapistService {
     public List<Therapist> search(String query) {
         if (!StringUtils.hasText(query)) return findAll();
         return therapistRepository.findByFullNameContainingIgnoreCaseAndActiveTrue(query.trim());
+    }
+
+    /** Paginated variant, used by the therapists list page. */
+    @Transactional(readOnly = true)
+    public Page<Therapist> findAll(Pageable pageable) {
+        return therapistRepository.findByActiveTrueOrderByFullNameAsc(pageable);
     }
 
     public Therapist save(Therapist therapist) {

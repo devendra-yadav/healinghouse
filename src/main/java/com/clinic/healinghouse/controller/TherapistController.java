@@ -5,6 +5,7 @@ import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.CommissionCalculator;
 import com.clinic.healinghouse.service.TherapistService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -28,8 +29,11 @@ public class TherapistController {
     private final CommissionCalculator commissionCalculator;
 
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("therapists", therapistService.findAll());
+    public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
+                       Model model) {
+        int pageSize = PaginationUtil.clampPageSize(size);
+        model.addAttribute("therapists", therapistService.findAll(PageRequest.of(page, pageSize)));
         model.addAttribute("pageTitle", "Therapists");
         return "therapists/list";
     }
@@ -49,7 +53,18 @@ public class TherapistController {
             Therapist therapist = therapistService.getById(id);
 
             LocalDate effectiveDateFrom = dateFrom != null ? dateFrom : LocalDate.now().withDayOfMonth(1);
-            LocalDate effectiveDateTo   = dateTo   != null ? dateTo   : LocalDate.now();
+            LocalDate effectiveDateTo;
+            if (dateTo != null) {
+                effectiveDateTo = dateTo;
+            } else {
+                // Default upper bound is "today", widened to the therapist's furthest-out
+                // appointment (any status) if one exists beyond today — otherwise an appointment
+                // dragged forward on the calendar (or dragged forward then cancelled) would
+                // silently vanish from this default view.
+                LocalDate today = LocalDate.now();
+                LocalDate latestAppointment = appointmentService.findLatestAppointmentDate(id).orElse(today);
+                effectiveDateTo = latestAppointment.isAfter(today) ? latestAppointment : today;
+            }
 
             AppointmentStatus statusEnum = null;
             if (status != null && !status.isBlank()) {
