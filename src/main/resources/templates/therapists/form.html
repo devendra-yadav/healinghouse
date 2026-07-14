@@ -22,8 +22,9 @@
             <!-- Owner tip -->
             <div class="alert alert-info py-2 mb-3">
                 <i class="bi bi-info-circle me-2"></i>
-                For <strong>Marcia Gomes Yadav</strong> (owner): leave Salary, Commission Rate,
-                and Bonus fields blank — no payout calculation will apply.
+                Check <strong>"This therapist is the owner"</strong> below for Marcia Gomes Yadav —
+                no commission/bonus payout calculation will apply to them, regardless of what the
+                Salary/Commission/Bonus fields hold. Leave unchecked for every other therapist.
             </div>
 
             <div class="card shadow-sm">
@@ -66,7 +67,14 @@
                         </div>
 
                         <hr class="my-4"/>
-                        <h6 class="section-header mb-3">Payout Configuration <span class="text-muted fw-normal">(leave blank for owner)</span></h6>
+                        <h6 class="section-header mb-3">Payout Configuration</h6>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="ownerCheck" th:field="*{owner}"/>
+                            <label class="form-check-label fw-semibold" for="ownerCheck">
+                                This therapist is the owner (no commission/bonus payout calculation)
+                            </label>
+                        </div>
 
                         <!-- Row 3: Salary + Commission -->
                         <div class="row g-3 mb-3">

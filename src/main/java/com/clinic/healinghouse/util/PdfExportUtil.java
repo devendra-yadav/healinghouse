@@ -475,6 +475,11 @@ public class PdfExportUtil {
         }
 
         document.add(table);
+        // Svc Comm/Prod Comm are each rounded independently and can differ from Total Comm by up to
+        // ₹0.01 — Total Comm (sum-then-round) is the actual payout figure, the two category columns
+        // are informational only.
+        document.add(new Paragraph("Svc Comm + Prod Comm may differ from Total Comm by up to ₹0.01 due to independent per-category rounding. Total Comm is the actual payout figure.")
+                .setFont(regularFont()).setFontSize(7.5f).setFontColor(TEXT_MUTED).setMultipliedLeading(1.2f).setMarginTop(2));
     }
 
     private static Table buildTagRevenueTable(List<TagRevenueDTO> tagRevenues) {

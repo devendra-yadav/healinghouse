@@ -24,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,13 +61,15 @@ class WalletServiceTests {
     void topUp_createsWalletAndCreditsBalance_whenWalletDoesNotExist() {
         when(walletRepository.findById(PATIENT_ID)).thenReturn(Optional.empty());
         when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
-        when(walletRepository.save(any(PatientWallet.class))).thenAnswer(inv -> inv.getArgument(0));
         when(walletRepository.saveAndFlush(any(PatientWallet.class))).thenAnswer(inv -> inv.getArgument(0));
 
         walletService.topUp(PATIENT_ID, BigDecimal.valueOf(500), PaymentMethod.CASH, "initial top-up");
 
+        // Two saveAndFlush calls: getOrCreateWallet flushes the brand-new zero-balance row first (so a
+        // concurrent-creation race would surface here, not at a later flush point — Bug_Report_v2 #7),
+        // then persistBalance flushes the actual credited balance. getValue() returns the last (final) one.
         ArgumentCaptor<PatientWallet> savedWallet = ArgumentCaptor.forClass(PatientWallet.class);
-        verify(walletRepository).saveAndFlush(savedWallet.capture());
+        verify(walletRepository, times(2)).saveAndFlush(savedWallet.capture());
         assertThat(savedWallet.getValue().getBalance()).isEqualByComparingTo("500");
 
         ArgumentCaptor<WalletTransaction> txn = ArgumentCaptor.forClass(WalletTransaction.class);

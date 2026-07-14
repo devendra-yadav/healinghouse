@@ -311,6 +311,9 @@
                                        th:value="${form.discountValue != null ? form.discountValue : ''}"
                                        oninput="updateTotals()"
                                        disabled>
+                                <div id="discountPercentWarning" class="alert alert-warning py-1 px-2 mt-1 mb-0 small d-none">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Percentage discount cannot exceed 100% — this will be rejected when you save.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -495,12 +498,16 @@ function initItemSelect(sel, placeholder) {
 // comboGroupKey is only passed for a combo's own lines — those render "locked" (static
 // item/qty text plus a hidden input carrying the real value) since combo composition can't
 // be edited per-line (§5.4); the per-line therapist select stays fully editable either way.
-function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
+function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey, preselectPrice) {
     const i = sIdx++;
     const locked = !!comboGroupKey;
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center service-row' + (locked ? ' combo-line-row' : '');
     if (locked) row.dataset.comboGroup = comboGroupKey;
+    // Live price fetched moments ago from GET /combos/{id}/detail — preferred over the page-load
+    // SERVICE_DATA snapshot (serviceMap) below, which can go stale if a catalog price changed after
+    // this page loaded. updateTotals() reads this same attribute for its running-total calculation.
+    if (locked && preselectPrice != null) row.dataset.livePrice = preselectPrice;
 
     const selectCell = locked
         ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((serviceMap[preselectId] || {}).name || '')}</div>
@@ -548,8 +555,8 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
     document.getElementById('servicesContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
     if (locked) {
-        const s = serviceMap[preselectId];
-        row.querySelector('.s-rate').textContent = s ? fmt(s.price) + ' ea.' : '—';
+        const price = preselectPrice != null ? preselectPrice : (serviceMap[preselectId] || {}).price;
+        row.querySelector('.s-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
     } else {
         const sel = row.querySelector('.s-select');
         const choicesInstance = initItemSelect(sel, '— Service —');
@@ -571,12 +578,15 @@ function onServiceChange(sel) {
 }
 
 // ── Product rows ──────────────────────────────────────────────────────────
-function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
+function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey, preselectPrice) {
     const i = pIdx++;
     const locked = !!comboGroupKey;
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center product-row' + (locked ? ' combo-line-row' : '');
     if (locked) row.dataset.comboGroup = comboGroupKey;
+    // See addServiceRow's matching comment — live price from GET /combos/{id}/detail, preferred
+    // over the stale page-load PRODUCT_DATA snapshot (productMap).
+    if (locked && preselectPrice != null) row.dataset.livePrice = preselectPrice;
 
     const selectCell = locked
         ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((productMap[preselectId] || {}).name || '')}</div>
@@ -629,12 +639,13 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
     if (locked) {
         const p = productMap[preselectId];
         const badge = row.querySelector('.p-stock');
+        const price = preselectPrice != null ? preselectPrice : (p || {}).price;
         if (p) {
             badge.textContent = 'Stock: ' + p.stock;
             badge.className   = 'p-stock badge ' +
                 (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
-            row.querySelector('.p-rate').textContent = fmt(p.price) + ' ea.';
         }
+        row.querySelector('.p-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
     } else {
         const sel = row.querySelector('.p-select');
         const choicesInstance = initItemSelect(sel, '— Product —');
@@ -679,11 +690,11 @@ function addComboGroup(comboDetail, preassignedGroupKey) {
     };
     if (comboDetail.serviceItems && comboDetail.serviceItems.length > 0) {
         insertComboHeaderIfMissing(document.getElementById('servicesContainer'), groupKey, comboDetail.name);
-        comboDetail.serviceItems.forEach(item => addServiceRow(item.itemId, item.quantity, null, groupKey));
+        comboDetail.serviceItems.forEach(item => addServiceRow(item.itemId, item.quantity, null, groupKey, item.price));
     }
     if (comboDetail.productItems && comboDetail.productItems.length > 0) {
         insertComboHeaderIfMissing(document.getElementById('productsContainer'), groupKey, comboDetail.name);
-        comboDetail.productItems.forEach(item => addProductRow(item.itemId, item.quantity, null, groupKey));
+        comboDetail.productItems.forEach(item => addProductRow(item.itemId, item.quantity, null, groupKey, item.price));
     }
     updateTotals();
     return groupKey;
@@ -772,7 +783,11 @@ function updateTotals() {
     document.querySelectorAll('.service-row').forEach(row => {
         const sId = row.querySelector('.s-select').value;
         const qty = parseInt(row.querySelector('.s-qty').value) || 0;
-        const line = (sId && serviceMap[sId]) ? serviceMap[sId].price * qty : 0;
+        // Combo rows carry the live price fetched at add-time (see addServiceRow); everything
+        // else falls back to the page-load SERVICE_DATA snapshot.
+        const price = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice)
+                : (sId && serviceMap[sId]) ? serviceMap[sId].price : null;
+        const line = (sId && price != null) ? price * qty : 0;
         row.querySelector('.s-subtotal').textContent = fmt(line);
         sTotal += line;
         const gk = row.dataset.comboGroup;
@@ -783,7 +798,10 @@ function updateTotals() {
     document.querySelectorAll('.product-row').forEach(row => {
         const pId = row.querySelector('.p-select').value;
         const qty = parseInt(row.querySelector('.p-qty').value) || 0;
-        const line = (pId && productMap[pId]) ? productMap[pId].price * qty : 0;
+        // See the service-row loop above — combo rows prefer their live add-time price.
+        const price = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice)
+                : (pId && productMap[pId]) ? productMap[pId].price : null;
+        const line = (pId && price != null) ? price * qty : 0;
         row.querySelector('.p-subtotal').textContent = fmt(line);
         pTotal += line;
         const gk = row.dataset.comboGroup;
@@ -816,6 +834,10 @@ function updateTotals() {
         discountAmount = Math.min(discountRaw, effectiveSubtotal);
     }
     const netGrand = effectiveSubtotal - discountAmount;
+    // The clamp above only keeps this live preview sane — the server hard-rejects a >100% value
+    // outright (AppointmentService.applyDiscount), so surface that here too rather than silently
+    // capping the preview with no explanation (Bug_Report_v2 #10).
+    toggle('discountPercentWarning', discountType === 'PERCENTAGE' && discountRaw > 100);
 
     set('displayServiceTotal',  fmt(sTotal));
     set('displayProductTotal',  fmt(pTotal));

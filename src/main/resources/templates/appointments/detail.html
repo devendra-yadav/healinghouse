@@ -10,6 +10,37 @@
 <main class="container-fluid px-4 py-4 flex-grow-1">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
+    <!-- ── Per-line therapist reassignment conflict warning ─────────────────── -->
+    <div class="alert alert-warning" th:if="${reassignConflicts != null and !reassignConflicts.isEmpty()}">
+        <h6 class="fw-semibold mb-2">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>Reassigning this line creates a scheduling conflict
+        </h6>
+        <ul class="mb-2">
+            <li th:each="c : ${reassignConflicts}">
+                <strong th:text="${c.therapistName}"></strong> is already booked
+                <span th:text="${#temporals.format(c.conflictStart, 'dd MMM, hh:mm a')}"></span>–<span
+                      th:text="${#temporals.format(c.conflictEnd, 'hh:mm a')}"></span>
+                with <span th:text="${c.patientName}"></span>
+                (<a th:href="@{/appointments/{id}(id=${c.conflictingAppointmentId})}" target="_blank"
+                    th:text="'Appt #' + ${c.conflictingAppointmentId}"></a>).
+            </li>
+        </ul>
+        <form method="post" class="mb-0" th:if="${reassignConflictLineType == 'service'}"
+              th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${reassignConflictLineId})}">
+            <input type="hidden" name="therapistId" th:value="${reassignConflictTherapistId}">
+            <input type="hidden" name="forceReassign" value="true">
+            <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+            <button type="submit" class="btn btn-sm btn-outline-dark">Reassign Anyway</button>
+        </form>
+        <form method="post" class="mb-0" th:if="${reassignConflictLineType == 'product'}"
+              th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${reassignConflictLineId})}">
+            <input type="hidden" name="therapistId" th:value="${reassignConflictTherapistId}">
+            <input type="hidden" name="forceReassign" value="true">
+            <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+            <button type="submit" class="btn btn-sm btn-outline-dark">Reassign Anyway</button>
+        </form>
+    </div>
+
     <!-- ── Page header ──────────────────────────────────────────────────── -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <div class="d-flex align-items-center gap-2">

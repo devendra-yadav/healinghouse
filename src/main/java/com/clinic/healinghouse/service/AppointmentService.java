@@ -13,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,17 @@ public class AppointmentService {
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
+
+    /**
+     * Ceiling on how long a single appointment can occupy a therapist. Also what makes
+     * findConflicts' ±1-day DB pre-filter window provably safe (Bug_Report_v2 #12): without a cap,
+     * a candidate appointment starting more than a day before the requested window but running long
+     * enough to still overlap it would be excluded by that pre-filter before the exact overlap check
+     * ever runs. With every appointment capped at 24h, the latest a candidate can start and still
+     * reach into the requested window is within that same ±1-day margin, so the pre-filter can never
+     * miss a genuine overlap.
+     */
+    private static final int MAX_DURATION_MINUTES = 24 * 60;
 
     // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -198,37 +210,52 @@ public class AppointmentService {
         });
         if (therapistIds.isEmpty()) return List.of();
 
+        List<TherapistConflictDTO> conflicts = new ArrayList<>();
+        for (Long therapistId : therapistIds) {
+            conflicts.addAll(findConflictsForTherapist(therapistId, start, end, excludeAppointmentId));
+        }
+        return conflicts;
+    }
+
+    /**
+     * Checks whether a single therapist is already booked on another SCHEDULED/COMPLETED
+     * appointment overlapping [start, end), excluding excludeAppointmentId. The single-therapist
+     * building block behind both the whole-form check above (looped over every therapist on the
+     * form) and per-line therapist reassignment (reassignServiceLineTherapist/reassignProductLineTherapist),
+     * which only ever needs to check the one therapist being newly assigned.
+     */
+    @Transactional(readOnly = true)
+    public List<TherapistConflictDTO> findConflictsForTherapist(Long therapistId, LocalDateTime start,
+                                                                  LocalDateTime end, Long excludeAppointmentId) {
         // Widened bound (± 1 day) so appointments that straddle midnight are still caught;
         // exact overlap is verified below, this is just a cheap pre-filter for the query.
         LocalDateTime boundStart = start.toLocalDate().minusDays(1).atStartOfDay();
         LocalDateTime boundEnd   = end.toLocalDate().plusDays(1).atStartOfDay();
 
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+
+        String therapistName = therapistRepository.findById(therapistId)
+                .map(Therapist::getFullName)
+                .orElse("Therapist #" + therapistId);
+
         List<TherapistConflictDTO> conflicts = new ArrayList<>();
-        for (Long therapistId : therapistIds) {
-            Specification<Appointment> spec = Specification
-                    .where(AppointmentSpec.withPatientAndTherapist())
-                    .and(AppointmentSpec.hasTherapistId(therapistId))
-                    .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+        for (Appointment candidate : appointmentRepository.findAll(spec)) {
+            if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
+            if (candidate.getStatus() == AppointmentStatus.CANCELLED
+                    || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
 
-            String therapistName = therapistRepository.findById(therapistId)
-                    .map(Therapist::getFullName)
-                    .orElse("Therapist #" + therapistId);
+            LocalDateTime candidateStart = candidate.getAppointmentDateTime();
+            LocalDateTime candidateEnd   = candidate.getEndDateTime();
+            boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
+            if (!overlaps) continue;
 
-            for (Appointment candidate : appointmentRepository.findAll(spec)) {
-                if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
-                if (candidate.getStatus() == AppointmentStatus.CANCELLED
-                        || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
-
-                LocalDateTime candidateStart = candidate.getAppointmentDateTime();
-                LocalDateTime candidateEnd   = candidate.getEndDateTime();
-                boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
-                if (!overlaps) continue;
-
-                conflicts.add(new TherapistConflictDTO(
-                        therapistId, therapistName,
-                        candidate.getId(), candidate.getPatient().getFullName(),
-                        candidateStart, candidateEnd));
-            }
+            conflicts.add(new TherapistConflictDTO(
+                    therapistId, therapistName,
+                    candidate.getId(), candidate.getPatient().getFullName(),
+                    candidateStart, candidateEnd));
         }
         return conflicts;
     }
@@ -301,6 +328,7 @@ public class AppointmentService {
         if (newStart == null || newDuration == null || newDuration <= 0) {
             throw new IllegalArgumentException("A valid date/time and duration are required.");
         }
+        validateDuration(newDuration);
 
         AppointmentForm probe = AppointmentForm.from(appt);
         probe.setAppointmentDateTime(newStart);
@@ -362,6 +390,7 @@ public class AppointmentService {
             } catch (IllegalArgumentException ignored) {}
         }
 
+        validateDuration(form.getDurationMinutes());
         Appointment appointment = Appointment.builder()
                 .patient(patient)
                 .therapist(therapist)
@@ -515,7 +544,7 @@ public class AppointmentService {
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
         reverseFullWalletIfAny(appt);
-        Appointment saved = appointmentRepository.save(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
         return saved;
     }
@@ -529,7 +558,7 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
         reverseFullWalletIfAny(appt);
-        Appointment saved = appointmentRepository.save(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked NO_SHOW", saved.getId());
         return saved;
     }
@@ -540,19 +569,38 @@ public class AppointmentService {
      */
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
-        Long originalPatientId = existing.getPatient().getId();
 
-        Patient patient = patientRepository.findById(form.getPatientId())
-                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
-        Therapist therapist = therapistRepository.findById(form.getTherapistId())
-                .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        // Once an appointment leaves SCHEDULED, only notes/payment-info stay editable — everything
+        // else (who/when/lines/discount/wallet) is frozen, matching this method's own contract
+        // ("For non-SCHEDULED appointments only notes and payment info are updated"). Previously this
+        // was only enforced for the line-item rebuild below; patient/therapist/date/duration/wallet
+        // were silently editable via this endpoint on any COMPLETED/CANCELLED/NO_SHOW appointment too.
+        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED;
 
-        BigDecimal walletAlreadyApplied = existing.getWalletAmountApplied() != null
-                ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
-        if (!originalPatientId.equals(patient.getId()) && walletAlreadyApplied.signum() > 0) {
-            throw new IllegalArgumentException(
-                    "Cannot change the patient on this appointment while wallet funds (₹" + walletAlreadyApplied
-                    + ") are applied to it. Remove the wallet amount first, then reassign the patient.");
+        Patient patient = existing.getPatient();
+        Therapist therapist = existing.getTherapist();
+
+        if (editable) {
+            Long originalPatientId = existing.getPatient().getId();
+            patient = patientRepository.findById(form.getPatientId())
+                    .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
+            therapist = therapistRepository.findById(form.getTherapistId())
+                    .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+            BigDecimal walletAlreadyApplied = existing.getWalletAmountApplied() != null
+                    ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
+            if (!originalPatientId.equals(patient.getId()) && walletAlreadyApplied.signum() > 0) {
+                throw new IllegalArgumentException(
+                        "Cannot change the patient on this appointment while wallet funds (₹" + walletAlreadyApplied
+                        + ") are applied to it. Remove the wallet amount first, then reassign the patient.");
+            }
+
+            validateDuration(form.getDurationMinutes());
+            existing.setPatient(patient);
+            existing.setTherapist(therapist);
+            existing.setAppointmentDateTime(form.getAppointmentDateTime());
+            existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                    ? form.getDurationMinutes() : 60);
         }
 
         PaymentMethod pm = null;
@@ -561,11 +609,6 @@ public class AppointmentService {
             catch (IllegalArgumentException ignored) {}
         }
 
-        existing.setPatient(patient);
-        existing.setTherapist(therapist);
-        existing.setAppointmentDateTime(form.getAppointmentDateTime());
-        existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
-                ? form.getDurationMinutes() : 60);
         existing.setNotes(form.getNotes());
         existing.setPaymentMethod(pm);
 
@@ -580,7 +623,7 @@ public class AppointmentService {
         }
         existing.setAmountPaid(prepaidBase.add(newPayment));
 
-        if (existing.getStatus() == AppointmentStatus.SCHEDULED) {
+        if (editable) {
             List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
                     .filter(s -> s != null && s.getServiceId() != null)
                     .toList();
@@ -652,18 +695,24 @@ public class AppointmentService {
         // appointment should now carry, silently capped at the (possibly just-shrunk) grandTotal. The
         // capping IS the auto-reversal trigger for a discount added/increased or a line removed: whenever
         // grandTotal drops below the previously-applied amount, the delta below comes out negative.
+        // Gated by `editable`: once non-SCHEDULED, cancelAppointment/markAsNoShow have already reversed
+        // any applied wallet amount via reverseFullWalletIfAny — this endpoint must not let staff
+        // re-apply (or top up) wallet funds against an appointment no service is being rendered for.
         BigDecimal previousWalletApplied = existing.getWalletAmountApplied() != null
                 ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
-        BigDecimal walletRequested = form.getWalletAmountApplied() != null
-                ? form.getWalletAmountApplied() : previousWalletApplied;
-        if (walletRequested.signum() < 0) {
-            throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
-        }
-        walletRequested = walletRequested.min(existing.getGrandTotal());
-        BigDecimal walletDelta = walletRequested.subtract(previousWalletApplied);
+        BigDecimal walletDelta = BigDecimal.ZERO;
+        if (editable) {
+            BigDecimal walletRequested = form.getWalletAmountApplied() != null
+                    ? form.getWalletAmountApplied() : previousWalletApplied;
+            if (walletRequested.signum() < 0) {
+                throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
+            }
+            walletRequested = walletRequested.min(existing.getGrandTotal());
+            walletDelta = walletRequested.subtract(previousWalletApplied);
 
-        existing.setAmountPaid(existing.getAmountPaid().subtract(previousWalletApplied).add(walletRequested));
-        existing.setWalletAmountApplied(walletRequested);
+            existing.setAmountPaid(existing.getAmountPaid().subtract(previousWalletApplied).add(walletRequested));
+            existing.setWalletAmountApplied(walletRequested);
+        }
 
         if (existing.getAmountPaid().compareTo(existing.getGrandTotal()) > 0) {
             throw new IllegalArgumentException(
@@ -671,7 +720,7 @@ public class AppointmentService {
                     + ") cannot exceed the grand total (₹" + existing.getGrandTotal() + ").");
         }
 
-        Appointment saved = appointmentRepository.save(existing);
+        Appointment saved = saveWithConflictCheck(existing);
 
         if (walletDelta.signum() > 0) {
             walletService.applyToAppointment(existing.getPatient().getId(), saved.getId(), walletDelta);
@@ -686,9 +735,18 @@ public class AppointmentService {
     // ── Per-line therapist reassignment ──────────────────────────────────────
     // Allowed regardless of appointment status: only the line's therapist changes,
     // price/quantity/stock are untouched, so commission/revenue recalculates live
-    // even for COMPLETED appointments.
+    // even for COMPLETED appointments. Still subject to the same double-booking check as the
+    // main create/update flow (warn, never hard-block) — see findConflictsForTherapist.
 
-    public AppointmentServiceLine reassignServiceLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+    /**
+     * Reassigns a service line's therapist, unless the new therapist is already booked elsewhere
+     * during this appointment's window and forceReassign wasn't set — in which case nothing is
+     * persisted and the conflict(s) are returned for the caller to display (mirrors the
+     * conflicts/forceSave pattern createAppointment/updateAppointment use). An empty list means
+     * the reassignment was applied.
+     */
+    public List<TherapistConflictDTO> reassignServiceLineTherapist(Long appointmentId, Long lineId,
+                                                                     Long newTherapistId, boolean forceReassign) {
         AppointmentServiceLine line = appointmentServiceLineRepository.findById(lineId)
                 .orElseThrow(() -> new EntityNotFoundException("Service line not found: " + lineId));
         if (!line.getAppointment().getId().equals(appointmentId)) {
@@ -696,14 +754,24 @@ public class AppointmentService {
         }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+        Appointment appt = line.getAppointment();
+        List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
+                newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
+        if (!conflicts.isEmpty() && !forceReassign) {
+            return conflicts;
+        }
+
         line.setTherapist(therapist);
-        AppointmentServiceLine saved = appointmentServiceLineRepository.save(line);
+        appointmentServiceLineRepository.save(line);
         log.info("Reassigned service line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
-        return saved;
+        return List.of();
     }
 
-    public AppointmentProductLine reassignProductLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+    /** Product-line counterpart of reassignServiceLineTherapist — same conflict-check contract. */
+    public List<TherapistConflictDTO> reassignProductLineTherapist(Long appointmentId, Long lineId,
+                                                                     Long newTherapistId, boolean forceReassign) {
         AppointmentProductLine line = appointmentProductLineRepository.findById(lineId)
                 .orElseThrow(() -> new EntityNotFoundException("Product line not found: " + lineId));
         if (!line.getAppointment().getId().equals(appointmentId)) {
@@ -711,11 +779,19 @@ public class AppointmentService {
         }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+        Appointment appt = line.getAppointment();
+        List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
+                newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
+        if (!conflicts.isEmpty() && !forceReassign) {
+            return conflicts;
+        }
+
         line.setTherapist(therapist);
-        AppointmentProductLine saved = appointmentProductLineRepository.save(line);
+        appointmentProductLineRepository.save(line);
         log.info("Reassigned product line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
-        return saved;
+        return List.of();
     }
 
     // ── Combos ────────────────────────────────────────────────────────────────
@@ -857,23 +933,56 @@ public class AppointmentService {
         }
         lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
 
+        BigDecimal[] shares = new BigDecimal[lines.size()];
         BigDecimal allocated = BigDecimal.ZERO;
+        for (int i = 0; i < lines.size() - 1; i++) {
+            BigDecimal lineRaw = lines.get(i).lineRaw();
+            BigDecimal share = amount.multiply(lineRaw)
+                    .divide(basisSubtotal, 10, RoundingMode.HALF_UP)
+                    .setScale(2, RoundingMode.HALF_UP)
+                    .min(lineRaw); // a line's own share can never rationally exceed its own raw total
+            shares[i] = share;
+            allocated = allocated.add(share);
+        }
+
+        // The last (largest) line absorbs whatever remainder is left so the total always sums exactly
+        // to `amount` — but independently HALF_UP-rounding every earlier share can over-allocate by up
+        // to ~0.005 each, so with enough lines and a small `amount` that remainder can go negative
+        // (a "discount" that raises this line's price) or, in principle, exceed the line's own raw
+        // total. Clamp it to [0, lineRaw] like every other line, then walk the leftover from clamping
+        // backward through the earlier lines (nudging their shares up or down within their own [0,
+        // lineRaw] bounds) until it's fully absorbed, so the exact-sum invariant still holds.
+        int lastIdx = lines.size() - 1;
+        BigDecimal lastRaw = lines.get(lastIdx).lineRaw();
+        BigDecimal lastShare = amount.subtract(allocated);
+        BigDecimal clampedLastShare = lastShare.max(BigDecimal.ZERO).min(lastRaw);
+        shares[lastIdx] = clampedLastShare;
+        BigDecimal leftover = lastShare.subtract(clampedLastShare);
+
+        for (int i = lastIdx - 1; i >= 0 && leftover.signum() != 0; i--) {
+            BigDecimal room = leftover.signum() > 0
+                    ? lines.get(i).lineRaw().subtract(shares[i]) // room to raise this line's share
+                    : shares[i];                                 // room to lower this line's share
+            BigDecimal adjust = leftover.abs().min(room);
+            if (adjust.signum() <= 0) continue;
+            shares[i] = leftover.signum() > 0 ? shares[i].add(adjust) : shares[i].subtract(adjust);
+            leftover = leftover.signum() > 0 ? leftover.subtract(adjust) : leftover.add(adjust);
+        }
+
         for (int i = 0; i < lines.size(); i++) {
             DiscountableLine line = lines.get(i);
-            BigDecimal share;
-            if (i == lines.size() - 1) {
-                share = amount.subtract(allocated);
-            } else {
-                share = amount.multiply(line.lineRaw())
-                        .divide(basisSubtotal, 10, RoundingMode.HALF_UP)
-                        .setScale(2, RoundingMode.HALF_UP);
-                allocated = allocated.add(share);
-            }
-            line.setter().accept(line.lineRaw().subtract(share));
+            line.setter().accept(line.lineRaw().subtract(shares[i]));
         }
     }
 
     private record DiscountableLine(BigDecimal lineRaw, Consumer<BigDecimal> setter) {}
+
+    private void validateDuration(Integer durationMinutes) {
+        if (durationMinutes != null && durationMinutes > MAX_DURATION_MINUTES) {
+            throw new IllegalArgumentException(
+                    "Appointment duration cannot exceed " + (MAX_DURATION_MINUTES / 60) + " hours.");
+        }
+    }
 
     private DiscountType resolveDiscountType(String raw) {
         if (raw == null || raw.isBlank()) return DiscountType.NONE;
@@ -893,6 +1002,24 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
     }
 
+
+    /**
+     * Flushes the appointment save immediately (rather than deferring to transaction commit) so a
+     * lost-update race against the same appointment row — e.g. a double-clicked status change or a
+     * double-submitted edit, both of which may also carry a wallet reversal/debit alongside this save
+     * — surfaces here as a clear, friendly message and rolls back the whole transaction (including
+     * any wallet mutation already flushed earlier in the same method) instead of letting a second,
+     * stale write silently re-apply its own wallet change on top of the first, already-committed one.
+     * Mirrors WalletService.persistBalance's identical pattern for PatientWallet.
+     */
+    private Appointment saveWithConflictCheck(Appointment appt) {
+        try {
+            return appointmentRepository.saveAndFlush(appt);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new IllegalStateException(
+                    "This appointment was just updated by someone else. Please refresh and try again.", ex);
+        }
+    }
 
     /** Credits back any wallet-sourced payment on an appointment that's being cancelled/no-showed. */
     private void reverseFullWalletIfAny(Appointment appt) {

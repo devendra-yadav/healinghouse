@@ -72,6 +72,9 @@ class AppointmentServiceTests {
         when(therapistRepository.findById(THERAPIST_ID)).thenReturn(Optional.of(therapist()));
         // lenient: a few tests (guard-throws-before-save cases) never reach the save() call
         lenient().when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+        // saveAndFlush is used by cancelAppointment/markAsNoShow/updateAppointment's conflict-checked
+        // save (AppointmentService.saveWithConflictCheck) — same stub as save() above.
+        lenient().when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private Combo combo(Long id, DiscountType discountType, BigDecimal discountValue) {
@@ -184,6 +187,55 @@ class AppointmentServiceTests {
         // Naive proportional rounding would give each of the 3 equal ₹1 lines a 0.33 share (sum 0.99,
         // short by 0.01) — the last-in-list-order line must absorb the remainder to land on 0.34.
         assertThat(saved.getProductLines().get(0).getDiscountedLineTotal()).isEqualByComparingTo("0.66");
+    }
+
+    // ── 2b. Rounding remainder redistribution never creates a negative or over-cap share ──
+    @Test
+    void createAppointment_manyEqualLinesTinyDiscount_noLineShareGoesNegativeOrExceedsRaw() {
+        // Regression test for Bug_Report_v2 #5: independently HALF_UP-rounding each non-last line's
+        // share can over-allocate the running total by up to ~0.005/line; with enough lines and a
+        // discount amount small enough, the old "last line absorbs amount - allocated" logic could
+        // drive that line's absorbed share negative — i.e. a "discount" that raised its price above
+        // its own raw total. 50 equal ₹1 lines with a ₹0.25 flat discount hits exactly that case
+        // (each non-last line's true share is 0.005, which rounds up to 0.01).
+        when(clinicServiceRepository.findById(anyLong()))
+                .thenAnswer(inv -> Optional.of(clinicService(inv.getArgument(0), BigDecimal.ONE)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("FLAT");
+        form.setDiscountValue(BigDecimal.valueOf(0.25));
+        for (long i = 1; i <= 50; i++) {
+            form.getServiceLines().add(serviceLine(i, 1));
+        }
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getDiscountAmount()).isEqualByComparingTo("0.25");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("49.75");
+
+        BigDecimal sumOfShares = BigDecimal.ZERO;
+        for (var sl : saved.getServiceLines()) {
+            BigDecimal share = sl.getLineTotal().subtract(sl.getDiscountedLineTotal());
+            assertThat(share).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+            assertThat(share).isLessThanOrEqualTo(sl.getLineTotal());
+            sumOfShares = sumOfShares.add(share);
+        }
+        assertThat(sumOfShares).isEqualByComparingTo("0.25");
+    }
+
+    // ── 2c. Duration is capped, keeping findConflicts' pre-filter window provably safe ──
+    @Test
+    void createAppointment_durationOver24Hours_throws() {
+        // Regression test for Bug_Report_v2 #12: findConflicts' DB pre-filter only widens ±1 day
+        // around the requested window; an unbounded duration could let a candidate appointment
+        // starting more than a day away still overlap without being caught by that pre-filter.
+        AppointmentForm form = baseForm();
+        form.setDurationMinutes(1441); // 24h + 1min
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.createAppointment(form))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("24 hours");
     }
 
     // ── 3. Percentage discount capped at 100% ─────────────────────────────────

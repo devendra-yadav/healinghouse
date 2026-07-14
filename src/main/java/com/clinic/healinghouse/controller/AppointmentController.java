@@ -315,15 +315,25 @@ public class AppointmentController {
     }
 
     // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    // Subject to the same double-booking check as create/update (warn, never hard-block): if the
+    // new therapist is already busy elsewhere during this appointment's window, the reassignment
+    // is NOT applied and the conflict is flashed back for the detail page's warning banner to show,
+    // with a "Reassign Anyway" action that resubmits the same request with forceReassign=true.
     @PostMapping("/{id}/service-lines/{lineId}/reassign-therapist")
     public String reassignServiceLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
                                                @RequestParam Long therapistId,
+                                               @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
         try {
-            appointmentService.reassignServiceLineTherapist(id, lineId, therapistId);
-            ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+            List<TherapistConflictDTO> conflicts =
+                    appointmentService.reassignServiceLineTherapist(id, lineId, therapistId, forceReassign);
+            if (!conflicts.isEmpty()) {
+                flashReassignConflict(ra, conflicts, "service", lineId, therapistId);
+            } else {
+                ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+            }
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
@@ -334,15 +344,31 @@ public class AppointmentController {
     public String reassignProductLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
                                                @RequestParam Long therapistId,
+                                               @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
         try {
-            appointmentService.reassignProductLineTherapist(id, lineId, therapistId);
-            ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+            List<TherapistConflictDTO> conflicts =
+                    appointmentService.reassignProductLineTherapist(id, lineId, therapistId, forceReassign);
+            if (!conflicts.isEmpty()) {
+                flashReassignConflict(ra, conflicts, "product", lineId, therapistId);
+            } else {
+                ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+            }
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    private void flashReassignConflict(RedirectAttributes ra, List<TherapistConflictDTO> conflicts,
+                                       String lineType, Long lineId, Long therapistId) {
+        ra.addFlashAttribute("errorMessage",
+                "That therapist is already booked at this time. Review the conflict below, then confirm if you still want to reassign.");
+        ra.addFlashAttribute("reassignConflicts", conflicts);
+        ra.addFlashAttribute("reassignConflictLineType", lineType);
+        ra.addFlashAttribute("reassignConflictLineId", lineId);
+        ra.addFlashAttribute("reassignConflictTherapistId", therapistId);
     }
 
     private String returnUrlSuffix(String returnUrl) {

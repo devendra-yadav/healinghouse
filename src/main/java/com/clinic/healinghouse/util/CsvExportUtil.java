@@ -231,6 +231,12 @@ public class CsvExportUtil {
                     formatCurrency(earning.fixedMonthlySalary())
             });
         }
+        // Service Commission and Product Commission are each rounded independently and can
+        // therefore differ from Total Commission by up to ₹0.01 — Total Commission (sum-then-round)
+        // is the actual payout figure; the two category columns are informational only.
+        writer.writeNext(new String[]{
+                "Note: Service Commission + Product Commission may differ from Total Commission by up to ₹0.01 due to independent per-category rounding. Total Commission is the actual payout figure."
+        });
     }
 
     private static void writeTagRevenue(CSVWriter writer, List<TagRevenueDTO> tagRevenues) throws IOException {

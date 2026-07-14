@@ -118,6 +118,16 @@ public class Appointment {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    /**
+     * Guards against a lost-update race on status transitions / wallet application (e.g. a
+     * double-clicked "Cancel" or a double-submitted edit): a second write against a stale copy
+     * of this row now fails fast with ObjectOptimisticLockingFailureException instead of silently
+     * re-applying its own wallet reversal/debit on top of the first, already-committed one. See
+     * AppointmentService.saveWithConflictCheck.
+     */
+    @Version
+    private Long version;
+
     /** Therapists on any service/product line that differ from the main therapist. */
     @Transient
     public List<Therapist> getOtherLineTherapists() {
@@ -196,10 +206,16 @@ public class Appointment {
         return productLines.stream().filter(pl -> pl.getAppointmentCombo() == ac).toList();
     }
 
-    /** "PAID" | "PARTIAL" | "UNPAID" | "N/A" — used in list/detail views. */
+    /**
+     * "PAID" | "PARTIAL" | "UNPAID" | "N/A" — used in list/detail views. A ₹0 grandTotal (e.g. a
+     * 100%-discounted appointment) means nothing is owed, not that pricing is missing — it reads
+     * PAID like any other appointment with balanceDue == 0, rather than the indistinguishable-from-
+     * unpriced "N/A" a straight zero-check would give it. Only a genuinely absent grandTotal is N/A.
+     */
     @Transient
     public String getPaymentStatus() {
-        if (grandTotal == null || grandTotal.signum() == 0) return "N/A";
+        if (grandTotal == null) return "N/A";
+        if (grandTotal.signum() == 0) return "PAID";
         if (amountPaid == null || amountPaid.signum() == 0) return "UNPAID";
         if (amountPaid.compareTo(grandTotal) >= 0) return "PAID";
         return "PARTIAL";

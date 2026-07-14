@@ -92,6 +92,7 @@ class CommissionCalculatorTests {
                 .fixedMonthlySalary(BigDecimal.ZERO)
                 .commissionRate(BigDecimal.ZERO)
                 .active(true)
+                .owner(true)
                 .build();
 
         TherapistEarningsDTO earnings = calculator.calculateEarnings(owner, dateFrom, dateTo);
@@ -101,6 +102,37 @@ class CommissionCalculatorTests {
         assertThat(earnings.totalCommission()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(earnings.bonusEarned()).isFalse();
         assertThat(earnings.totalVariablePay()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void therapistWithUnconfiguredPayoutFieldsIsNotSilentlyTreatedAsOwner() {
+        // Regression test for Bug_Report_v2 #4: isOwner() used to be inferred from commissionRate/
+        // fixedMonthlySalary both being null/zero, which meant a brand-new therapist saved before
+        // her payout terms were configured looked identical to the owner and silently earned ₹0
+        // commission. Now `owner` is an explicit flag (defaults to false) — a therapist with those
+        // two fields unset but owner left false must still go through the normal payout calculation.
+        Therapist newHire = Therapist.builder()
+                .id(42L)
+                .fullName("Newly Onboarded Therapist")
+                .fixedMonthlySalary(null)
+                .commissionRate(null)
+                .active(true)
+                .build(); // owner defaults to false
+
+        assertThat(newHire.isOwner()).isFalse();
+
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+                .thenReturn(BigDecimal.valueOf(5000));
+        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+                .thenReturn(BigDecimal.ZERO);
+        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+                .thenReturn(10L);
+
+        TherapistEarningsDTO earnings = calculator.calculateEarnings(newHire, dateFrom, dateTo);
+
+        // Went through the full non-owner computation (queried real revenue) rather than the
+        // owner short-circuit, which would have hard-coded this to zero.
+        assertThat(earnings.servicesRevenue()).isEqualByComparingTo("5000");
     }
 
     @Test

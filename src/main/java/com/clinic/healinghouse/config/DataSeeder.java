@@ -64,6 +64,7 @@ public class DataSeeder implements CommandLineRunner {
                 .performanceBonusAmount(BigDecimal.ZERO)
                 .notes("Owner. No payout calculation applies.")
                 .active(true)
+                .owner(true)
                 .build(),
 
             Therapist.builder()

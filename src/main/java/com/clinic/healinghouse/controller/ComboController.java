@@ -132,10 +132,10 @@ public class ComboController {
                     .body(java.util.Map.of("error", "This combo is no longer available (one of its items was deactivated)."));
         }
         List<ComboDetailDTO.ComboDetailItemDTO> serviceItems = combo.getServiceItems().stream()
-                .map(si -> new ComboDetailDTO.ComboDetailItemDTO(si.getService().getId(), si.getQuantity()))
+                .map(si -> new ComboDetailDTO.ComboDetailItemDTO(si.getService().getId(), si.getQuantity(), si.getService().getPrice()))
                 .toList();
         List<ComboDetailDTO.ComboDetailItemDTO> productItems = combo.getProductItems().stream()
-                .map(pi -> new ComboDetailDTO.ComboDetailItemDTO(pi.getProduct().getId(), pi.getQuantity()))
+                .map(pi -> new ComboDetailDTO.ComboDetailItemDTO(pi.getProduct().getId(), pi.getQuantity(), pi.getProduct().getPrice()))
                 .toList();
         return ResponseEntity.ok(new ComboDetailDTO(combo.getId(), combo.getName(),
                 combo.getDiscountType() != null ? combo.getDiscountType().name() : "NONE",

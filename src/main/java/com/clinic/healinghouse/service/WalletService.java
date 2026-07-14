@@ -52,7 +52,12 @@ public class WalletService {
                     Patient patient = patientRepository.findById(patientId)
                             .orElseThrow(() -> new EntityNotFoundException("Patient not found: " + patientId));
                     try {
-                        PatientWallet created = walletRepository.save(
+                        // saveAndFlush (not save): forces the INSERT to run synchronously right here so
+                        // a PK collision from a concurrent first-use surfaces as DataIntegrityViolationException
+                        // in THIS catch block. Under Hibernate's default deferred flush, a plain save()
+                        // only schedules the INSERT — the actual failure wouldn't surface until the next
+                        // flush/commit point, outside this try/catch, defeating the fallback below.
+                        PatientWallet created = walletRepository.saveAndFlush(
                                 PatientWallet.builder().patient(patient).balance(BigDecimal.ZERO).build());
                         log.info("Created wallet for patient id={}", patientId);
                         return created;
