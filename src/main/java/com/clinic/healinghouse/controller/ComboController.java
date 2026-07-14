@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -39,7 +40,8 @@ public class ComboController {
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
         page = PaginationUtil.clampPage(page);
-        model.addAttribute("combos", showInactive
+        boolean hasFilter = StringUtils.hasText(q);
+        model.addAttribute("combos", (showInactive && !hasFilter)
                 ? comboService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
                 : comboService.search(q, PageRequest.of(page, pageSize)));
         model.addAttribute("comboService", comboService); // for computeOriginalPrice/computeComboPrice in the template
@@ -103,6 +105,17 @@ public class ComboController {
         comboService.activate(id);
         ra.addFlashAttribute("successMessage", "Combo reactivated successfully.");
         return "redirect:/combos";
+    }
+
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            comboService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Combo permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/combos?showInactive=true";
     }
 
     /** JSON autocomplete endpoint backing the combo picker on the appointment form. */

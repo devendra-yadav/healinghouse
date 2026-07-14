@@ -37,7 +37,8 @@ public class ProductController {
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
         page = PaginationUtil.clampPage(page);
-        model.addAttribute("products", showInactive
+        boolean hasFilter = StringUtils.hasText(q) || StringUtils.hasText(tag);
+        model.addAttribute("products", (showInactive && !hasFilter)
                 ? productService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
                 : productService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("lowStockCount", productService.findLowStock().size());
@@ -96,8 +97,8 @@ public class ProductController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        productService.deactivate(id);
-        ra.addFlashAttribute("successMessage", "Product deactivated successfully.");
+        var comboImpact = productService.deactivate(id);
+        ra.addFlashAttribute("successMessage", "Product deactivated successfully." + comboImpact.describe());
         return "redirect:/products";
     }
 
@@ -106,5 +107,16 @@ public class ProductController {
         productService.activate(id);
         ra.addFlashAttribute("successMessage", "Product reactivated successfully.");
         return "redirect:/products";
+    }
+
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            productService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Product permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/products?showInactive=true";
     }
 }

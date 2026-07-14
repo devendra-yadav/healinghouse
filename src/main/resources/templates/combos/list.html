@@ -83,6 +83,12 @@
                                     </button>
                                 </form>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${!c.active}"
+                                        data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
+                                        th:attr="data-name=${c.name}, data-url=@{/combos/{id}/delete-permanent(id=${c.id})}">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
                                         th:if="${c.active}"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${c.name}, data-url=@{/combos/{id}/deactivate(id=${c.id})}">
@@ -144,6 +150,25 @@
     </div>
 </div>
 
+<!-- Permanent Delete Confirmation Modal -->
+<div class="modal fade" id="deletePermanentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Permanently Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deletePermanentModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deletePermanentForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script>
@@ -152,6 +177,12 @@
         document.getElementById('deleteModalBody').textContent =
             'Deactivate combo "' + btn.dataset.name + '"?';
         document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+    document.getElementById('deletePermanentModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deletePermanentModalBody').textContent =
+            'Permanently delete combo "' + btn.dataset.name + '"? This cannot be undone.';
+        document.getElementById('deletePermanentForm').action = btn.dataset.url;
     });
 </script>
 </body>

@@ -19,6 +19,9 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
 
     List<AppointmentProductLine> findByAppointment(Appointment appointment);
 
+    // Blocks permanent deletion of a Product still referenced by appointment history.
+    boolean existsByProduct_Id(Long productId);
+
     // Commission-eligible products revenue for a therapist in a date range (completed appts only).
     // Scoped to the line's own therapist (who actually sold/administered it), not the
     // appointment's main therapist. Only lines whose product carries the given tag

@@ -20,6 +20,19 @@ public interface ComboRepository extends JpaRepository<Combo, Long> {
 
     Page<Combo> findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(String name, Pageable pageable);
 
+    // Active-agnostic variant — list-page search always matches active AND inactive.
+    Page<Combo> findByNameContainingIgnoreCaseOrderByNameAsc(String name, Pageable pageable);
+
+    // Block permanent deletion of a ClinicService/Product still bundled into a combo definition.
+    boolean existsByServiceItems_Service_Id(Long serviceId);
+
+    boolean existsByProductItems_Product_Id(Long productId);
+
+    // Every combo (active or not) bundling this item — used to strip it out on deactivation.
+    List<Combo> findByServiceItems_Service_Id(Long serviceId);
+
+    List<Combo> findByProductItems_Product_Id(Long productId);
+
     // ── Two separate queries to avoid MultipleBagFetchException (Combo has two
     //    @OneToMany bags — same trap Appointment already works around) ──────────
     @Query("SELECT DISTINCT c FROM Combo c " +

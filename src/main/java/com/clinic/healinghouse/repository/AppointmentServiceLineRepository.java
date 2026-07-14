@@ -20,6 +20,9 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
 
     List<AppointmentServiceLine> findByAppointment(Appointment appointment);
 
+    // Blocks permanent deletion of a ClinicService still referenced by appointment history.
+    boolean existsByService_Id(Long serviceId);
+
     // Commission-eligible services revenue for a therapist in a date range (completed appts only).
     // Scoped to the line's own therapist (who actually performed it), not the
     // appointment's main therapist — a single appointment can have lines performed

@@ -37,7 +37,8 @@ public class TreatmentController {
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
         page = PaginationUtil.clampPage(page);
-        model.addAttribute("services", showInactive
+        boolean hasFilter = StringUtils.hasText(q) || StringUtils.hasText(tag);
+        model.addAttribute("services", (showInactive && !hasFilter)
                 ? treatmentService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
                 : treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
@@ -95,8 +96,8 @@ public class TreatmentController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        treatmentService.deactivate(id);
-        ra.addFlashAttribute("successMessage", "Service deactivated successfully.");
+        var comboImpact = treatmentService.deactivate(id);
+        ra.addFlashAttribute("successMessage", "Service deactivated successfully." + comboImpact.describe());
         return "redirect:/services";
     }
 
@@ -105,5 +106,16 @@ public class TreatmentController {
         treatmentService.activate(id);
         ra.addFlashAttribute("successMessage", "Service reactivated successfully.");
         return "redirect:/services";
+    }
+
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            treatmentService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Service permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/services?showInactive=true";
     }
 }
