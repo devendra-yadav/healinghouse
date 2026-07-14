@@ -26,6 +26,7 @@ public class TagController {
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
+        page = PaginationUtil.clampPage(page);
         model.addAttribute("tagUsages", tagService.findAllWithUsage(PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("pageTitle", "Tags");

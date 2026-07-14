@@ -85,7 +85,8 @@ public interface AppointmentRepository
     // ── Count helpers (dashboard KPIs) ────────────────────────────────────────
     long countByStatus(AppointmentStatus status);
 
-    long countByAppointmentDateTimeBetween(LocalDateTime start, LocalDateTime end);
+    /** Half-open [start, end) count, matching findTodayAppointments' boundary semantics exactly. */
+    long countByAppointmentDateTimeGreaterThanEqualAndAppointmentDateTimeLessThan(LocalDateTime start, LocalDateTime end);
 
     // ── Revenue aggregate (completed appointments in a date range) ─────────────
     @Query("SELECT COALESCE(SUM(a.grandTotal), 0) FROM Appointment a " +

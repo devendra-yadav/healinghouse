@@ -302,7 +302,7 @@ function updatePricePreview() {
 
 // Re-index rows on submit so gaps from deleted rows don't break Spring's indexed binding,
 // same pattern as appointments/form.html.
-document.getElementById('comboForm').addEventListener('submit', function () {
+document.getElementById('comboForm').addEventListener('submit', function (event) {
     let si = 0;
     document.querySelectorAll('.service-item-row').forEach(row => {
         const sel = row.querySelector('.si-select');
@@ -329,6 +329,10 @@ document.getElementById('comboForm').addEventListener('submit', function () {
             qty.disabled = true;
         }
     });
+    if (si === 0 && pi === 0) {
+        event.preventDefault();
+        alert('A combo must have at least one service or product.');
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {

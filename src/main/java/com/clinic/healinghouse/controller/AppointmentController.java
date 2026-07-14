@@ -60,6 +60,7 @@ public class AppointmentController {
         }
 
         int pageSize = PaginationUtil.clampPageSize(size);
+        page = PaginationUtil.clampPage(page);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
                 null, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
 
@@ -150,17 +151,8 @@ public class AppointmentController {
         if (!forceSave) {
             List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, null);
             if (!conflicts.isEmpty()) {
-                populateFormModel(model);
-                model.addAttribute("form",                 form);
-                model.addAttribute("conflicts",             conflicts);
-                model.addAttribute("existingServiceLines",  form.getServiceLines());
-                model.addAttribute("existingProductLines",  form.getProductLines());
-                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
-                model.addAttribute("editMode",   false);
-                model.addAttribute("formAction", "/appointments/save");
-                model.addAttribute("cancelUrl",  "/appointments");
-                model.addAttribute("pageTitle",  "New Appointment");
-                return "appointments/form";
+                model.addAttribute("conflicts", conflicts);
+                return renderAppointmentFormWithError(model, form, null, false, null, null);
             }
         }
         try {
@@ -168,6 +160,10 @@ public class AppointmentController {
             ra.addFlashAttribute("successMessage",
                     "Appointment #" + saved.getId() + " created successfully.");
             return "redirect:/appointments/" + saved.getId();
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage();
+            if (msg == null || msg.isBlank()) msg = "Failed to save appointment. Please check your input.";
+            return renderAppointmentFormWithError(model, form, msg, false, null, null);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to save appointment. Please try again.";
@@ -257,27 +253,18 @@ public class AppointmentController {
         if (!forceSave) {
             List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, id);
             if (!conflicts.isEmpty()) {
-                populateFormModel(model);
-                model.addAttribute("form",                 form);
-                model.addAttribute("conflicts",             conflicts);
-                model.addAttribute("existingServiceLines",  form.getServiceLines());
-                model.addAttribute("existingProductLines",  form.getProductLines());
-                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
-                model.addAttribute("editMode",   true);
-                model.addAttribute("formAction", "/appointments/" + id + "/update");
-                model.addAttribute("returnUrl",  returnUrl);
-                model.addAttribute("cancelUrl",  (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id);
-                model.addAttribute("pageTitle",  "Edit Appointment #" + id);
-                Appointment appt = appointmentService.getById(id);
-                model.addAttribute("appointment", appt);
-                model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
-                return "appointments/form";
+                model.addAttribute("conflicts", conflicts);
+                return renderAppointmentFormWithError(model, form, null, true, id, returnUrl);
             }
         }
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
             return "redirect:/appointments/" + id + suffix;
+        } catch (IllegalArgumentException e) {
+            String msg = e.getMessage();
+            if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please check your input.";
+            return renderAppointmentFormWithError(model, form, msg, true, id, returnUrl);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please try again.";
@@ -365,6 +352,40 @@ public class AppointmentController {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Re-renders the appointment form with the staff-submitted data intact, used both for a
+     * double-booking conflict warning (errorMessage == null, "conflicts" already on the model)
+     * and for a validation-style failure from create/updateAppointment (errorMessage set).
+     * Without this, a rejected save/update used to redirect to a blank form, discarding everything
+     * the user had entered.
+     */
+    private String renderAppointmentFormWithError(Model model, AppointmentForm form, String errorMessage,
+                                                  boolean editMode, Long id, String returnUrl) {
+        populateFormModel(model);
+        model.addAttribute("form",                 form);
+        if (errorMessage != null) model.addAttribute("errorMessage", errorMessage);
+        model.addAttribute("existingServiceLines",  form.getServiceLines());
+        model.addAttribute("existingProductLines",  form.getProductLines());
+        model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
+        model.addAttribute("editMode",   editMode);
+        model.addAttribute("formAction", editMode ? "/appointments/" + id + "/update" : "/appointments/save");
+        model.addAttribute("cancelUrl",  editMode
+                ? ((returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id)
+                : "/appointments");
+        model.addAttribute("pageTitle",  editMode ? "Edit Appointment #" + id : "New Appointment");
+        if (editMode) {
+            model.addAttribute("returnUrl", returnUrl);
+            try {
+                Appointment appt = appointmentService.getById(id);
+                model.addAttribute("appointment", appt);
+                model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
+            } catch (Exception ignored) {
+                // Appointment may have been removed concurrently; the form still renders without the sidebar.
+            }
+        }
+        return "appointments/form";
+    }
 
     /** Combo group metadata for edit-mode pre-population, keyed the same way AppointmentForm.from does. */
     private List<Map<String, Object>> existingComboGroupsFromAppointment(Appointment appt) {

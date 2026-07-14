@@ -431,11 +431,8 @@ public class AppointmentService {
                             .appointmentCombo(lineCombo)
                             .build());
 
-            // Decrement stock — treatment has been administered
-            product.setStockQuantity(product.getStockQuantity() - qty);
-            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                    product.getId(), product.getName(), qty, product.getStockQuantity());
-
+            // Stock is only decremented when the appointment is later marked COMPLETED (see
+            // markAsCompleted) — this is just an availability check at booking time.
             totalProductAmount = totalProductAmount.add(lineTotal);
         }
 
@@ -482,10 +479,11 @@ public class AppointmentService {
 
     // ── Status transitions ────────────────────────────────────────────────────
 
-    /** SCHEDULED → COMPLETED. Sets completedAt timestamp. */
+    /** SCHEDULED → COMPLETED. Sets completedAt timestamp and decrements product stock (treatment actually administered now). */
     public Appointment markAsCompleted(Long id) {
-        Appointment appt = appointmentRepository.findById(id)
+        Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
+        appointmentRepository.findWithProductLinesById(id); // initialises productLines in L1 cache
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException(
                     "Only SCHEDULED appointments can be marked as completed.");
@@ -494,6 +492,12 @@ public class AppointmentService {
             throw new IllegalStateException(
                     "Cannot complete appointment: balance due of ₹" + appt.getBalanceDue() + " must be cleared first.");
         }
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            Product product = pl.getProduct();
+            product.setStockQuantity(product.getStockQuantity() - pl.getQuantity());
+            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
+                    product.getId(), product.getName(), pl.getQuantity(), product.getStockQuantity());
+        }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
         Appointment saved = appointmentRepository.save(appt);
@@ -501,34 +505,30 @@ public class AppointmentService {
         return saved;
     }
 
-    /** SCHEDULED → CANCELLED. Stores reason and restores product stock. */
+    /** SCHEDULED → CANCELLED. Stores reason. Stock is never decremented before COMPLETED, so nothing to restore. */
     public Appointment cancelAppointment(Long id, String reason) {
         Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
-        appointmentRepository.findWithProductLinesById(id); // needed by restoreProductStock
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException("Only SCHEDULED appointments can be cancelled.");
         }
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
         reverseFullWalletIfAny(appt);
-        restoreProductStock(appt);
         Appointment saved = appointmentRepository.save(appt);
         log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
         return saved;
     }
 
-    /** SCHEDULED → NO_SHOW. Restores product stock (patient never arrived). */
+    /** SCHEDULED → NO_SHOW. Stock is never decremented before COMPLETED, so nothing to restore. */
     public Appointment markAsNoShow(Long id) {
         Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
-        appointmentRepository.findWithProductLinesById(id); // needed by restoreProductStock
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException("Only SCHEDULED appointments can be marked as no-show.");
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
         reverseFullWalletIfAny(appt);
-        restoreProductStock(appt);
         Appointment saved = appointmentRepository.save(appt);
         log.info("Appointment id={} marked NO_SHOW", saved.getId());
         return saved;
@@ -540,11 +540,20 @@ public class AppointmentService {
      */
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
+        Long originalPatientId = existing.getPatient().getId();
 
         Patient patient = patientRepository.findById(form.getPatientId())
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
         Therapist therapist = therapistRepository.findById(form.getTherapistId())
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+        BigDecimal walletAlreadyApplied = existing.getWalletAmountApplied() != null
+                ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
+        if (!originalPatientId.equals(patient.getId()) && walletAlreadyApplied.signum() > 0) {
+            throw new IllegalArgumentException(
+                    "Cannot change the patient on this appointment while wallet funds (₹" + walletAlreadyApplied
+                    + ") are applied to it. Remove the wallet amount first, then reassign the patient.");
+        }
 
         PaymentMethod pm = null;
         if (form.getPaymentMethod() != null && !form.getPaymentMethod().isBlank()) {
@@ -579,7 +588,6 @@ public class AppointmentService {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
 
-            restoreProductStock(existing);  // restore before clearing lines
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
             existing.getCombos().clear();
@@ -629,9 +637,6 @@ public class AppointmentService {
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
                                 .build());
-                product.setStockQuantity(product.getStockQuantity() - qty);
-                log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                        product.getId(), product.getName(), qty, product.getStockQuantity());
                 totalProductAmount = totalProductAmount.add(lineTotal);
             }
 
@@ -844,6 +849,12 @@ public class AppointmentService {
      */
     private void distributeAmount(List<DiscountableLine> lines, BigDecimal basisSubtotal, BigDecimal amount) {
         if (lines.isEmpty()) return;
+        if (basisSubtotal.signum() <= 0) {
+            // Nothing to proportion a discount against (e.g. every line in the basis is ₹0) —
+            // leave every line at its raw total rather than dividing by zero.
+            lines.forEach(l -> l.setter().accept(l.lineRaw()));
+            return;
+        }
         lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
 
         BigDecimal allocated = BigDecimal.ZERO;
@@ -882,13 +893,6 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
     }
 
-    private void restoreProductStock(Appointment appt) {
-        for (AppointmentProductLine pl : appt.getProductLines()) {
-            Product p = pl.getProduct();
-            p.setStockQuantity(p.getStockQuantity() + pl.getQuantity());
-        }
-        // Product changes are flushed automatically within the same transaction
-    }
 
     /** Credits back any wallet-sourced payment on an appointment that's being cancelled/no-showed. */
     private void reverseFullWalletIfAny(Appointment appt) {

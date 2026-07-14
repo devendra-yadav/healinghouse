@@ -8,6 +8,7 @@ import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -30,14 +31,19 @@ public class TreatmentController {
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(required = false) String tag,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("services", treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
+        page = PaginationUtil.clampPage(page);
+        model.addAttribute("services", showInactive
+                ? treatmentService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
+                : treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("selectedTag", tag);
         model.addAttribute("q", q);
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Services");
         return "services/list";
     }
@@ -91,6 +97,13 @@ public class TreatmentController {
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         treatmentService.deactivate(id);
         ra.addFlashAttribute("successMessage", "Service deactivated successfully.");
+        return "redirect:/services";
+    }
+
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        treatmentService.activate(id);
+        ra.addFlashAttribute("successMessage", "Service reactivated successfully.");
         return "redirect:/services";
     }
 }

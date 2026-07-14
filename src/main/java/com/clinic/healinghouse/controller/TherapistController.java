@@ -29,11 +29,16 @@ public class TherapistController {
     private final CommissionCalculator commissionCalculator;
 
     @GetMapping
-    public String list(@RequestParam(defaultValue = "0") int page,
+    public String list(@RequestParam(defaultValue = "false") boolean showInactive,
+                       @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("therapists", therapistService.findAll(PageRequest.of(page, pageSize)));
+        page = PaginationUtil.clampPage(page);
+        model.addAttribute("therapists", showInactive
+                ? therapistService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("fullName")))
+                : therapistService.findAll(PageRequest.of(page, pageSize)));
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Therapists");
         return "therapists/list";
     }
@@ -51,6 +56,7 @@ public class TherapistController {
                          Model model, RedirectAttributes ra) {
         try {
             Therapist therapist = therapistService.getById(id);
+            page = PaginationUtil.clampPage(page);
 
             LocalDate effectiveDateFrom = dateFrom != null ? dateFrom : LocalDate.now().withDayOfMonth(1);
             LocalDate effectiveDateTo;
@@ -148,5 +154,12 @@ public class TherapistController {
         therapistService.deactivate(id);
         ra.addFlashAttribute("successMessage", "Therapist deactivated successfully.");
         return "redirect:/therapists";
+    }
+
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        therapistService.activate(id);
+        ra.addFlashAttribute("successMessage", "Therapist reactivated successfully.");
+        return "redirect:/therapists/" + id;
     }
 }

@@ -10,4 +10,8 @@ public final class PaginationUtil {
     public static int clampPageSize(int requested) {
         return Math.min(Math.max(requested, 1), MAX_PAGE_SIZE);
     }
+
+    public static int clampPage(int requested) {
+        return Math.max(requested, 0);
+    }
 }

@@ -111,9 +111,12 @@ public class CommissionCalculator {
         BigDecimal bonusTaggedServicesRevenue = calculateBonusTaggedServicesRevenue(therapist, dateFrom, dateTo);
 
         BigDecimal rate = zeroIfNull(therapist.getCommissionRate());
+        // Displayed separately per-category, but rounded independently they can diverge ±₹0.01 from
+        // the documented single-formula total below — only totalCommission (the actual payout input)
+        // uses the sum-then-round formula.
         BigDecimal serviceCommission = servicesRevenue.multiply(rate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal productCommission = productsRevenue.multiply(rate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalCommission = serviceCommission.add(productCommission);
+        BigDecimal totalCommission = servicesRevenue.add(productsRevenue).multiply(rate).setScale(2, RoundingMode.HALF_UP);
 
         BigDecimal bonusAmount = calculateBonus(therapist, servicesCount);
         boolean bonusEarned = bonusAmount.signum() > 0;

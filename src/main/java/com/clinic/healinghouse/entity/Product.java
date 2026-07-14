@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -43,6 +44,7 @@ public class Product {
     private Set<Tag> tags = new HashSet<>();
 
     @NotNull
+    @DecimalMin(value = "0.01", message = "Price must be greater than zero")
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal price;
 

@@ -280,7 +280,7 @@
 
                                 <div class="form-text">
                                     Available balance: <span id="walletBalanceDisplay" class="fw-semibold">₹0.00</span>
-                                    <a href="#" id="walletTopUpLink" class="ms-1 disabled"
+                                    <a href="#" id="walletTopUpLink" class="ms-1 disabled" aria-disabled="true"
                                        data-bs-toggle="modal" data-bs-target="#topUpModal">Top Up</a>
                                     <button type="button" class="btn btn-link btn-sm p-0 ms-1"
                                             onclick="refreshWalletBalance()">Refresh</button>
@@ -986,6 +986,8 @@ function toggleWalletAppliedEdit() {
     const input   = document.getElementById('walletAppliedInput');
     const btn     = document.getElementById('editWalletAppliedBtn');
     const additionalInput = document.getElementById('walletAdditionalInput');
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    const editPrepaidBtn = document.getElementById('editPrepaidBtn');
     const editing = !input.classList.contains('d-none');
     if (editing) {
         input.value = typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0;
@@ -993,13 +995,17 @@ function toggleWalletAppliedEdit() {
         display.classList.remove('d-none');
         btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
         if (additionalInput) { additionalInput.disabled = false; additionalInput.value = 0; }
+        if (editPrepaidBtn) editPrepaidBtn.disabled = false;
     } else {
         display.classList.add('d-none');
         input.classList.remove('d-none');
         input.focus();
         btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-        // Mutual exclusion: directly correcting the total overrides the additive box.
+        // Mutual exclusion: directly correcting the total overrides the additive box, and (the
+        // other direction of the same rule togglePrepaidEdit already enforces) blocks the prepaid
+        // pencil too, so a submit can't silently drop whichever correction was entered second.
         if (additionalInput) additionalInput.disabled = true;
+        if (editPrepaidBtn) editPrepaidBtn.disabled = true;
     }
     updateBalance();
 }
@@ -1159,7 +1165,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Balance display: server-rendered already in edit mode (currentWalletBalance init'd
     // from ${walletBalance}); in create mode it's fetched here once a patient is picked.
     renderWalletBalance(currentWalletBalance);
-    document.getElementById('walletTopUpLink').classList.toggle('disabled', !document.getElementById('patientSelect').value);
+    const walletTopUpLink = document.getElementById('walletTopUpLink');
+    walletTopUpLink.classList.toggle('disabled', !document.getElementById('patientSelect').value);
+    walletTopUpLink.setAttribute('aria-disabled', !document.getElementById('patientSelect').value);
+    // CSS .disabled only blocks pointer clicks — guard the modal trigger itself too, so a
+    // keyboard user tabbing in and pressing Enter can't still open it against no patient.
+    walletTopUpLink.addEventListener('click', function (e) {
+        if (this.classList.contains('disabled')) e.preventDefault();
+    });
     updateTopUpFormAction(document.getElementById('patientSelect').value);
     document.getElementById('patientSelect').addEventListener('change', function () {
         const pid = this.value;
@@ -1167,6 +1180,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const hiddenPid = document.getElementById('topUpModalPatientId');
         if (hiddenPid) hiddenPid.value = pid || '';
         topUpLink.classList.toggle('disabled', !pid);
+        topUpLink.setAttribute('aria-disabled', !pid);
         updateTopUpFormAction(pid);
         if (!pid) {
             currentWalletBalance = 0;
@@ -1260,8 +1274,16 @@ function renderComboResults(results) {
 function pickCombo(comboId, btn) {
     btn.disabled = true;
     fetch('/combos/' + comboId + '/detail')
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) {
+                alert('This combo is no longer available. Please refresh and try again.');
+                btn.disabled = false;
+                return null;
+            }
+            return r.json();
+        })
         .then(detail => {
+            if (!detail) return;
             addComboGroup(detail);
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Added';
             btn.classList.remove('btn-hh');

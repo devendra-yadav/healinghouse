@@ -83,7 +83,7 @@ public class PatientHistoryService {
                 therapistNames.putIfAbsent(t.getId(), t.getFullName());
             }
         }
-        topEntry(therapistCounts).ifPresent(e ->
+        topEntry(therapistCounts, therapistNames).ifPresent(e ->
                 summary.mostSeenTherapistName(therapistNames.get(e.getKey()))
                        .mostSeenTherapistCount(e.getValue()));
         topEntryByName(serviceCounts).ifPresent(e ->
@@ -113,11 +113,17 @@ public class PatientHistoryService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private java.util.Optional<Map.Entry<Long, Integer>> topEntry(Map<Long, Integer> counts) {
-        return counts.entrySet().stream().max(Map.Entry.comparingByValue());
+    /** Ties broken alphabetically (ascending) by therapist name, rather than HashMap iteration order. */
+    private java.util.Optional<Map.Entry<Long, Integer>> topEntry(Map<Long, Integer> counts, Map<Long, String> names) {
+        return counts.entrySet().stream()
+                .max(Comparator.<Map.Entry<Long, Integer>>comparingInt(Map.Entry::getValue)
+                        .thenComparing(e -> names.getOrDefault(e.getKey(), ""), Comparator.reverseOrder()));
     }
 
+    /** Ties broken alphabetically (ascending) by name, rather than HashMap iteration order. */
     private java.util.Optional<Map.Entry<String, Integer>> topEntryByName(Map<String, Integer> counts) {
-        return counts.entrySet().stream().max(Map.Entry.comparingByValue());
+        return counts.entrySet().stream()
+                .max(Comparator.<Map.Entry<String, Integer>>comparingInt(Map.Entry::getValue)
+                        .thenComparing(Map.Entry.<String, Integer>comparingByKey().reversed()));
     }
 }

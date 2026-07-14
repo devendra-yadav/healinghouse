@@ -10,6 +10,7 @@ import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TherapistService;
 import com.clinic.healinghouse.service.TreatmentService;
 import com.clinic.healinghouse.util.CsvExportUtil;
+import com.clinic.healinghouse.util.PaginationUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -142,9 +143,11 @@ public class ReportController {
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
+        int pageSize = PaginationUtil.clampPageSize(size);
+        page = PaginationUtil.clampPage(page);
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
-        RevenueReportDTO report = reportService.getRevenueReport(filter, PageRequest.of(page, size));
+        RevenueReportDTO report = reportService.getRevenueReport(filter, PageRequest.of(page, pageSize));
 
         model.addAttribute("pageTitle", "Actual Revenue");
         model.addAttribute("selectedDateFrom", from);
@@ -248,7 +251,7 @@ public class ReportController {
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
-        if (selectedIds.isEmpty()) {
+        if (selectedIds.size() < 2) {
             return ResponseEntity.badRequest().build();
         }
 
@@ -272,7 +275,7 @@ public class ReportController {
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
-        if (selectedIds.isEmpty()) {
+        if (selectedIds.size() < 2) {
             return ResponseEntity.badRequest().build();
         }
 

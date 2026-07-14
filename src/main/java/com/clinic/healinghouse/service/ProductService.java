@@ -64,6 +64,12 @@ public class ProductService {
         return productRepository.findLowStockProducts();
     }
 
+    /** Includes deactivated products too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<Product> findAllIncludingInactive(Pageable pageable) {
+        return productRepository.findAll(pageable);
+    }
+
     /** tagNames are resolved via find-or-create (see {@link TagService#findOrCreate}) before saving. */
     public Product save(Product product, List<String> tagNames) {
         boolean isNew = product.getId() == null;
@@ -88,5 +94,12 @@ public class ProductService {
         product.setActive(false);
         productRepository.save(product);
         log.info("Deactivated product id={} name='{}'", product.getId(), product.getName());
+    }
+
+    public void activate(Long id) {
+        Product product = getById(id);
+        product.setActive(true);
+        productRepository.save(product);
+        log.info("Reactivated product id={} name='{}'", product.getId(), product.getName());
     }
 }

@@ -10,6 +10,9 @@ import com.clinic.healinghouse.service.ComboService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -30,13 +33,18 @@ public class ComboController {
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("combos", comboService.search(q, PageRequest.of(page, pageSize)));
+        page = PaginationUtil.clampPage(page);
+        model.addAttribute("combos", showInactive
+                ? comboService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
+                : comboService.search(q, PageRequest.of(page, pageSize)));
         model.addAttribute("comboService", comboService); // for computeOriginalPrice/computeComboPrice in the template
         model.addAttribute("q", q);
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Combos");
         return "combos/list";
     }
@@ -90,6 +98,13 @@ public class ComboController {
         return "redirect:/combos";
     }
 
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        comboService.activate(id);
+        ra.addFlashAttribute("successMessage", "Combo reactivated successfully.");
+        return "redirect:/combos";
+    }
+
     /** JSON autocomplete endpoint backing the combo picker on the appointment form. */
     @GetMapping("/search")
     @ResponseBody
@@ -104,17 +119,27 @@ public class ComboController {
     /** Full combo contents, fetched by the appointment-form picker when staff click "Add". */
     @GetMapping("/{id}/detail")
     @ResponseBody
-    public ComboDetailDTO detail(@PathVariable Long id) {
-        Combo combo = comboService.getById(id);
+    public ResponseEntity<?> detail(@PathVariable Long id) {
+        Combo combo;
+        try {
+            combo = comboService.getById(id);
+        } catch (jakarta.persistence.EntityNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(java.util.Map.of("error", "Combo not found or no longer available."));
+        }
+        if (!comboService.isSelectable(combo)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(java.util.Map.of("error", "This combo is no longer available (one of its items was deactivated)."));
+        }
         List<ComboDetailDTO.ComboDetailItemDTO> serviceItems = combo.getServiceItems().stream()
                 .map(si -> new ComboDetailDTO.ComboDetailItemDTO(si.getService().getId(), si.getQuantity()))
                 .toList();
         List<ComboDetailDTO.ComboDetailItemDTO> productItems = combo.getProductItems().stream()
                 .map(pi -> new ComboDetailDTO.ComboDetailItemDTO(pi.getProduct().getId(), pi.getQuantity()))
                 .toList();
-        return new ComboDetailDTO(combo.getId(), combo.getName(),
+        return ResponseEntity.ok(new ComboDetailDTO(combo.getId(), combo.getName(),
                 combo.getDiscountType() != null ? combo.getDiscountType().name() : "NONE",
-                combo.getDiscountValue(), serviceItems, productItems);
+                combo.getDiscountValue(), serviceItems, productItems));
     }
 
     private void populateCatalogModel(Model model) {

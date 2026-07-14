@@ -295,6 +295,20 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     calendar.render();
 
+    // Switch between the desktop grid and mobile agenda view live on rotate/resize, instead of
+    // only evaluating the breakpoint once at page load.
+    const mobileBreakpoint = window.matchMedia('(max-width: 576px)');
+    mobileBreakpoint.addEventListener('change', function (e) {
+        const nowMobile = e.matches;
+        calendar.changeView(nowMobile ? 'listWeek' : 'timeGridWeek');
+        calendar.setOption('headerToolbar', nowMobile
+            ? { left: 'prev,next', center: 'title', right: 'today' }
+            : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' });
+        calendar.setOption('footerToolbar', nowMobile
+            ? { center: 'timeGridDay,timeGridWeek,dayGridMonth,listWeek' }
+            : false);
+    });
+
     document.getElementById('confirmCancelBtn').addEventListener('click', function () {
         if (!pendingCancelEvent) return;
         const ev = pendingCancelEvent;

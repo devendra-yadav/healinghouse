@@ -12,9 +12,16 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Combos</h4>
-        <a th:href="@{/combos/new}" class="btn btn-hh btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>New Combo
-        </a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/combos(q=${q},showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+            </a>
+            <a th:href="@{/combos/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Combo
+            </a>
+        </div>
     </div>
 
     <div class="mb-3" style="max-width:400px;">
@@ -69,6 +76,12 @@
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                <form th:if="${!c.active}" th:action="@{/combos/{id}/activate(id=${c.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                         th:if="${c.active}"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
@@ -87,7 +100,7 @@
                 <select class="form-select form-select-sm" style="width:auto;"
                         onchange="location.href=this.value">
                     <option th:each="s : ${ {10,20,50,100} }"
-                            th:value="@{/combos(q=${q},size=${s},page=0)}"
+                            th:value="@{/combos(q=${q},size=${s},page=0,showInactive=${showInactive})}"
                             th:selected="${s == combos.size}"
                             th:text="${s} + ' / page'">
                     </option>
@@ -98,12 +111,12 @@
                 <div th:if="${combos.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!combos.hasPrevious()} ? 'disabled'"
-                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number - 1})}">
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number - 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!combos.hasNext()} ? 'disabled'"
-                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number + 1})}">
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number + 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>

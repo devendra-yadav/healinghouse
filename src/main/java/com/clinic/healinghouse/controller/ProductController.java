@@ -8,6 +8,7 @@ import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -30,15 +31,20 @@ public class ProductController {
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(required = false) String tag,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("products", productService.search(q, tag, PageRequest.of(page, pageSize)));
+        page = PaginationUtil.clampPage(page);
+        model.addAttribute("products", showInactive
+                ? productService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
+                : productService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("lowStockCount", productService.findLowStock().size());
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("selectedTag", tag);
         model.addAttribute("q", q);
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Products");
         return "products/list";
     }
@@ -92,6 +98,13 @@ public class ProductController {
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         productService.deactivate(id);
         ra.addFlashAttribute("successMessage", "Product deactivated successfully.");
+        return "redirect:/products";
+    }
+
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        productService.activate(id);
+        ra.addFlashAttribute("successMessage", "Product reactivated successfully.");
         return "redirect:/products";
     }
 }

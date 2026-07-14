@@ -13,6 +13,7 @@ import com.clinic.healinghouse.repository.WalletTransactionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -50,10 +51,17 @@ public class WalletService {
                 .orElseGet(() -> {
                     Patient patient = patientRepository.findById(patientId)
                             .orElseThrow(() -> new EntityNotFoundException("Patient not found: " + patientId));
-                    PatientWallet created = walletRepository.save(
-                            PatientWallet.builder().patient(patient).balance(BigDecimal.ZERO).build());
-                    log.info("Created wallet for patient id={}", patientId);
-                    return created;
+                    try {
+                        PatientWallet created = walletRepository.save(
+                                PatientWallet.builder().patient(patient).balance(BigDecimal.ZERO).build());
+                        log.info("Created wallet for patient id={}", patientId);
+                        return created;
+                    } catch (DataIntegrityViolationException e) {
+                        // Lost a race with a concurrent first-use — the winner's row now exists, use it.
+                        return walletRepository.findById(patientId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                        "Failed to create or load wallet for patient " + patientId, e));
+                    }
                 });
     }
 

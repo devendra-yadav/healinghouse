@@ -40,7 +40,7 @@ public class DashboardService {
 
     public DashboardKpiDTO getTodayKPIs() {
         LocalDate today = LocalDate.now();
-        long appointmentsCount = appointmentRepository.countByAppointmentDateTimeBetween(
+        long appointmentsCount = appointmentRepository.countByAppointmentDateTimeGreaterThanEqualAndAppointmentDateTimeLessThan(
                 today.atStartOfDay(), today.plusDays(1).atStartOfDay());
         BigDecimal revenue = appointmentRepository.sumRevenueByDateRange(
                 today.atStartOfDay(), today.atTime(LocalTime.MAX));

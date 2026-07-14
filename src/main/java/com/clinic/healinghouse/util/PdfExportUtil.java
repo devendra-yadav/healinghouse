@@ -119,13 +119,14 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
-
-        addLetterhead(document, "Daily Report", "For " + report.date().format(DISPLAY_DATE_FORMATTER));
-        addPeriodSummaryTable(document, report.summary());
-        addSectionTitle(document, "Therapist Earnings");
-        addTherapistEarningsTable(document, report.therapistEarnings());
-
-        finish(document, pdfDoc);
+        try {
+            addLetterhead(document, "Daily Report", "For " + report.date().format(DISPLAY_DATE_FORMATTER));
+            addPeriodSummaryTable(document, report.summary());
+            addSectionTitle(document, "Therapist Earnings");
+            addTherapistEarningsTable(document, report.therapistEarnings());
+        } finally {
+            finish(document, pdfDoc);
+        }
         return baos.toByteArray();
     }
 
@@ -133,22 +134,23 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Period Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                    "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            addPeriodSummaryTable(document, report.summary());
+            addSectionTitle(document, "Therapist Earnings");
+            addTherapistEarningsTable(document, report.therapistEarnings());
 
-        addLetterhead(document, "Period Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addPeriodSummaryTable(document, report.summary());
-        addSectionTitle(document, "Therapist Earnings");
-        addTherapistEarningsTable(document, report.therapistEarnings());
+            if (report.tagRevenue() != null && !report.tagRevenue().isEmpty()) {
+                addSection(document, "Tag Revenue Breakdown", buildTagRevenueTable(report.tagRevenue()));
+            }
 
-        if (report.tagRevenue() != null && !report.tagRevenue().isEmpty()) {
-            addSection(document, "Tag Revenue Breakdown", buildTagRevenueTable(report.tagRevenue()));
+            if (report.productPerformance() != null && !report.productPerformance().isEmpty()) {
+                addSection(document, "Product Performance", buildProductPerformanceTable(report.productPerformance()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.productPerformance() != null && !report.productPerformance().isEmpty()) {
-            addSection(document, "Product Performance", buildProductPerformanceTable(report.productPerformance()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
@@ -156,12 +158,13 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
-
-        addLetterhead(document, "Therapist Comparison", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addTherapistEarningsTable(document, report.therapistEarnings());
-
-        finish(document, pdfDoc);
+        try {
+            addLetterhead(document, "Therapist Comparison", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                    "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            addTherapistEarningsTable(document, report.therapistEarnings());
+        } finally {
+            finish(document, pdfDoc);
+        }
         return baos.toByteArray();
     }
 
@@ -169,24 +172,25 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Patient Acquisition Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                    "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
 
-        addLetterhead(document, "Patient Acquisition Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9f);
+            addLabelCell(table, "New Patients", TextAlignment.CENTER);
+            addDataCell(table, String.valueOf(report.totalNewPatients()), TextAlignment.CENTER, false);
+            addLabelCell(table, "Repeat Patients", TextAlignment.CENTER);
+            addDataCell(table, String.valueOf(report.totalRepeatPatients()), TextAlignment.CENTER, false);
+            addLabelCell(table, "Overall Retention", TextAlignment.CENTER);
+            addDataCell(table, formatPercentage(report.overallRetentionRate()), TextAlignment.CENTER, false);
+            document.add(table);
 
-        Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9f);
-        addLabelCell(table, "New Patients", TextAlignment.CENTER);
-        addDataCell(table, String.valueOf(report.totalNewPatients()), TextAlignment.CENTER, false);
-        addLabelCell(table, "Repeat Patients", TextAlignment.CENTER);
-        addDataCell(table, String.valueOf(report.totalRepeatPatients()), TextAlignment.CENTER, false);
-        addLabelCell(table, "Overall Retention", TextAlignment.CENTER);
-        addDataCell(table, formatPercentage(report.overallRetentionRate()), TextAlignment.CENTER, false);
-        document.add(table);
-
-        if (report.therapistMetrics() != null && !report.therapistMetrics().isEmpty()) {
-            addSection(document, "Therapist Patient Metrics", buildTherapistPatientMetricsTable(report.therapistMetrics()));
+            if (report.therapistMetrics() != null && !report.therapistMetrics().isEmpty()) {
+                addSection(document, "Therapist Patient Metrics", buildTherapistPatientMetricsTable(report.therapistMetrics()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
@@ -194,19 +198,20 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Product/Service Performance", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                    "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
 
-        addLetterhead(document, "Product/Service Performance", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            if (report.services() != null && !report.services().isEmpty()) {
+                addSection(document, "Service Performance", buildServicePerformanceTable(report.services()));
+            }
 
-        if (report.services() != null && !report.services().isEmpty()) {
-            addSection(document, "Service Performance", buildServicePerformanceTable(report.services()));
+            if (report.products() != null && !report.products().isEmpty()) {
+                addSection(document, "Product Performance", buildProductPerformanceTable(report.products()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.products() != null && !report.products().isEmpty()) {
-            addSection(document, "Product Performance", buildProductPerformanceTable(report.products()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
@@ -214,32 +219,33 @@ public class PdfExportUtil {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                    "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            addRevenueSummaryTable(document, report.summary());
 
-        addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addRevenueSummaryTable(document, report.summary());
+            if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
+                addSection(document, "Collected by Payment Method", buildPaymentMethodTable(report.byPaymentMethod()));
+            }
 
-        if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
-            addSection(document, "Collected by Payment Method", buildPaymentMethodTable(report.byPaymentMethod()));
+            if (report.byTherapist() != null && !report.byTherapist().isEmpty()) {
+                addSection(document, "Revenue by Therapist", buildRevenueByTherapistTable(report.byTherapist()));
+            }
+
+            if (report.servicesNetRevenue() != null && !report.servicesNetRevenue().isEmpty()) {
+                addSection(document, "Net Revenue by Service", buildCatalogItemRevenueTable(report.servicesNetRevenue()));
+            }
+
+            if (report.productsNetRevenue() != null && !report.productsNetRevenue().isEmpty()) {
+                addSection(document, "Net Revenue by Product", buildCatalogItemRevenueTable(report.productsNetRevenue()));
+            }
+
+            if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
+                addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.byTherapist() != null && !report.byTherapist().isEmpty()) {
-            addSection(document, "Revenue by Therapist", buildRevenueByTherapistTable(report.byTherapist()));
-        }
-
-        if (report.servicesNetRevenue() != null && !report.servicesNetRevenue().isEmpty()) {
-            addSection(document, "Net Revenue by Service", buildCatalogItemRevenueTable(report.servicesNetRevenue()));
-        }
-
-        if (report.productsNetRevenue() != null && !report.productsNetRevenue().isEmpty()) {
-            addSection(document, "Net Revenue by Product", buildCatalogItemRevenueTable(report.productsNetRevenue()));
-        }
-
-        if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
-            addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
@@ -719,8 +725,9 @@ public class PdfExportUtil {
         return "₹ " + CURRENCY_FORMAT.format(value.setScale(2, RoundingMode.HALF_UP));
     }
 
+    /** retentionRate() is already 0-100 scaled — no extra *100 here. */
     private static String formatPercentage(Double value) {
         if (value == null) return "0%";
-        return String.format("%.2f%%", value * 100);
+        return String.format("%.2f%%", value);
     }
 }

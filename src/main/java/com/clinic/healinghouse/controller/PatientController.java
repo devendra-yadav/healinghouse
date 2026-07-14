@@ -12,6 +12,7 @@ import com.clinic.healinghouse.service.WalletService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -39,12 +40,17 @@ public class PatientController {
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
         int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("patients", patientService.search(q, PageRequest.of(page, pageSize)));
+        page = PaginationUtil.clampPage(page);
+        model.addAttribute("patients", showInactive
+                ? patientService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("fullName")))
+                : patientService.search(q, PageRequest.of(page, pageSize)));
         model.addAttribute("q", q);
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Patients");
         return "patients/list";
     }
@@ -74,6 +80,8 @@ public class PatientController {
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
+            walletPage = PaginationUtil.clampPage(walletPage);
+            page = PaginationUtil.clampPage(page);
 
             AppointmentStatus statusEnum = null;
             if (status != null && !status.isBlank()) {
@@ -131,7 +139,14 @@ public class PatientController {
             model.addAttribute("pageTitle", patient.getId() == null ? "New Patient" : "Edit Patient");
             return "patients/form";
         }
-        patientService.save(patient);
+        try {
+            patientService.save(patient);
+        } catch (DataIntegrityViolationException e) {
+            result.rejectValue("phone", "duplicate", "This phone number is already registered.");
+            model.addAttribute("genders", Gender.values());
+            model.addAttribute("pageTitle", patient.getId() == null ? "New Patient" : "Edit Patient");
+            return "patients/form";
+        }
         ra.addFlashAttribute("successMessage", "Patient saved successfully.");
         return "redirect:/patients";
     }
@@ -141,5 +156,12 @@ public class PatientController {
         patientService.deactivate(id);
         ra.addFlashAttribute("successMessage", "Patient deactivated successfully.");
         return "redirect:/patients";
+    }
+
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        patientService.activate(id);
+        ra.addFlashAttribute("successMessage", "Patient reactivated successfully.");
+        return "redirect:/patients/" + id;
     }
 }

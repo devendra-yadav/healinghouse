@@ -76,6 +76,10 @@ public class TagService {
 
     public Tag rename(Long id, String newName) {
         Tag tag = getById(id);
+        if (!StringUtils.hasText(newName)) {
+            throw new IllegalArgumentException("Tag name cannot be blank.");
+        }
+        assertNotCommissionOrBonus(tag.getName(), "renamed");
         String trimmed = newName.trim();
         tagRepository.findByNameIgnoreCase(trimmed)
                 .filter(existing -> !existing.getId().equals(id))
@@ -94,6 +98,7 @@ public class TagService {
         }
         Tag source = getById(sourceId);
         Tag target = getById(targetId);
+        assertNotCommissionOrBonus(source.getName(), "merged away");
 
         List<ClinicService> services = clinicServiceRepository.findByTagsId(sourceId);
         services.forEach(s -> {
@@ -129,5 +134,14 @@ public class TagService {
         tagRepository.delete(tag);
         log.info("Deleted tag id={} name='{}' (removed from {} service(s), {} product(s))",
                 id, tag.getName(), services.size(), products.size());
+    }
+
+    /** Blocks renaming/merging away the two tag names commission calculations key off of by exact name. */
+    private static void assertNotCommissionOrBonus(String tagName, String action) {
+        if (CommissionCalculator.COMMISSION_TAG.equalsIgnoreCase(tagName)
+                || CommissionCalculator.BONUS_TAG.equalsIgnoreCase(tagName)) {
+            throw new IllegalArgumentException(
+                    "The '" + tagName + "' tag drives commission/bonus calculations and cannot be " + action + ".");
+        }
     }
 }

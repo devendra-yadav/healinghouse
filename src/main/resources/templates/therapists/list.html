@@ -12,9 +12,16 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Therapists</h4>
-        <a th:href="@{/therapists/new}" class="btn btn-hh btn-sm">
-            <i class="bi bi-person-plus me-1"></i>New Therapist
-        </a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/therapists(showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+            </a>
+            <a th:href="@{/therapists/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-person-plus me-1"></i>New Therapist
+            </a>
+        </div>
     </div>
 
     <div class="card shadow-sm">
@@ -44,6 +51,7 @@
                                 <span class="fw-semibold" th:text="${t.fullName}"></span>
                                 <span th:if="${t.owner}"
                                       class="badge bg-success ms-1" title="Owner — no payout calculation">Owner</span>
+                                <span th:if="${!t.active}" class="badge bg-secondary ms-1">Inactive</span>
                             </td>
                             <td th:text="${t.specialization ?: '—'}"></td>
                             <td th:text="${t.phone ?: '—'}"></td>
@@ -71,7 +79,13 @@
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                <form th:if="${!t.active}" th:action="@{/therapists/{id}/activate(id=${t.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button th:if="${t.active}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${t.fullName}, data-url=@{/therapists/{id}/delete(id=${t.id})}">
                                     <i class="bi bi-person-dash"></i>
@@ -88,7 +102,7 @@
                 <select class="form-select form-select-sm" style="width:auto;"
                         onchange="location.href=this.value">
                     <option th:each="s : ${ {10,20,50,100} }"
-                            th:value="@{/therapists(size=${s},page=0)}"
+                            th:value="@{/therapists(size=${s},page=0,showInactive=${showInactive})}"
                             th:selected="${s == therapists.size}"
                             th:text="${s} + ' / page'">
                     </option>
@@ -99,12 +113,12 @@
                 <div th:if="${therapists.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!therapists.hasPrevious()} ? 'disabled'"
-                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number - 1})}">
+                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number - 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!therapists.hasNext()} ? 'disabled'"
-                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number + 1})}">
+                       th:href="@{/therapists(size=${therapists.size},page=${therapists.number + 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>

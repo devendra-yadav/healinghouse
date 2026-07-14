@@ -285,8 +285,9 @@ public class CsvExportUtil {
         return "₹" + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
+    /** retentionRate() is already 0-100 scaled — no extra *100 here. */
     private static String formatPercentage(Double value) {
         if (value == null) return "0%";
-        return String.format("%.2f%%", value * 100);
+        return String.format("%.2f%%", value);
     }
 }

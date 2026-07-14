@@ -48,11 +48,30 @@ public class ComboService {
         return comboRepository.findByActiveTrueOrderByNameAsc(pageable);
     }
 
-    /** Unpaginated, for the appointment-form combo picker's autocomplete — caller caps result size. */
+    /** Includes deactivated combos too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<Combo> findAllIncludingInactive(Pageable pageable) {
+        return comboRepository.findAll(pageable);
+    }
+
+    /**
+     * Unpaginated, for the appointment-form combo picker's autocomplete — caller caps result size.
+     * Only offers combos that are still fully selectable (see isSelectable) — a combo whose
+     * service/product was deactivated after the combo itself was created shouldn't keep being
+     * offered live, even though the combo row itself is still "active".
+     */
     @Transactional(readOnly = true)
     public List<Combo> search(String query) {
         if (!StringUtils.hasText(query)) return List.of();
-        return comboRepository.findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(query.trim());
+        return comboRepository.findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(query.trim()).stream()
+                .filter(this::isSelectable)
+                .toList();
+    }
+
+    /** True if every service/product item the combo bundles is still active — false once any one of them is deactivated. */
+    public boolean isSelectable(Combo combo) {
+        return combo.getServiceItems().stream().allMatch(si -> si.getService().isActive())
+                && combo.getProductItems().stream().allMatch(pi -> pi.getProduct().isActive());
     }
 
     /**
@@ -125,6 +144,13 @@ public class ComboService {
         combo.setActive(false);
         comboRepository.save(combo);
         log.info("Deactivated combo id={} name='{}'", combo.getId(), combo.getName());
+    }
+
+    public void activate(Long id) {
+        Combo combo = getById(id);
+        combo.setActive(true);
+        comboRepository.save(combo);
+        log.info("Reactivated combo id={} name='{}'", combo.getId(), combo.getName());
     }
 
     /** Live sum of current catalog prices across every item — never stored, always computed fresh. */

@@ -60,6 +60,12 @@ public class TreatmentService {
         return clinicServiceRepository.findByActiveTrueOrderByNameAsc(pageable);
     }
 
+    /** Includes deactivated services too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<ClinicService> findAllIncludingInactive(Pageable pageable) {
+        return clinicServiceRepository.findAll(pageable);
+    }
+
     /** tagNames are resolved via find-or-create (see {@link TagService#findOrCreate}) before saving. */
     public ClinicService save(ClinicService service, List<String> tagNames) {
         boolean isNew = service.getId() == null;
@@ -83,5 +89,12 @@ public class TreatmentService {
         service.setActive(false);
         clinicServiceRepository.save(service);
         log.info("Deactivated service id={} name='{}'", service.getId(), service.getName());
+    }
+
+    public void activate(Long id) {
+        ClinicService service = getById(id);
+        service.setActive(true);
+        clinicServiceRepository.save(service);
+        log.info("Reactivated service id={} name='{}'", service.getId(), service.getName());
     }
 }
