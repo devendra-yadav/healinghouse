@@ -72,7 +72,8 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Stock Quantity</label>
                                 <input type="number" th:field="*{stockQuantity}" class="form-control"
-                                       min="0" placeholder="0"/>
+                                       min="0" placeholder="0"
+                                       onfocus="clearZeroOnFocus(this)" onblur="restoreZeroIfEmpty(this)"/>
                                 <div class="form-text">Current units available in stock.</div>
                             </div>
                             <div class="col-md-6">
@@ -109,5 +110,19 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script th:src="@{/js/tag-input.js}"></script>
+<script>
+// Clear the default "0" value on focus so the user can type straight in
+// instead of appending after it (e.g. "0" + "12" = "012"); restore "0" if left empty.
+function clearZeroOnFocus(el) {
+    if (parseFloat(el.value) === 0) {
+        el.value = '';
+    }
+}
+function restoreZeroIfEmpty(el) {
+    if (el.value.trim() === '') {
+        el.value = '0';
+    }
+}
+</script>
 </body>
 </html>
