@@ -96,6 +96,13 @@ Patient ──< Appointment >── Therapist
               Tag (many-to-many, shared by Service & Product)
 
 Patient ──1:1── PatientWallet ──< WalletTransaction >── Appointment (nullable link)
+
+Combo ──< ComboServiceItem >── ClinicService
+      ──< ComboProductItem >── Product
+
+Appointment ──< AppointmentCombo >── Combo
+AppointmentServiceLine >── AppointmentCombo (nullable — null for a standalone line)
+AppointmentProductLine >── AppointmentCombo (nullable — null for a standalone line)
 ```
 
 **Key design decisions:**
@@ -105,11 +112,12 @@ Patient ──1:1── PatientWallet ──< WalletTransaction >── Appointm
 - `Appointment.getBalanceDue()` is a `@Transient` computed field (grandTotal − amountPaid)
 - Per-appointment discount (`discountType`: NONE/PERCENTAGE/FLAT, `discountValue` as typed, `discountAmount` as resolved ₹) is distributed proportionally across every service+product line into a nullable `discountedLineTotal` — null means no discount, so behavior is unchanged. Each line's `getEffectiveLineTotal()` transient getter falls back to the raw `priceAtTime`/`lineTotal` when null; templates and any future consumer should read through that getter, not the raw fields, to show/use the actual charged amount. See `AppointmentService.applyDiscount`/`distributeDiscount`.
 - All monetary values use `BigDecimal` (Indian Rupees ₹)
-- `@EqualsAndHashCode(exclude = {"serviceLines","productLines"})` on `Appointment` avoids circular Lombok issues
+- `@EqualsAndHashCode(exclude = {"serviceLines","productLines","combos"})` on `Appointment` avoids circular Lombok issues
 - Lazy fetching on all `@ManyToOne` associations
 - Patient detail page shows full appointment history via `PatientHistoryService` (see `requirements/Patient_History_Requirements_v1.md`)
 - Therapist detail page (`GET /therapists/{id}`) shows profile + period earnings (via `CommissionCalculator.calculateEarnings`, defaulting to current calendar month) + filterable appointment history; history includes appointments where the therapist is the main therapist **or** only handled a reassigned line item, via `AppointmentSpec.hasTherapistId` (see `requirements/Therapist_Details_Requirements_v1.md`)
 - `Appointment.durationMinutes` (default 60, `DEFAULT 60` at the DB level so existing rows backfill automatically) drives `getEndDateTime()` (`@Transient`, = `appointmentDateTime + durationMinutes`) — used by both conflict detection and the therapist calendar. See `requirements/Therapist_Calendar_Requirements_v1.md`.
+- `Combo` (catalog) has **no stored price** — `ComboService.computeOriginalPrice`/`computeComboPrice` always compute live from current `ClinicService`/`Product` prices, the same snapshot-at-use-time philosophy line items already follow. `AppointmentCombo` is the per-appointment snapshot ("combo X applied here with this discount"), decoupled from the live `Combo` row the same way `priceAtTime` is decoupled from `ClinicService.price`. See the Combos business rule below.
 
 ## Business Rules
 
@@ -143,6 +151,17 @@ Revenue/count inputs are attributed **per line-item therapist**, not just the ap
 - Status flow: `SCHEDULED` → `COMPLETED` | `CANCELLED` | `NO_SHOW`
 - Payment methods: `CASH`, `UPI`, `BANK_TRANSFER`, `CARD`, `OTHER`
 - Amount paid can never exceed `grandTotal`: validated both client-side (`appointments/form.html`'s `checkPaymentExceedsTotal`, live on input + blocking on submit) and server-side (`AppointmentService.createAppointment`/`updateAppointment`, checked once `grandTotal` is finalized post-discount, throws `IllegalArgumentException`). In edit mode `amountPaid` is `prepaidBase + newPaymentAmount` (prepaid is the existing total or a corrected value via the pencil-edit), so the check sums both against the current `grandTotal`.
+
+**Combos** — bundles of services/products sold at a discounted combo price, layered underneath the whole-appointment discount:
+- Admin-managed catalog (`/combos`): `Combo` + its `ComboServiceItem`/`ComboProductItem` (item + quantity, no shared supertype so two separate item tables mirror `AppointmentServiceLine`/`AppointmentProductLine`'s split). No tags, no hard delete — `active` flag only, like `ClinicService`/`Product`.
+- Selecting a combo on the appointment form (`fragments/combo-picker-modal.html`, backed by `GET /combos/search` and `GET /combos/{id}/detail`) expands it into ordinary `AppointmentServiceLine`/`AppointmentProductLine` rows tagged with a shared client-side `comboGroupKey`. Server-side, `AppointmentService.buildComboSelections` re-resolves each combo's `discountType`/`discountValue` from the **live** `Combo` catalog entry — never trusts a client-sent discount — and creates one `AppointmentCombo` per selection.
+- **Two-phase discounting** (the mechanics change to `AppointmentService`, replacing what used to be a single discount pass):
+  1. `applyComboDiscount` resolves each combo's own discount against just that combo's lines' raw `lineTotal`, distributing it via the shared `distributeAmount` allocator (same sort-ascending/last-line-absorbs-remainder algorithm the original single-phase `distributeDiscount` always used).
+  2. `applyDiscount`/`distributeDiscount` (the pre-existing whole-appointment discount) now resolve against `computeEffectiveSubtotal()` — the sum of every line's *current* `getEffectiveLineTotal()` (post-combo) — so a manual discount layers on top of whatever combo discount a line already carries, rather than re-discounting from scratch. For a zero-combo appointment this collapses back to the original single-phase formula exactly, since every line's effective total then equals its raw total.
+- Combo groups are locked as a unit on the appointment form: staff can edit a combo line's therapist (commission attribution only) but not its service/product/quantity, and can only remove the whole group via "Remove Combo," never a single line within it. This falls out of `updateAppointment`'s existing full clear-and-rebuild of `serviceLines`/`productLines` every save — `combos` is now cleared and rebuilt the same way, so omitting a combo's `comboSelections` entry on the next submit is all "removal" requires.
+- Commission, stock decrement, and double-booking conflict detection are all unaffected — combo lines are ordinary `AppointmentServiceLine`/`AppointmentProductLine` rows; commission queries and `AppointmentSpec.hasTherapistId` key off `priceAtTime`/`lineTotal`/`therapist`, never `appointmentCombo` or `discountedLineTotal`.
+- `appointments/detail.html`'s combo-group sections filter lines via `Appointment.getServiceLinesForCombo(ac)`/`getProductLinesForCombo(ac)` (plain Java methods, not an inline Thymeleaf expression) — a SpringEL selection like `${appointment.serviceLines.?[appointmentCombo == ac]}` throws `EL1008E: Property or field 'ac' cannot be found` at runtime, because `.?[...]`'s predicate evaluates with the candidate list element as its root, making the outer `th:each` variable invisible inside it. Same reasoning behind `getStandaloneServiceLines()`/`getStandaloneProductLines()` and `getStandaloneServiceTotal()`/`getStandaloneProductTotal()` — the Services/Products table footers must total only the standalone lines shown in that table, not `totalServiceAmount`/`totalProductAmount` (which include combo lines, rendered in their own section above both tables).
+- See `requirements/Combos_Requirements_v1.md` for the full spec.
 
 **Prepaid Balance (Wallet)** — a payment source alongside cash/UPI/card, deliberately isolated from discounts and revenue recognition:
 - `PatientWallet` (1:1 `Patient`, `@Version` optimistic lock, lazily created on first use — `WalletService.getOrCreateWallet`) holds a `balance` that must never go negative; every debit path (`WalletService.applyToAppointment`/`refund`) validates against the current balance before decrementing, throwing `IllegalArgumentException` on insufficiency. `WalletService.getBalance` never creates a wallet row, so merely viewing a patient's page has no side effect.
@@ -193,6 +212,7 @@ The `requirements/Healing_House_Clinic_Requirements_v1.md` file is the authorita
 - Amount-paid-exceeds-total guard on the appointment form — see the payment-methods business rule above.
 - Patient prepaid balance / wallet — top-up, apply-to-appointment (with automatic reversal whenever an appointment's owed amount shrinks below what's applied), and refund, backed by an auditable `WalletTransaction` ledger; see the Prepaid Balance (Wallet) business rule above and `requirements/Prepaid_Balance_Requirements_v1.md`. UI: `patients/detail.html` (balance card + paginated history), `appointments/form.html` (Apply from Wallet input + live balance/insufficiency checks), `appointments/detail.html` (Paid from Wallet row), all sharing a reusable top-up/refund modal (`fragments/wallet-modals.html`).
 - Appointment detail page: "View Profile" link on the Patient card (`appointments/detail.html`) always navigates to `/patients/{id}`, regardless of how the appointment was reached — distinct from the `returnUrl`-gated "Back to Patient" button, which only appears when navigated from a patient's page and preserves that origin/filter context.
+- Combos — admin-managed service/product bundles at a discounted price, selectable on the appointment form and layered under the whole-appointment discount via a two-phase discount engine; see the Combos business rule above and `requirements/Combos_Requirements_v1.md`. New: `Combo`/`ComboServiceItem`/`ComboProductItem`/`AppointmentCombo` entities, `ComboService`/`ComboController` (`/combos` CRUD + search + detail), `templates/combos/`, `fragments/combo-picker-modal.html`. `appointments/form.html` gained a "Choose Combo" picker with locked, grouped line rows; `appointments/detail.html` shows a "Combo Packages" section (above the standalone Services/Products tables, whose totals now exclude combo lines) with a per-combo savings badge.
 
 When implementing a specific step, reference it as "Phase X Step X.Y" from the requirements doc. `requirements/PHASE3_IMPLEMENTATION_GUIDE.md` has the detailed Phase 3 implementation notes if similar step-by-step guidance is needed for Phase 4.
 

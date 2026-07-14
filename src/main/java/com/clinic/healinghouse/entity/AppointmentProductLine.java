@@ -53,6 +53,11 @@ public class AppointmentProductLine {
     @Column(precision = 10, scale = 2)
     private BigDecimal discountedLineTotal;
 
+    /** Non-null when this line came from a combo — groups it for display/removal and the two-phase discount. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "appointment_combo_id")
+    private AppointmentCombo appointmentCombo;
+
     /** Discounted total if a discount has been distributed to this line, else the raw line total. */
     @Transient
     public BigDecimal getEffectiveLineTotal() {

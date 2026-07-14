@@ -48,6 +48,7 @@ public class PdfExportUtil {
 
     private static final DateTimeFormatter DISPLAY_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
     private static final DateTimeFormatter GENERATED_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
+    private static final DateTimeFormatter ROW_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd MMM, hh:mm a");
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,##0.00");
 
     private static final Color BRAND_PRIMARY = new DeviceRgb(0xAE, 0x2E, 0x2B);
@@ -203,6 +204,39 @@ public class PdfExportUtil {
 
         if (report.products() != null && !report.products().isEmpty()) {
             addSection(document, "Product Performance", buildProductPerformanceTable(report.products()));
+        }
+
+        finish(document, pdfDoc);
+        return baos.toByteArray();
+    }
+
+    public static byte[] generateRevenueReportPdf(RevenueReportDTO report) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+
+        addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
+                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+        addRevenueSummaryTable(document, report.summary());
+
+        if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
+            addSection(document, "Collected by Payment Method", buildPaymentMethodTable(report.byPaymentMethod()));
+        }
+
+        if (report.byTherapist() != null && !report.byTherapist().isEmpty()) {
+            addSection(document, "Revenue by Therapist", buildRevenueByTherapistTable(report.byTherapist()));
+        }
+
+        if (report.servicesNetRevenue() != null && !report.servicesNetRevenue().isEmpty()) {
+            addSection(document, "Net Revenue by Service", buildCatalogItemRevenueTable(report.servicesNetRevenue()));
+        }
+
+        if (report.productsNetRevenue() != null && !report.productsNetRevenue().isEmpty()) {
+            addSection(document, "Net Revenue by Product", buildCatalogItemRevenueTable(report.productsNetRevenue()));
+        }
+
+        if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
+            addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
         }
 
         finish(document, pdfDoc);
@@ -384,12 +418,12 @@ public class PdfExportUtil {
         addDataCell(table, String.valueOf(summary.totalAppointments()), TextAlignment.RIGHT, false);
         addLabelCell(table, "Unique Patients", TextAlignment.LEFT);
         addDataCell(table, String.valueOf(summary.uniquePatients()), TextAlignment.RIGHT, false);
-        addLabelCell(table, "Total Revenue", TextAlignment.LEFT);
+        addLabelCell(table, "Total Revenue (Pre-Discount)", TextAlignment.LEFT);
         addDataCell(table, formatCurrency(summary.totalRevenue()), TextAlignment.RIGHT, false);
 
-        addLabelCell(table, "Services Revenue", TextAlignment.LEFT);
+        addLabelCell(table, "Services Revenue (Pre-Discount)", TextAlignment.LEFT);
         addDataCell(table, formatCurrency(summary.totalServicesRevenue()), TextAlignment.RIGHT, true);
-        addLabelCell(table, "Products Revenue", TextAlignment.LEFT);
+        addLabelCell(table, "Products Revenue (Pre-Discount)", TextAlignment.LEFT);
         addDataCell(table, formatCurrency(summary.totalProductsRevenue()), TextAlignment.RIGHT, true);
         addBlankCell(table);
         addBlankCell(table);
@@ -401,11 +435,11 @@ public class PdfExportUtil {
         Table table = newTable(new float[]{1.6f, 1, 1, 0.7f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
-        addHeaderCell(table, "Svcs Rev.(All)", TextAlignment.RIGHT);
-        addHeaderCell(table, "Prod Rev.(All)", TextAlignment.RIGHT);
+        addHeaderCell(table, "Svcs Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
+        addHeaderCell(table, "Prod Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
         addHeaderCell(table, "Svcs(All)", TextAlignment.CENTER);
-        addHeaderCell(table, "Svcs Rev.(Bonus)", TextAlignment.RIGHT);
-        addHeaderCell(table, "Prod Rev.(Comm.)", TextAlignment.RIGHT);
+        addHeaderCell(table, "Svcs Rev.(Bonus, Pre-Disc.)", TextAlignment.RIGHT);
+        addHeaderCell(table, "Prod Rev.(Comm., Pre-Disc.)", TextAlignment.RIGHT);
         addHeaderCell(table, "Svcs(Bonus)", TextAlignment.CENTER);
         addHeaderCell(table, "Svc Comm", TextAlignment.RIGHT);
         addHeaderCell(table, "Prod Comm", TextAlignment.RIGHT);
@@ -441,7 +475,7 @@ public class PdfExportUtil {
         Table table = newTable(new float[]{2, 1}, 9.5f);
 
         addHeaderCell(table, "Tag", TextAlignment.LEFT);
-        addHeaderCell(table, "Revenue", TextAlignment.RIGHT);
+        addHeaderCell(table, "Revenue (Pre-Discount)", TextAlignment.RIGHT);
 
         boolean shaded = false;
         for (TagRevenueDTO tag : tagRevenues) {
@@ -458,7 +492,7 @@ public class PdfExportUtil {
 
         addHeaderCell(table, "Product Name", TextAlignment.LEFT);
         addHeaderCell(table, "Units Sold", TextAlignment.CENTER);
-        addHeaderCell(table, "Revenue", TextAlignment.RIGHT);
+        addHeaderCell(table, "Revenue (Pre-Discount)", TextAlignment.RIGHT);
         addHeaderCell(table, "Stock Level", TextAlignment.CENTER);
 
         boolean shaded = false;
@@ -478,8 +512,8 @@ public class PdfExportUtil {
 
         addHeaderCell(table, "Service Name", TextAlignment.LEFT);
         addHeaderCell(table, "Count", TextAlignment.CENTER);
-        addHeaderCell(table, "Revenue", TextAlignment.RIGHT);
-        addHeaderCell(table, "Avg Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Revenue (Pre-Discount)", TextAlignment.RIGHT);
+        addHeaderCell(table, "Avg Price (Pre-Discount)", TextAlignment.RIGHT);
         addHeaderCell(table, "Top Therapist", TextAlignment.LEFT);
 
         boolean shaded = false;
@@ -492,6 +526,117 @@ public class PdfExportUtil {
             shaded = !shaded;
         }
 
+        return table;
+    }
+
+    private static void addRevenueSummaryTable(Document document, RevenueSummaryDTO summary) {
+        Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9.5f);
+
+        addLabelCell(table, "Appointments", TextAlignment.LEFT);
+        addDataCell(table, String.valueOf(summary.appointmentCount()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Gross Revenue", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.grossRevenue()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Net Revenue (Billed)", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.netRevenue()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Combo Discounts", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.comboDiscount()), TextAlignment.RIGHT, true);
+        addLabelCell(table, "Manual Discounts", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.manualDiscount()), TextAlignment.RIGHT, true);
+        addLabelCell(table, "Collected", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.collected()), TextAlignment.RIGHT, true);
+
+        addLabelCell(table, "Outstanding", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.outstanding()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Wallet-Funded", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.walletFunded()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Advance Payments (Scheduled/Cancelled/No-Show)", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.advanceReceived()), TextAlignment.RIGHT, false);
+
+        document.add(table);
+    }
+
+    private static Table buildPaymentMethodTable(List<RevenueByPaymentMethodDTO> byPaymentMethod) {
+        Table table = newTable(new float[]{2, 1}, 9.5f);
+
+        addHeaderCell(table, "Method", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (RevenueByPaymentMethodDTO m : byPaymentMethod) {
+            addDataCell(table, m.label(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(m.amount()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private static Table buildRevenueByTherapistTable(List<RevenueByTherapistDTO> byTherapist) {
+        Table table = newTable(new float[]{1.6f, 1, 1, 1}, 9.5f);
+
+        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
+        addHeaderCell(table, "Gross Revenue", TextAlignment.RIGHT);
+        addHeaderCell(table, "Discount", TextAlignment.RIGHT);
+        addHeaderCell(table, "Net Revenue", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (RevenueByTherapistDTO t : byTherapist) {
+            addDataCell(table, t.therapistName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(t.grossRevenue()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(t.discountAmount()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(t.netRevenue()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private static Table buildCatalogItemRevenueTable(List<RevenueByCatalogItemDTO> items) {
+        Table table = newTable(new float[]{2, 2, 1, 1.2f}, 9.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Tags", TextAlignment.LEFT);
+        addHeaderCell(table, "Bookings", TextAlignment.CENTER);
+        addHeaderCell(table, "Net Revenue", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (RevenueByCatalogItemDTO item : items) {
+            addDataCell(table, item.name(), TextAlignment.LEFT, shaded);
+            addDataCell(table, String.join(", ", item.tags()), TextAlignment.LEFT, shaded);
+            addDataCell(table, String.valueOf(item.bookingsCount()), TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(item.netRevenue()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private static Table buildAppointmentRevenueRowsTable(List<AppointmentRevenueRowDTO> rows) {
+        Table table = newTable(new float[]{1.3f, 1.3f, 1.3f, 0.9f, 1, 1, 1, 1, 1, 1}, 8f);
+
+        addHeaderCell(table, "Date/Time", TextAlignment.LEFT);
+        addHeaderCell(table, "Patient", TextAlignment.LEFT);
+        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+        addHeaderCell(table, "Gross", TextAlignment.RIGHT);
+        addHeaderCell(table, "Discount", TextAlignment.RIGHT);
+        addHeaderCell(table, "Net", TextAlignment.RIGHT);
+        addHeaderCell(table, "Collected", TextAlignment.RIGHT);
+        addHeaderCell(table, "Outstanding", TextAlignment.RIGHT);
+        addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
+
+        boolean shaded = false;
+        for (AppointmentRevenueRowDTO row : rows) {
+            addDataCell(table, row.dateTime().format(ROW_DATETIME_FORMATTER), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.patientName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.therapistName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.status().name(), TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(row.gross()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.discount()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.net()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.collected()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.outstanding()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, row.paymentMethod() != null ? row.paymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
+            shaded = !shaded;
+        }
         return table;
     }
 

@@ -10,6 +10,8 @@ import com.clinic.healinghouse.dto.PeriodSummaryDTO;
 import com.clinic.healinghouse.dto.PerformanceReportDTO;
 import com.clinic.healinghouse.dto.ProductPerformanceDTO;
 import com.clinic.healinghouse.dto.ProductRevenueSummaryDTO;
+import com.clinic.healinghouse.dto.RevenueReportDTO;
+import com.clinic.healinghouse.dto.RevenueReportFilter;
 import com.clinic.healinghouse.dto.ServicePerformanceDTO;
 import com.clinic.healinghouse.dto.ServiceRevenueSummaryDTO;
 import com.clinic.healinghouse.dto.ServiceTherapistRevenueDTO;
@@ -29,6 +31,7 @@ import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +63,7 @@ public class ReportService {
     private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("dd MMM");
 
     private final ReportAggregator reportAggregator;
+    private final RevenueReportAggregator revenueReportAggregator;
     private final DashboardService dashboardService;
     private final TherapistRepository therapistRepository;
     private final AppointmentRepository appointmentRepository;
@@ -86,6 +90,10 @@ public class ReportService {
         List<Therapist> therapists = therapistRepository.findAllById(therapistIds);
         List<TherapistEarningsDTO> earnings = reportAggregator.getTherapistEarnings(therapists, dateFrom, dateTo);
         return new ComparisonReportDTO(dateFrom, dateTo, earnings);
+    }
+
+    public RevenueReportDTO getRevenueReport(RevenueReportFilter filter, Pageable pageable) {
+        return revenueReportAggregator.getRevenueReport(filter, pageable);
     }
 
     public PerformanceReportDTO getProductPerformanceReport(LocalDate dateFrom, LocalDate dateTo) {

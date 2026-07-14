@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <!-- Choices.js: searchable select dropdowns, same library/pattern as appointments/form.html -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css"/>
+    <style>
+        .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
+        .choices { margin-bottom: 0; }
+        .service-item-row .choices__inner, .product-item-row .choices__inner {
+            min-height: calc(1.5em + 0.5rem + 2px); padding: 0.25rem 0.5rem; font-size: .875rem;
+        }
+        .service-item-row .choices__list--dropdown .choices__item, .product-item-row .choices__list--dropdown .choices__item {
+            font-size: .875rem;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Combos')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/combos}">Combos</a></li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0" th:text="${pageTitle}"></h5>
+                </div>
+                <div class="card-body">
+                    <form id="comboForm"
+                          th:action="${comboForm.id == null} ? @{/combos} : @{/combos/{id}(id=${comboForm.id})}"
+                          th:object="${comboForm}" method="post">
+                        <input type="hidden" th:field="*{id}"/>
+                        <input type="hidden" th:field="*{active}"/>
+
+                        <!-- Name -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Combo Name <span class="text-danger">*</span></label>
+                            <input type="text" th:field="*{name}" class="form-control" required
+                                   placeholder="e.g. Bridal Package"/>
+                        </div>
+
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea th:field="*{description}" class="form-control" rows="2"
+                                      placeholder="optional — brief description of the combo"></textarea>
+                        </div>
+
+                        <!-- Services -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <span class="fw-semibold"><i class="bi bi-scissors me-1"></i>Services</span>
+                                <button type="button" class="btn btn-sm btn-hh" onclick="addServiceItemRow()">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Service
+                                </button>
+                            </div>
+                            <div class="card-body pb-1">
+                                <div id="serviceItemsContainer"></div>
+                                <div id="serviceItemsEmpty" class="text-muted small text-center py-3">
+                                    <i class="bi bi-info-circle me-1"></i>No services added.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Products -->
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <span class="fw-semibold"><i class="bi bi-box-seam me-1"></i>Products</span>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addProductItemRow()">
+                                    <i class="bi bi-plus-lg me-1"></i>Add Product
+                                </button>
+                            </div>
+                            <div class="card-body pb-1">
+                                <div id="productItemsContainer"></div>
+                                <div id="productItemsEmpty" class="text-muted small text-center py-3">
+                                    <i class="bi bi-info-circle me-1"></i>No products added.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Discount + Price Preview -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Discount Type</label>
+                                <select th:field="*{discountType}" id="discountTypeSelect" class="form-select"
+                                        onchange="onDiscountTypeChange()">
+                                    <option value="NONE">No Discount</option>
+                                    <option value="PERCENTAGE">Percentage (%)</option>
+                                    <option value="FLAT">Flat Amount (₹)</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" id="discountValueLabel">Discount Value</label>
+                                <input type="number" th:field="*{discountValue}" id="discountValueInput"
+                                       class="form-control" min="0" step="0.01" oninput="updatePricePreview()">
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card bg-light border-0 h-100">
+                                    <div class="card-body py-2 px-3">
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span>Original Price</span>
+                                            <span id="previewOriginal">₹0.00</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between fw-semibold text-success">
+                                            <span>Combo Price</span>
+                                            <span id="previewComboPrice">₹0.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">
+                            <a th:href="@{/combos}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-hh">
+                                <i class="bi bi-check-lg me-1"></i>Save Combo
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+const ALL_SERVICES = /*[[${allServices}]]*/ [];
+const ALL_PRODUCTS = /*[[${allProducts}]]*/ [];
+const EDIT_SERVICE_ITEMS = /*[[${comboForm.serviceItems}]]*/ [];
+const EDIT_PRODUCT_ITEMS = /*[[${comboForm.productItems}]]*/ [];
+/*]]>*/
+</script>
+
+<script>
+const serviceMap = {};
+ALL_SERVICES.forEach(s => { serviceMap[s.id] = s; });
+const productMap = {};
+ALL_PRODUCTS.forEach(p => { productMap[p.id] = p; });
+
+let siIdx = 0, piIdx = 0;
+
+function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function buildOptions(data) {
+    return data.map(d => `<option value="${d.id}">${escHtml(d.name)}</option>`).join('');
+}
+
+// Same Choices.js searchable-select setup as appointments/form.html's initItemSelect.
+function initItemSelect(sel, placeholder) {
+    return new Choices(sel, {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: placeholder,
+        searchPlaceholderValue: 'Search…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+}
+
+function addServiceItemRow(preselectId, preselectQty) {
+    const i = siIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center service-item-row';
+    row.innerHTML =
+        `<div class="col-8 col-md-8">
+            <select class="form-select form-select-sm si-select"
+                    name="serviceItems[${i}].itemId" onchange="updatePricePreview()">
+                <option value="">— Service —</option>
+                ${buildOptions(ALL_SERVICES)}
+            </select>
+         </div>
+         <div class="col-2 col-md-2">
+            <input type="number" class="form-control form-control-sm si-qty"
+                   name="serviceItems[${i}].quantity" value="1" min="1" oninput="updatePricePreview()">
+         </div>
+         <div class="col-2 col-md-2 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'service-item-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('serviceItemsContainer').appendChild(row);
+    const sel = row.querySelector('.si-select');
+    const choicesInstance = initItemSelect(sel, '— Service —');
+    if (preselectId) {
+        choicesInstance.setChoiceByValue(String(preselectId));
+        if (preselectQty) row.querySelector('.si-qty').value = preselectQty;
+    }
+    toggleUI();
+    updatePricePreview();
+}
+
+function addProductItemRow(preselectId, preselectQty) {
+    const i = piIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center product-item-row';
+    row.innerHTML =
+        `<div class="col-8 col-md-8">
+            <select class="form-select form-select-sm pi-select"
+                    name="productItems[${i}].itemId" onchange="updatePricePreview()">
+                <option value="">— Product —</option>
+                ${buildOptions(ALL_PRODUCTS)}
+            </select>
+         </div>
+         <div class="col-2 col-md-2">
+            <input type="number" class="form-control form-control-sm pi-qty"
+                   name="productItems[${i}].quantity" value="1" min="1" oninput="updatePricePreview()">
+         </div>
+         <div class="col-2 col-md-2 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'product-item-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('productItemsContainer').appendChild(row);
+    const sel = row.querySelector('.pi-select');
+    const choicesInstance = initItemSelect(sel, '— Product —');
+    if (preselectId) {
+        choicesInstance.setChoiceByValue(String(preselectId));
+        if (preselectQty) row.querySelector('.pi-qty').value = preselectQty;
+    }
+    toggleUI();
+    updatePricePreview();
+}
+
+function removeRow(btn, cls) {
+    btn.closest('.' + cls).remove();
+    toggleUI();
+    updatePricePreview();
+}
+
+function toggleUI() {
+    document.getElementById('serviceItemsEmpty').classList.toggle('d-none',
+        document.querySelectorAll('.service-item-row').length > 0);
+    document.getElementById('productItemsEmpty').classList.toggle('d-none',
+        document.querySelectorAll('.product-item-row').length > 0);
+}
+
+function onDiscountTypeChange() {
+    const type = document.getElementById('discountTypeSelect').value;
+    const input = document.getElementById('discountValueInput');
+    const label = document.getElementById('discountValueLabel');
+    if (type === 'NONE') {
+        input.value = '';
+        input.disabled = true;
+        label.textContent = 'Discount Value';
+    } else {
+        input.disabled = false;
+        label.textContent = type === 'PERCENTAGE' ? 'Discount (%)' : 'Discount Amount (₹)';
+    }
+    updatePricePreview();
+}
+
+// Mirrors ComboService.computeOriginalPrice/computeDiscountAmount so the live preview
+// matches what gets saved.
+function updatePricePreview() {
+    let original = 0;
+    document.querySelectorAll('.service-item-row').forEach(row => {
+        const s = serviceMap[row.querySelector('.si-select').value];
+        const qty = parseInt(row.querySelector('.si-qty').value) || 0;
+        if (s) original += s.price * qty;
+    });
+    document.querySelectorAll('.product-item-row').forEach(row => {
+        const p = productMap[row.querySelector('.pi-select').value];
+        const qty = parseInt(row.querySelector('.pi-qty').value) || 0;
+        if (p) original += p.price * qty;
+    });
+
+    const type = document.getElementById('discountTypeSelect').value;
+    const raw = parseFloat(document.getElementById('discountValueInput').value) || 0;
+    let discount = 0;
+    if (type === 'PERCENTAGE') discount = original * Math.min(raw, 100) / 100;
+    else if (type === 'FLAT') discount = Math.min(raw, original);
+
+    document.getElementById('previewOriginal').textContent = fmt(original);
+    document.getElementById('previewComboPrice').textContent = fmt(original - discount);
+}
+
+// Re-index rows on submit so gaps from deleted rows don't break Spring's indexed binding,
+// same pattern as appointments/form.html.
+document.getElementById('comboForm').addEventListener('submit', function () {
+    let si = 0;
+    document.querySelectorAll('.service-item-row').forEach(row => {
+        const sel = row.querySelector('.si-select');
+        const qty = row.querySelector('.si-qty');
+        if (sel.value) {
+            sel.name = `serviceItems[${si}].itemId`;
+            qty.name = `serviceItems[${si}].quantity`;
+            si++;
+        } else {
+            sel.disabled = true;
+            qty.disabled = true;
+        }
+    });
+    let pi = 0;
+    document.querySelectorAll('.product-item-row').forEach(row => {
+        const sel = row.querySelector('.pi-select');
+        const qty = row.querySelector('.pi-qty');
+        if (sel.value) {
+            sel.name = `productItems[${pi}].itemId`;
+            qty.name = `productItems[${pi}].quantity`;
+            pi++;
+        } else {
+            sel.disabled = true;
+            qty.disabled = true;
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function () {
+    EDIT_SERVICE_ITEMS.forEach(item => addServiceItemRow(item.itemId, item.quantity));
+    EDIT_PRODUCT_ITEMS.forEach(item => addProductItemRow(item.itemId, item.quantity));
+    onDiscountTypeChange();
+});
+</script>
+</body>
+</html>

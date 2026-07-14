@@ -10,6 +10,10 @@
 <main class="container-fluid px-4 py-4 flex-grow-1">
 
     <h4 class="section-header mb-3">Product/Service Performance</h4>
+    <p class="text-muted small mb-3">
+        Figures below are pre-discount and used for commission calculation — see the
+        <a th:href="@{/reports/revenue}">Actual Revenue</a> report for real billed/collected amounts.
+    </p>
 
     <!-- Filter -->
     <form th:action="@{/reports/performance}" method="get" class="card shadow-sm mb-3">
@@ -59,8 +63,8 @@
                                     <th>Service</th>
                                     <th>Tags</th>
                                     <th class="text-center">Bookings</th>
-                                    <th class="text-end">Revenue</th>
-                                    <th class="text-end">Avg. Price</th>
+                                    <th class="text-end" title="Calculated before any discount.">Revenue (Pre-Discount)</th>
+                                    <th class="text-end" title="Calculated before any discount.">Avg. Price (Pre-Discount)</th>
                                     <th>Top Therapist</th>
                                 </tr>
                             </thead>
@@ -99,7 +103,7 @@
                                     <th>Product</th>
                                     <th>Tags</th>
                                     <th class="text-center">Units Sold</th>
-                                    <th class="text-end">Revenue</th>
+                                    <th class="text-end" title="Calculated before any discount.">Revenue (Pre-Discount)</th>
                                     <th class="text-center">Stock</th>
                                 </tr>
                             </thead>
@@ -127,7 +131,7 @@
 
         <!-- Tag revenue -->
         <div class="col-12 col-lg-6">
-            <h6 class="section-header mb-3">Revenue by Tag</h6>
+            <h6 class="section-header mb-3">Revenue by Tag <small class="text-muted fw-normal" title="Calculated before any discount.">(Pre-Discount)</small></h6>
             <div th:if="${report.tagRevenue.empty}" class="coming-soon-card">
                 <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
                 <span class="text-muted">No tagged revenue in this period.</span>
@@ -139,7 +143,7 @@
 
         <!-- Tag x therapist breakdown -->
         <div class="col-12 col-lg-6">
-            <h6 class="section-header mb-3">Revenue by Tag &amp; Therapist</h6>
+            <h6 class="section-header mb-3">Revenue by Tag &amp; Therapist <small class="text-muted fw-normal" title="Calculated before any discount.">(Pre-Discount)</small></h6>
             <div th:if="${report.tagTherapistRevenue.empty}" class="coming-soon-card">
                 <i class="bi bi-table fs-2 text-secondary mb-2 d-block"></i>
                 <span class="text-muted">No tagged revenue in this period.</span>

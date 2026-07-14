@@ -47,6 +47,7 @@ import static org.mockito.Mockito.when;
 class ReportServiceTests {
 
     @Mock private ReportAggregator reportAggregator;
+    @Mock private RevenueReportAggregator revenueReportAggregator;
     @Mock private DashboardService dashboardService;
     @Mock private TherapistRepository therapistRepository;
     @Mock private AppointmentRepository appointmentRepository;
@@ -64,7 +65,7 @@ class ReportServiceTests {
 
     @BeforeEach
     void setUp() {
-        reportService = new ReportService(reportAggregator, dashboardService, therapistRepository,
+        reportService = new ReportService(reportAggregator, revenueReportAggregator, dashboardService, therapistRepository,
                 appointmentRepository, serviceLineRepository, productLineRepository,
                 clinicServiceRepository, productRepository);
     }

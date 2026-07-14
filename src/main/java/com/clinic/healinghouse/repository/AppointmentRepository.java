@@ -36,6 +36,12 @@ public interface AppointmentRepository
            "WHERE a.id = :id")
     Optional<Appointment> findWithProductLinesById(@Param("id") Long id);
 
+    @Query("SELECT DISTINCT a FROM Appointment a " +
+           "LEFT JOIN FETCH a.combos ac " +
+           "LEFT JOIN FETCH ac.combo " +
+           "WHERE a.id = :id")
+    Optional<Appointment> findWithCombosById(@Param("id") Long id);
+
     // ── Simple finders ────────────────────────────────────────────────────────
     List<Appointment> findByPatientOrderByAppointmentDateTimeDesc(Patient patient);
 

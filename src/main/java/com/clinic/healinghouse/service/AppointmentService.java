@@ -24,8 +24,10 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
@@ -44,6 +46,7 @@ public class AppointmentService {
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
     private final WalletService                    walletService;
+    private final ComboRepository                  comboRepository;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
@@ -61,6 +64,7 @@ public class AppointmentService {
         Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
         appointmentRepository.findWithProductLinesById(id); // initialises productLines in L1 cache
+        appointmentRepository.findWithCombosById(id);       // initialises combos in L1 cache
         return appt;
     }
 
@@ -369,6 +373,10 @@ public class AppointmentService {
                 .amountPaid(form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO)
                 .build();
 
+        // 3b. Combo groups — one unsaved AppointmentCombo per selection, re-resolved from the live
+        // Combo catalog entry (never a client-sent discount). Lines below attach to these by groupKey.
+        Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(appointment, form.getComboSelections());
+
         // 4. Service lines — snapshot price at booking time
         BigDecimal totalServiceAmount = BigDecimal.ZERO;
         for (AppointmentForm.ServiceLineForm slf : rawServices) {
@@ -377,6 +385,7 @@ public class AppointmentService {
                             "Service not found: " + slf.getServiceId()));
             int qty = Math.max(1, slf.getQuantity());
             BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
+            AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
             appointment.getServiceLines().add(
                     AppointmentServiceLine.builder()
@@ -385,6 +394,7 @@ public class AppointmentService {
                             .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                             .priceAtTime(cs.getPrice())
                             .quantity(qty)
+                            .appointmentCombo(lineCombo)
                             .build());
 
             totalServiceAmount = totalServiceAmount.add(lineTotal);
@@ -408,6 +418,7 @@ public class AppointmentService {
             }
 
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
+            AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
 
             appointment.getProductLines().add(
                     AppointmentProductLine.builder()
@@ -417,6 +428,7 @@ public class AppointmentService {
                             .quantity(qty)
                             .priceAtTime(product.getPrice())
                             .lineTotal(lineTotal)
+                            .appointmentCombo(lineCombo)
                             .build());
 
             // Decrement stock — treatment has been administered
@@ -427,9 +439,13 @@ public class AppointmentService {
             totalProductAmount = totalProductAmount.add(lineTotal);
         }
 
-        // 6. Set aggregate totals (and apply any discount)
+        // 6. Set aggregate totals, then the two-phase discount: each combo's own discount over its
+        // own lines first, then the whole-appointment discount layered on top of the result.
         appointment.setTotalServiceAmount(totalServiceAmount);
         appointment.setTotalProductAmount(totalProductAmount);
+        for (AppointmentCombo ac : appointment.getCombos()) {
+            applyComboDiscount(appointment, ac);
+        }
         applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
 
         // 6b. Wallet balance applied — a payment source alongside cash/UPI/card, never a discount.
@@ -566,6 +582,9 @@ public class AppointmentService {
             restoreProductStock(existing);  // restore before clearing lines
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
+            existing.getCombos().clear();
+
+            Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(existing, form.getComboSelections());
 
             BigDecimal totalServiceAmount = BigDecimal.ZERO;
             for (AppointmentForm.ServiceLineForm slf : rawServices) {
@@ -573,6 +592,7 @@ public class AppointmentService {
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = Math.max(1, slf.getQuantity());
                 BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
+                AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
                 existing.getServiceLines().add(
                         AppointmentServiceLine.builder()
                                 .appointment(existing)
@@ -580,6 +600,7 @@ public class AppointmentService {
                                 .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                                 .priceAtTime(cs.getPrice())
                                 .quantity(qty)
+                                .appointmentCombo(lineCombo)
                                 .build());
                 totalServiceAmount = totalServiceAmount.add(lineTotal);
             }
@@ -597,6 +618,7 @@ public class AppointmentService {
                             + ", requested: " + qty);
                 }
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
+                AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
                 existing.getProductLines().add(
                         AppointmentProductLine.builder()
                                 .appointment(existing)
@@ -605,6 +627,7 @@ public class AppointmentService {
                                 .quantity(qty)
                                 .priceAtTime(product.getPrice())
                                 .lineTotal(lineTotal)
+                                .appointmentCombo(lineCombo)
                                 .build());
                 product.setStockQuantity(product.getStockQuantity() - qty);
                 log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
@@ -614,6 +637,9 @@ public class AppointmentService {
 
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
+            for (AppointmentCombo ac : existing.getCombos()) {
+                applyComboDiscount(existing, ac);
+            }
             applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
         }
 
@@ -687,24 +713,91 @@ public class AppointmentService {
         return saved;
     }
 
+    // ── Combos ────────────────────────────────────────────────────────────────
+
+    /**
+     * Builds one unsaved AppointmentCombo per selection, keyed by the submission's groupKey, and
+     * attaches each to the owning appointment. discountType/discountValue are re-resolved from the
+     * live Combo catalog entry — never trusted from the client — per Combos_Requirements_v1.md §4.2.
+     */
+    private Map<String, AppointmentCombo> buildComboSelections(Appointment appointment,
+                                                                List<AppointmentForm.ComboSelectionForm> selections) {
+        Map<String, AppointmentCombo> comboByGroupKey = new LinkedHashMap<>();
+        if (selections == null) return comboByGroupKey;
+        for (AppointmentForm.ComboSelectionForm sel : selections) {
+            if (sel == null || sel.getComboId() == null || sel.getGroupKey() == null || sel.getGroupKey().isBlank()) continue;
+            Combo combo = comboRepository.findById(sel.getComboId())
+                    .orElseThrow(() -> new EntityNotFoundException("Combo not found: " + sel.getComboId()));
+            AppointmentCombo ac = AppointmentCombo.builder()
+                    .appointment(appointment)
+                    .combo(combo)
+                    .comboNameSnapshot(combo.getName())
+                    .discountType(combo.getDiscountType())
+                    .discountValue(combo.getDiscountValue())
+                    .discountAmount(BigDecimal.ZERO)
+                    .originalSubtotalSnapshot(BigDecimal.ZERO)
+                    .build();
+            comboByGroupKey.put(sel.getGroupKey(), ac);
+            appointment.getCombos().add(ac);
+        }
+        return comboByGroupKey;
+    }
+
+    /**
+     * Phase 1 of the two-phase discount: resolves one combo's own discount against the raw
+     * lineTotal of just that combo's lines, and distributes it across only those lines. Lines
+     * outside any combo are untouched here (see distributeDiscount for the whole-appointment phase).
+     */
+    private void applyComboDiscount(Appointment appointment, AppointmentCombo ac) {
+        List<DiscountableLine> lines = new ArrayList<>();
+        appointment.getServiceLines().stream()
+                .filter(sl -> sl.getAppointmentCombo() == ac)
+                .forEach(sl -> lines.add(new DiscountableLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
+        appointment.getProductLines().stream()
+                .filter(pl -> pl.getAppointmentCombo() == ac)
+                .forEach(pl -> lines.add(new DiscountableLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
+
+        BigDecimal comboSubtotal = lines.stream()
+                .map(DiscountableLine::lineRaw).reduce(BigDecimal.ZERO, BigDecimal::add);
+        ac.setOriginalSubtotalSnapshot(comboSubtotal);
+
+        DiscountType type = ac.getDiscountType();
+        BigDecimal rawValue = ac.getDiscountValue();
+        if (type == null || type == DiscountType.NONE || rawValue == null || rawValue.signum() <= 0 || lines.isEmpty()) {
+            ac.setDiscountAmount(BigDecimal.ZERO);
+            return; // lines keep discountedLineTotal == null from this phase — same "no discount" semantics
+        }
+        if (type == DiscountType.PERCENTAGE && rawValue.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new IllegalArgumentException("Combo percentage discount cannot exceed 100%.");
+        }
+        BigDecimal resolved = type == DiscountType.PERCENTAGE
+                ? comboSubtotal.multiply(rawValue).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                : rawValue.setScale(2, RoundingMode.HALF_UP);
+        resolved = resolved.min(comboSubtotal);
+        ac.setDiscountAmount(resolved);
+        distributeAmount(lines, comboSubtotal, resolved);
+    }
+
     // ── Discount ──────────────────────────────────────────────────────────────
 
     /**
-     * Resolves the discount (type + raw value) against the appointment's current
-     * totalServiceAmount/totalProductAmount, distributes it proportionally across
-     * every service/product line as discountedLineTotal, and sets grandTotal to the
-     * net (post-discount) amount. Commission-relevant fields (priceAtTime, quantity,
+     * Phase 2 (whole-appointment discount): resolves the discount (type + raw value) against
+     * the appointment's effective subtotal — which already nets out any combo discounts from
+     * phase 1 — and distributes it proportionally across every line's *current* effective total,
+     * so a manual discount layers on top of whatever combo discount a line already carries
+     * rather than re-discounting from scratch. Commission-relevant fields (priceAtTime, quantity,
      * lineTotal, totalServiceAmount, totalProductAmount) are never touched here.
      */
     private void applyDiscount(Appointment appointment, DiscountType type, BigDecimal rawValue) {
-        BigDecimal subtotal = appointment.getTotalServiceAmount().add(appointment.getTotalProductAmount());
+        BigDecimal subtotal = computeEffectiveSubtotal(appointment);
 
         if (type == null || type == DiscountType.NONE || rawValue == null || rawValue.signum() <= 0) {
             appointment.setDiscountType(DiscountType.NONE);
             appointment.setDiscountValue(null);
             appointment.setDiscountAmount(BigDecimal.ZERO);
-            appointment.getServiceLines().forEach(sl -> sl.setDiscountedLineTotal(null));
-            appointment.getProductLines().forEach(pl -> pl.setDiscountedLineTotal(null));
+            // Only standalone lines reset here — combo lines keep their phase-1 discountedLineTotal.
+            appointment.getServiceLines().forEach(sl -> { if (sl.getAppointmentCombo() == null) sl.setDiscountedLineTotal(null); });
+            appointment.getProductLines().forEach(pl -> { if (pl.getAppointmentCombo() == null) pl.setDiscountedLineTotal(null); });
             appointment.setGrandTotal(subtotal);
             return;
         }
@@ -725,19 +818,31 @@ public class AppointmentService {
         appointment.setGrandTotal(subtotal.subtract(resolved));
     }
 
-    /**
-     * Splits discountAmount proportionally across every service+product line, by each
-     * line's share of subtotal. Lines are processed smallest-raw-total first; the last
-     * (largest) line absorbs whatever rounding remainder is left, so the per-line shares
-     * always sum exactly to discountAmount and the largest line is safest to absorb it.
-     */
+    /** Sum of every line's current effective total (post combo phase) — the phase-2 discount basis. */
+    private BigDecimal computeEffectiveSubtotal(Appointment appointment) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (AppointmentServiceLine sl : appointment.getServiceLines()) total = total.add(sl.getEffectiveLineTotal());
+        for (AppointmentProductLine pl : appointment.getProductLines()) total = total.add(pl.getEffectiveLineTotal());
+        return total;
+    }
+
+    /** Phase 2's line collector — basis is each line's current effective total, not its raw total. */
     private void distributeDiscount(Appointment appointment, BigDecimal subtotal, BigDecimal discountAmount) {
         List<DiscountableLine> lines = new ArrayList<>();
         appointment.getServiceLines().forEach(sl ->
-                lines.add(new DiscountableLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
+                lines.add(new DiscountableLine(sl.getEffectiveLineTotal(), sl::setDiscountedLineTotal)));
         appointment.getProductLines().forEach(pl ->
-                lines.add(new DiscountableLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
+                lines.add(new DiscountableLine(pl.getEffectiveLineTotal(), pl::setDiscountedLineTotal)));
+        distributeAmount(lines, subtotal, discountAmount);
+    }
 
+    /**
+     * Splits amount proportionally across the given lines, by each line's share of basisSubtotal.
+     * Lines are processed smallest-basis first; the last (largest) line absorbs whatever rounding
+     * remainder is left, so the per-line shares always sum exactly to amount. Shared by both discount
+     * phases — only which lines and which basis value get passed in differs between them.
+     */
+    private void distributeAmount(List<DiscountableLine> lines, BigDecimal basisSubtotal, BigDecimal amount) {
         if (lines.isEmpty()) return;
         lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
 
@@ -746,10 +851,10 @@ public class AppointmentService {
             DiscountableLine line = lines.get(i);
             BigDecimal share;
             if (i == lines.size() - 1) {
-                share = discountAmount.subtract(allocated);
+                share = amount.subtract(allocated);
             } else {
-                share = discountAmount.multiply(line.lineRaw())
-                        .divide(subtotal, 10, RoundingMode.HALF_UP)
+                share = amount.multiply(line.lineRaw())
+                        .divide(basisSubtotal, 10, RoundingMode.HALF_UP)
                         .setScale(2, RoundingMode.HALF_UP);
                 allocated = allocated.add(share);
             }

@@ -1,10 +1,19 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.dto.RevenueReportDTO;
+import com.clinic.healinghouse.dto.RevenueReportFilter;
+import com.clinic.healinghouse.entity.AppointmentStatus;
+import com.clinic.healinghouse.entity.PaymentMethod;
+import com.clinic.healinghouse.service.ProductService;
 import com.clinic.healinghouse.service.ReportService;
+import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TherapistService;
+import com.clinic.healinghouse.service.TreatmentService;
 import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +36,9 @@ public class ReportController {
 
     private final ReportService reportService;
     private final TherapistService therapistService;
+    private final TreatmentService treatmentService;
+    private final ProductService productService;
+    private final TagService tagService;
 
     @GetMapping
     public String index(Model model) {
@@ -110,6 +122,56 @@ public class ReportController {
         model.addAttribute("selectedDateTo", to);
         model.addAttribute("report", reportService.getProductPerformanceReport(from, to));
         return "reports/performance";
+    }
+
+    @GetMapping("/revenue")
+    public String revenue(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                           @RequestParam(required = false) Long therapistId,
+                           @RequestParam(required = false) String patientName,
+                           @RequestParam(required = false) Long serviceId,
+                           @RequestParam(required = false) Long productId,
+                           @RequestParam(required = false) String tagName,
+                           @RequestParam(required = false) PaymentMethod paymentMethod,
+                           @RequestParam(required = false) String status,
+                           @RequestParam(defaultValue = "false") boolean discountedOnly,
+                           @RequestParam(defaultValue = "0") int page,
+                           @RequestParam(defaultValue = "20") int size,
+                           Model model) {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
+                tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
+        RevenueReportDTO report = reportService.getRevenueReport(filter, PageRequest.of(page, size));
+
+        model.addAttribute("pageTitle", "Actual Revenue");
+        model.addAttribute("selectedDateFrom", from);
+        model.addAttribute("selectedDateTo", to);
+        model.addAttribute("allTherapists", therapistService.findAll());
+        model.addAttribute("allServices", treatmentService.findAll());
+        model.addAttribute("allProducts", productService.findAll());
+        model.addAttribute("allTags", tagService.findAll());
+        model.addAttribute("paymentMethods", PaymentMethod.values());
+        model.addAttribute("statuses", AppointmentStatus.values());
+        model.addAttribute("selectedTherapistId", therapistId);
+        model.addAttribute("selectedPatientName", patientName);
+        model.addAttribute("selectedServiceId", serviceId);
+        model.addAttribute("selectedProductId", productId);
+        model.addAttribute("selectedTagName", tagName);
+        model.addAttribute("selectedPaymentMethod", paymentMethod);
+        model.addAttribute("selectedStatus", status != null ? status : "COMPLETED");
+        model.addAttribute("selectedDiscountedOnly", discountedOnly);
+        model.addAttribute("report", report);
+        return "reports/revenue";
+    }
+
+    /** "" / null → default to Completed-only; "ALL" → no status filter (every status shown); otherwise the named status. */
+    private static AppointmentStatus resolveDrilldownStatus(String status) {
+        if (status == null || status.isBlank()) return AppointmentStatus.COMPLETED;
+        if ("ALL".equalsIgnoreCase(status.trim())) return null;
+        return AppointmentStatus.valueOf(status.trim());
     }
 
     @GetMapping("/daily/export-csv")
@@ -292,6 +354,62 @@ public class ReportController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                     "attachment;filename=performance-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @GetMapping("/revenue/export-csv")
+    public ResponseEntity<byte[]> exportRevenueReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) Long therapistId,
+            @RequestParam(required = false) String patientName,
+            @RequestParam(required = false) Long serviceId,
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String tagName,
+            @RequestParam(required = false) PaymentMethod paymentMethod,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "false") boolean discountedOnly) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
+                tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
+        var report = reportService.getRevenueReport(filter, Pageable.unpaged());
+        String csv = CsvExportUtil.generateRevenueReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=revenue-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @GetMapping("/revenue/export-pdf")
+    public ResponseEntity<byte[]> exportRevenueReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+            @RequestParam(required = false) Long therapistId,
+            @RequestParam(required = false) String patientName,
+            @RequestParam(required = false) Long serviceId,
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String tagName,
+            @RequestParam(required = false) PaymentMethod paymentMethod,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "false") boolean discountedOnly) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
+                tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
+        var report = reportService.getRevenueReport(filter, Pageable.unpaged());
+        byte[] pdf = PdfExportUtil.generateRevenueReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=revenue-report-" + from + "-to-" + to + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
                 .body(pdf);
     }

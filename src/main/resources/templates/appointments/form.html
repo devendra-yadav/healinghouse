@@ -7,6 +7,14 @@
     <style>
         .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
         .choices { margin-bottom: 0; }
+        .service-row .choices__inner, .product-row .choices__inner {
+            min-height: calc(1.5em + 0.5rem + 2px); padding: 0.25rem 0.5rem; font-size: .875rem;
+        }
+        .service-row .choices__list--dropdown .choices__item, .product-row .choices__list--dropdown .choices__item {
+            font-size: .875rem;
+        }
+        .combo-line-row { border-left: 3px solid #0dcaf0; padding-left: 6px; }
+        .combo-group-header { border-left: 3px solid #0dcaf0; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -117,9 +125,15 @@
                     <i class="bi bi-scissors me-1"></i>Services
                     <span class="text-danger">*</span>
                 </span>
-                <button type="button" class="btn btn-sm btn-hh" onclick="addServiceRow()">
-                    <i class="bi bi-plus-lg me-1"></i>Add Service
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-info"
+                            data-bs-toggle="modal" data-bs-target="#comboPickerModal">
+                        <i class="bi bi-boxes me-1"></i>Choose Combo
+                    </button>
+                    <button type="button" class="btn btn-sm btn-hh" onclick="addServiceRow()">
+                        <i class="bi bi-plus-lg me-1"></i>Add Service
+                    </button>
+                </div>
             </div>
             <div class="card-body pb-1">
                 <!-- Column headers (shown when rows exist) -->
@@ -323,6 +337,11 @@
                                     <td class="pe-3 text-end fw-semibold"
                                         id="summaryProductTotal">₹0.00</td>
                                 </tr>
+                                <tr id="summaryComboSavingsRow" class="d-none">
+                                    <td class="ps-3 text-muted">Combo Savings</td>
+                                    <td class="pe-3 text-end fw-semibold text-danger"
+                                        id="summaryComboSavingsAmount">- ₹0.00</td>
+                                </tr>
                                 <tr id="summaryDiscountRow" class="d-none">
                                     <td class="ps-3 text-muted">Discount</td>
                                     <td class="pe-3 text-end fw-semibold text-danger"
@@ -384,10 +403,14 @@
             </button>
         </div>
 
+        <!-- Populated at submit time: one comboSelections[k].comboId/.groupKey pair per surviving combo group -->
+        <div id="comboSelectionsContainer" style="display:none;"></div>
+
     </form>
 </main>
 
 <th:block th:replace="~{fragments/wallet-modals :: topUpModal(${editMode} ? ${appointment.patient.id} : null, ${walletBalance}, null, true)}"/>
+<th:block th:replace="~{fragments/combo-picker-modal :: comboPickerModal}"/>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
@@ -415,6 +438,7 @@ const EXISTING_WALLET_APPLIED = /*[[${appointment.walletAmountApplied != null ? 
 /*<![CDATA[*/
 const EDIT_SERVICE_LINES = /*[[${existingServiceLines}]]*/ [];
 const EDIT_PRODUCT_LINES = /*[[${existingProductLines}]]*/ [];
+const EDIT_COMBO_GROUPS  = /*[[${existingComboGroups}]]*/ [];
 /*]]>*/
 </script>
 </th:block>
@@ -427,7 +451,11 @@ const productMap = {};
 PRODUCT_DATA.forEach(p => { productMap[p.id] = p; });
 
 // Monotonically increasing counters — ensures unique field names even after row deletion
-let sIdx = 0, pIdx = 0;
+let sIdx = 0, pIdx = 0, comboIdx = 0;
+
+// groupKey -> { comboId, comboName, discountType, discountValue } — populated by addComboGroup
+// (new picks) and by the edit-mode pre-population block below (existing combos on reload).
+const comboGroups = {};
 
 // ── Number formatter ──────────────────────────────────────────────────────
 function fmt(n) {
@@ -448,20 +476,62 @@ function buildOptions(data, idField, nameField) {
     ).join('');
 }
 
+// ── Searchable service/product select (Choices.js) — used on dynamically ──
+// added, non-locked service/product rows so staff can type-to-filter instead
+// of scrolling a long catalog list.
+function initItemSelect(sel, placeholder) {
+    return new Choices(sel, {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: placeholder,
+        searchPlaceholderValue: 'Search…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+}
+
 // ── Service rows ──────────────────────────────────────────────────────────
-function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
+// comboGroupKey is only passed for a combo's own lines — those render "locked" (static
+// item/qty text plus a hidden input carrying the real value) since combo composition can't
+// be edited per-line (§5.4); the per-line therapist select stays fully editable either way.
+function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
     const i = sIdx++;
+    const locked = !!comboGroupKey;
     const row = document.createElement('div');
-    row.className = 'row g-2 mb-2 align-items-center service-row';
-    row.innerHTML =
-        `<div class="col-12 col-md-4">
-            <select class="form-select form-select-sm s-select"
+    row.className = 'row g-2 mb-2 align-items-center service-row' + (locked ? ' combo-line-row' : '');
+    if (locked) row.dataset.comboGroup = comboGroupKey;
+
+    const selectCell = locked
+        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((serviceMap[preselectId] || {}).name || '')}</div>
+           <input type="hidden" class="s-select" name="serviceLines[${i}].serviceId" value="${preselectId}">`
+        : `<select class="form-select form-select-sm s-select"
                     name="serviceLines[${i}].serviceId" required
                     onchange="onServiceChange(this)">
                 <option value="">— Service —</option>
                 ${buildOptions(SERVICE_DATA, 'id', 'name')}
-            </select>
-         </div>
+            </select>`;
+
+    const qtyCell = locked
+        ? `<div class="text-center small">${preselectQty || 1}</div>
+           <input type="hidden" class="s-qty" name="serviceLines[${i}].quantity" value="${preselectQty || 1}">`
+        : `<input type="number" class="form-control form-control-sm s-qty"
+                   name="serviceLines[${i}].quantity"
+                   value="1" min="1" oninput="updateTotals()">`;
+
+    const removeCell = locked
+        ? `<span class="badge bg-info text-dark" title="Part of a combo — use Remove Combo to change this"><i class="bi bi-link-45deg"></i></span>`
+        : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'service-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>`;
+
+    const groupKeyInput = locked
+        ? `<input type="hidden" class="combo-group-key" name="serviceLines[${i}].comboGroupKey" value="${comboGroupKey}">`
+        : '';
+
+    row.innerHTML =
+        `<div class="col-12 col-md-4">${selectCell}</div>
          <div class="col-12 col-md-3">
             <select class="form-select form-select-sm line-therapist-select"
                     name="serviceLines[${i}].therapistId"
@@ -470,28 +540,26 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(THERAPIST_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-12 col-md-1">
-            <input type="number" class="form-control form-control-sm s-qty"
-                   name="serviceLines[${i}].quantity"
-                   value="1" min="1" oninput="updateTotals()">
-         </div>
+         <div class="col-12 col-md-1">${qtyCell}</div>
          <div class="col-12 col-md-2 s-rate text-muted small">—</div>
          <div class="col-12 col-md-1 text-end fw-semibold s-subtotal">₹0.00</div>
-         <div class="col-12 col-md-1 text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
-                    onclick="removeRow(this,'service-row')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-         </div>`;
+         <div class="col-12 col-md-1 text-center">${removeCell}</div>
+         ${groupKeyInput}`;
     document.getElementById('servicesContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
-    if (preselectId) {
+    if (locked) {
+        const s = serviceMap[preselectId];
+        row.querySelector('.s-rate').textContent = s ? fmt(s.price) + ' ea.' : '—';
+    } else {
         const sel = row.querySelector('.s-select');
-        sel.value = String(preselectId);
-        onServiceChange(sel);
-        if (preselectQty) row.querySelector('.s-qty').value = preselectQty;
-        updateTotals();
+        const choicesInstance = initItemSelect(sel, '— Service —');
+        if (preselectId) {
+            choicesInstance.setChoiceByValue(String(preselectId));
+            onServiceChange(sel);
+            if (preselectQty) row.querySelector('.s-qty').value = preselectQty;
+        }
     }
+    updateTotals();
     toggleUI();
 }
 
@@ -503,19 +571,43 @@ function onServiceChange(sel) {
 }
 
 // ── Product rows ──────────────────────────────────────────────────────────
-function addProductRow(preselectId, preselectQty, preselectTherapistId) {
+function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
     const i = pIdx++;
+    const locked = !!comboGroupKey;
     const row = document.createElement('div');
-    row.className = 'row g-2 mb-2 align-items-center product-row';
-    row.innerHTML =
-        `<div class="col-12 col-md-3">
-            <select class="form-select form-select-sm p-select"
+    row.className = 'row g-2 mb-2 align-items-center product-row' + (locked ? ' combo-line-row' : '');
+    if (locked) row.dataset.comboGroup = comboGroupKey;
+
+    const selectCell = locked
+        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((productMap[preselectId] || {}).name || '')}</div>
+           <input type="hidden" class="p-select" name="productLines[${i}].productId" value="${preselectId}">`
+        : `<select class="form-select form-select-sm p-select"
                     name="productLines[${i}].productId"
                     onchange="onProductChange(this)">
                 <option value="">— Product —</option>
                 ${buildOptions(PRODUCT_DATA, 'id', 'name')}
-            </select>
-         </div>
+            </select>`;
+
+    const qtyCell = locked
+        ? `<div class="text-center small">${preselectQty || 1}</div>
+           <input type="hidden" class="p-qty" name="productLines[${i}].quantity" value="${preselectQty || 1}">`
+        : `<input type="number" class="form-control form-control-sm p-qty"
+                   name="productLines[${i}].quantity"
+                   value="1" min="1" oninput="onProductQty(this)">`;
+
+    const removeCell = locked
+        ? `<span class="badge bg-info text-dark" title="Part of a combo — use Remove Combo to change this"><i class="bi bi-link-45deg"></i></span>`
+        : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removeRow(this,'product-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>`;
+
+    const groupKeyInput = locked
+        ? `<input type="hidden" class="combo-group-key" name="productLines[${i}].comboGroupKey" value="${comboGroupKey}">`
+        : '';
+
+    row.innerHTML =
+        `<div class="col-12 col-md-3">${selectCell}</div>
          <div class="col-12 col-md-2">
             <select class="form-select form-select-sm line-therapist-select"
                     name="productLines[${i}].therapistId"
@@ -524,32 +616,85 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId) {
                 ${buildOptions(THERAPIST_DATA, 'id', 'name')}
             </select>
          </div>
-         <div class="col-12 col-md-1">
-            <input type="number" class="form-control form-control-sm p-qty"
-                   name="productLines[${i}].quantity"
-                   value="1" min="1" oninput="onProductQty(this)">
-         </div>
+         <div class="col-12 col-md-1">${qtyCell}</div>
          <div class="col-12 col-md-2">
             <span class="p-stock badge bg-secondary">—</span>
          </div>
          <div class="col-12 col-md-2 p-rate text-muted small">—</div>
          <div class="col-12 col-md-1 text-end fw-semibold p-subtotal">₹0.00</div>
-         <div class="col-12 col-md-1 text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
-                    onclick="removeRow(this,'product-row')">
-                <i class="bi bi-x-lg"></i>
-            </button>
-         </div>`;
+         <div class="col-12 col-md-1 text-center">${removeCell}</div>
+         ${groupKeyInput}`;
     document.getElementById('productsContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
-    if (preselectId) {
+    if (locked) {
+        const p = productMap[preselectId];
+        const badge = row.querySelector('.p-stock');
+        if (p) {
+            badge.textContent = 'Stock: ' + p.stock;
+            badge.className   = 'p-stock badge ' +
+                (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
+            row.querySelector('.p-rate').textContent = fmt(p.price) + ' ea.';
+        }
+    } else {
         const sel = row.querySelector('.p-select');
-        sel.value = String(preselectId);
-        onProductChange(sel);
-        if (preselectQty) row.querySelector('.p-qty').value = preselectQty;
-        updateTotals();
+        const choicesInstance = initItemSelect(sel, '— Product —');
+        if (preselectId) {
+            choicesInstance.setChoiceByValue(String(preselectId));
+            onProductChange(sel);
+            if (preselectQty) row.querySelector('.p-qty').value = preselectQty;
+        }
     }
+    updateTotals();
     toggleUI();
+}
+
+// ── Combo groups ───────────────────────────────────────────────────────────
+function comboGroupHeaderHtml(groupKey, comboName) {
+    return `<div class="alert alert-info py-2 px-3 mb-2 d-flex justify-content-between align-items-center combo-group-header"
+                 data-combo-group="${groupKey}">
+                <span><i class="bi bi-boxes me-1"></i><strong>${escHtml(comboName)}</strong> <span class="small text-muted">(combo)</span></span>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeComboGroup('${groupKey}')">
+                    <i class="bi bi-x-lg me-1"></i>Remove Combo
+                </button>
+            </div>`;
+}
+
+function insertComboHeaderIfMissing(container, groupKey, comboName) {
+    if (container.querySelector('.combo-group-header[data-combo-group="' + groupKey + '"]')) return;
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = comboGroupHeaderHtml(groupKey, comboName);
+    container.appendChild(wrapper.firstElementChild);
+}
+
+// Expands a combo (fetched via GET /combos/{id}/detail) into grouped, locked line rows.
+// preassignedGroupKey is only used by edit-mode pre-population, which needs the groupKey to
+// match what AppointmentForm.from() synthesized server-side ("combo-" + appointmentCombo.id).
+function addComboGroup(comboDetail, preassignedGroupKey) {
+    const groupKey = preassignedGroupKey || ('combo-' + (comboIdx++));
+    comboGroups[groupKey] = {
+        comboId: comboDetail.id,
+        comboName: comboDetail.name,
+        discountType: comboDetail.discountType,
+        discountValue: parseFloat(comboDetail.discountValue) || 0
+    };
+    if (comboDetail.serviceItems && comboDetail.serviceItems.length > 0) {
+        insertComboHeaderIfMissing(document.getElementById('servicesContainer'), groupKey, comboDetail.name);
+        comboDetail.serviceItems.forEach(item => addServiceRow(item.itemId, item.quantity, null, groupKey));
+    }
+    if (comboDetail.productItems && comboDetail.productItems.length > 0) {
+        insertComboHeaderIfMissing(document.getElementById('productsContainer'), groupKey, comboDetail.name);
+        comboDetail.productItems.forEach(item => addProductRow(item.itemId, item.quantity, null, groupKey));
+    }
+    updateTotals();
+    return groupKey;
+}
+
+// Atomic removal (§5.4): one click removes every row and header tagged with this groupKey.
+function removeComboGroup(groupKey) {
+    document.querySelectorAll('[data-combo-group="' + groupKey + '"]').forEach(el => el.remove());
+    delete comboGroups[groupKey];
+    toggleUI();
+    updateTotals();
 }
 
 function onProductChange(sel) {
@@ -616,7 +761,13 @@ function removeRow(btn, cls) {
 }
 
 // ── Live totals ────────────────────────────────────────────────────────────
+// Mirrors AppointmentService's two-phase discount server-side: each combo group's own
+// discount resolves against that group's own raw subtotal first (phase 1), then the
+// whole-appointment discount layers on top of the resulting effective subtotal (phase 2) —
+// so what staff see here matches what gets saved.
 function updateTotals() {
+    const groupRaw = {}; // groupKey -> raw subtotal across its service+product rows
+
     let sTotal = 0;
     document.querySelectorAll('.service-row').forEach(row => {
         const sId = row.querySelector('.s-select').value;
@@ -624,6 +775,8 @@ function updateTotals() {
         const line = (sId && serviceMap[sId]) ? serviceMap[sId].price * qty : 0;
         row.querySelector('.s-subtotal').textContent = fmt(line);
         sTotal += line;
+        const gk = row.dataset.comboGroup;
+        if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
     });
 
     let pTotal = 0;
@@ -633,25 +786,44 @@ function updateTotals() {
         const line = (pId && productMap[pId]) ? productMap[pId].price * qty : 0;
         row.querySelector('.p-subtotal').textContent = fmt(line);
         pTotal += line;
+        const gk = row.dataset.comboGroup;
+        if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
     });
 
-    const grand = sTotal + pTotal;
+    const groupedRawTotal = Object.values(groupRaw).reduce((a, b) => a + b, 0);
+    const standaloneRaw = (sTotal + pTotal) - groupedRawTotal;
+
+    let totalComboDiscount = 0;
+    let effectiveSubtotal = standaloneRaw;
+    Object.keys(groupRaw).forEach(gk => {
+        const raw = groupRaw[gk];
+        const group = comboGroups[gk];
+        let discount = 0;
+        if (group) {
+            if (group.discountType === 'PERCENTAGE') discount = raw * Math.min(group.discountValue, 100) / 100;
+            else if (group.discountType === 'FLAT') discount = Math.min(group.discountValue, raw);
+        }
+        totalComboDiscount += discount;
+        effectiveSubtotal += (raw - discount);
+    });
 
     const discountType = document.getElementById('discountTypeSelect').value;
     const discountRaw  = parseFloat(document.getElementById('discountValueInput').value) || 0;
     let discountAmount = 0;
     if (discountType === 'PERCENTAGE') {
-        discountAmount = grand * Math.min(discountRaw, 100) / 100;
+        discountAmount = effectiveSubtotal * Math.min(discountRaw, 100) / 100;
     } else if (discountType === 'FLAT') {
-        discountAmount = Math.min(discountRaw, grand);
+        discountAmount = Math.min(discountRaw, effectiveSubtotal);
     }
-    const netGrand = grand - discountAmount;
+    const netGrand = effectiveSubtotal - discountAmount;
 
     set('displayServiceTotal',  fmt(sTotal));
     set('displayProductTotal',  fmt(pTotal));
     set('summaryServiceTotal',  fmt(sTotal));
     set('summaryProductTotal',  fmt(pTotal));
-    toggle('summaryDiscountRow', discountAmount > 0);
+    toggle('summaryComboSavingsRow', totalComboDiscount > 0.001);
+    set('summaryComboSavingsAmount', '- ' + fmt(totalComboDiscount));
+    toggle('summaryDiscountRow', discountAmount > 0.001);
     set('summaryDiscountAmount', '- ' + fmt(discountAmount));
     set('summaryGrandTotal',    fmt(netGrand));
     updateBalance();
@@ -862,10 +1034,12 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
         const sel  = row.querySelector('.s-select');
         const qty  = row.querySelector('.s-qty');
         const ther = row.querySelector('.line-therapist-select');
+        const gk   = row.querySelector('.combo-group-key');
         if (sel.value) {
             sel.name  = `serviceLines[${si}].serviceId`;
             qty.name  = `serviceLines[${si}].quantity`;
             ther.name = `serviceLines[${si}].therapistId`;
+            if (gk) gk.name = `serviceLines[${si}].comboGroupKey`;
             si++;
         } else {
             sel.disabled  = true;
@@ -879,10 +1053,12 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
         const sel  = row.querySelector('.p-select');
         const qty  = row.querySelector('.p-qty');
         const ther = row.querySelector('.line-therapist-select');
+        const gk   = row.querySelector('.combo-group-key');
         if (sel.value) {
             sel.name  = `productLines[${pi}].productId`;
             qty.name  = `productLines[${pi}].quantity`;
             ther.name = `productLines[${pi}].therapistId`;
+            if (gk) gk.name = `productLines[${pi}].comboGroupKey`;
             pi++;
         } else {
             sel.disabled  = true;
@@ -890,6 +1066,19 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
             ther.disabled = true;
         }
     });
+
+    // One comboSelections[k] pair per surviving combo group — a removed group's header is
+    // gone from the DOM and its entry was deleted from comboGroups by removeComboGroup().
+    const comboContainer = document.getElementById('comboSelectionsContainer');
+    let comboInputsHtml = '';
+    let ci = 0;
+    Object.keys(comboGroups).forEach(gk => {
+        comboInputsHtml +=
+            `<input type="hidden" name="comboSelections[${ci}].comboId" value="${comboGroups[gk].comboId}">` +
+            `<input type="hidden" name="comboSelections[${ci}].groupKey" value="${gk}">`;
+        ci++;
+    });
+    comboContainer.innerHTML = comboInputsHtml;
 
     if (si === 0) {
         e.preventDefault();
@@ -1001,20 +1190,106 @@ function refreshWalletBalance() {
 
 // ── Edit mode: pre-populate rows from existing appointment data ────────────
 document.addEventListener('DOMContentLoaded', function () {
+    // Combo group metadata first, so headers/discount math are ready before lines route into them.
+    if (typeof EDIT_COMBO_GROUPS !== 'undefined') {
+        EDIT_COMBO_GROUPS.forEach(function (g) {
+            comboGroups[g.groupKey] = {
+                comboId: g.comboId,
+                comboName: g.comboName,
+                discountType: g.discountType,
+                discountValue: parseFloat(g.discountValue) || 0
+            };
+        });
+    }
     if (typeof EDIT_SERVICE_LINES !== 'undefined') {
         EDIT_SERVICE_LINES.forEach(function (sl) {
-            addServiceRow(sl.serviceId, sl.quantity, sl.therapistId);
+            if (sl.comboGroupKey && comboGroups[sl.comboGroupKey]) {
+                insertComboHeaderIfMissing(document.getElementById('servicesContainer'),
+                        sl.comboGroupKey, comboGroups[sl.comboGroupKey].comboName);
+            }
+            addServiceRow(sl.serviceId, sl.quantity, sl.therapistId, sl.comboGroupKey);
         });
     }
     if (typeof EDIT_PRODUCT_LINES !== 'undefined') {
         EDIT_PRODUCT_LINES.forEach(function (pl) {
-            addProductRow(pl.productId, pl.quantity, pl.therapistId);
+            if (pl.comboGroupKey && comboGroups[pl.comboGroupKey]) {
+                insertComboHeaderIfMissing(document.getElementById('productsContainer'),
+                        pl.comboGroupKey, comboGroups[pl.comboGroupKey].comboName);
+            }
+            addProductRow(pl.productId, pl.quantity, pl.therapistId, pl.comboGroupKey);
         });
     }
     // Sync the discount value input's enabled/disabled state with the pre-selected
     // discount type, then recompute totals (also syncs the amount-paid summary).
     onDiscountTypeChange();
     updateTotals();
+});
+
+// ── Combo picker modal: search + add ────────────────────────────────────────
+let comboSearchDebounce = null;
+
+function renderComboResults(results) {
+    const container = document.getElementById('comboPickerResults');
+    const empty = document.getElementById('comboPickerEmpty');
+    if (!results.length) {
+        container.innerHTML = '';
+        empty.classList.remove('d-none');
+        empty.textContent = 'No matching active combos.';
+        return;
+    }
+    empty.classList.add('d-none');
+    container.innerHTML = results.map(c => {
+        const savingsBadge = c.savings > 0 ? `<span class="badge bg-success ms-2">Save ${fmt(c.savings)}</span>` : '';
+        return `<div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <div class="fw-semibold">${escHtml(c.name)}</div>
+                <div class="small text-muted">${escHtml(c.itemsSummary)}</div>
+                <div class="small">
+                    <span class="text-muted text-decoration-line-through me-1">${fmt(c.originalPrice)}</span>
+                    <span class="text-success fw-semibold">${fmt(c.comboPrice)}</span>
+                    ${savingsBadge}
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-hh" onclick="pickCombo(${c.id}, this)">
+                <i class="bi bi-plus-lg me-1"></i>Add
+            </button>
+        </div>`;
+    }).join('');
+}
+
+function pickCombo(comboId, btn) {
+    btn.disabled = true;
+    fetch('/combos/' + comboId + '/detail')
+        .then(r => r.json())
+        .then(detail => {
+            addComboGroup(detail);
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Added';
+            btn.classList.remove('btn-hh');
+            btn.classList.add('btn-outline-success');
+        })
+        .catch(() => { btn.disabled = false; });
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const input = document.getElementById('comboPickerSearchInput');
+    if (!input) return;
+    input.addEventListener('input', function () {
+        const q = this.value.trim();
+        clearTimeout(comboSearchDebounce);
+        const empty = document.getElementById('comboPickerEmpty');
+        if (!q) {
+            document.getElementById('comboPickerResults').innerHTML = '';
+            empty.classList.remove('d-none');
+            empty.textContent = 'Type to search active combos.';
+            return;
+        }
+        comboSearchDebounce = setTimeout(() => {
+            fetch('/combos/search?q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(renderComboResults)
+                .catch(() => renderComboResults([]));
+        }, 250);
+    });
 });
 </script>
 

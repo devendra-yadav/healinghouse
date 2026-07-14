@@ -16,7 +16,8 @@
                                   'Period Report|/reports/period|bi-calendar2-range|Earnings, tag revenue, and product performance for a date range.',
                                   'Therapist Comparison|/reports/comparison|bi-people|Compare two or more therapists side by side.',
                                   'Patient Acquisition|/reports/patients|bi-person-plus|New vs repeat patients and retention rate.',
-                                  'Product/Service Performance|/reports/performance|bi-bar-chart|Top services, products, and tag breakdowns.'} }">
+                                  'Product/Service Performance|/reports/performance|bi-bar-chart|Top services, products, and tag breakdowns.',
+                                  'Actual Revenue|/reports/revenue|bi-cash-coin|Real billed and collected revenue after discounts, with filters.'} }">
             <th:block th:with="parts=${#strings.arraySplit(item,'|')}">
                 <a th:href="@{${parts[1]}}"
                    class="card card-kpi p-4 bg-white text-decoration-none h-100 d-flex flex-column">

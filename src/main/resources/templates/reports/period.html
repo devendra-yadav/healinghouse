@@ -10,6 +10,10 @@
 <main class="container-fluid px-4 py-4 flex-grow-1">
 
     <h4 class="section-header mb-3">Period Report</h4>
+    <p class="text-muted small mb-3">
+        Figures below are pre-discount and used for commission calculation — see the
+        <a th:href="@{/reports/revenue}">Actual Revenue</a> report for real billed/collected amounts.
+    </p>
 
     <!-- Filter -->
     <form th:action="@{/reports/period}" method="get" class="card shadow-sm mb-3">
@@ -73,7 +77,9 @@
                     <div>
                         <div class="fw-semibold fs-4"
                              th:text="|₹ ${#numbers.formatDecimal(report.summary.totalRevenue(), 1, 2)}|">—</div>
-                        <small class="text-muted">Total Revenue</small>
+                        <small class="text-muted" title="Calculated before any discount — this is the base used for therapist commission, not the amount actually charged.">
+                            Total Revenue (Pre-Discount) <i class="bi bi-info-circle"></i>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -85,7 +91,9 @@
                     <div>
                         <div class="fw-semibold fs-4"
                              th:text="|₹ ${#numbers.formatDecimal(report.summary.totalProductsRevenue, 1, 2)}|">—</div>
-                        <small class="text-muted">Products Revenue</small>
+                        <small class="text-muted" title="Calculated before any discount — this is the base used for therapist commission, not the amount actually charged.">
+                            Products Revenue (Pre-Discount) <i class="bi bi-info-circle"></i>
+                        </small>
                     </div>
                 </div>
             </div>
@@ -107,11 +115,11 @@
                             <thead>
                                 <tr>
                                     <th>Therapist</th>
-                                    <th class="text-end">Services Rev.(All)</th>
-                                    <th class="text-end">Products Rev.(All)</th>
+                                    <th class="text-end" title="Calculated before any discount.">Services Rev.(All, Pre-Discount)</th>
+                                    <th class="text-end" title="Calculated before any discount.">Products Rev.(All, Pre-Discount)</th>
                                     <th class="text-center">Services(All)</th>
-                                    <th class="text-end">Services Rev.(Bonus tagged)</th>
-                                    <th class="text-end">Products Rev.(Commission tagged)</th>
+                                    <th class="text-end" title="Calculated before any discount.">Services Rev.(Bonus tagged, Pre-Discount)</th>
+                                    <th class="text-end" title="Calculated before any discount.">Products Rev.(Commission tagged, Pre-Discount)</th>
                                     <th class="text-center">Services(Bonus tagged)</th>
                                     <th class="text-end">Commission</th>
                                     <th class="text-center">Bonus</th>
@@ -145,7 +153,7 @@
 
         <!-- Tag revenue -->
         <div class="col-12 col-lg-6">
-            <h6 class="section-header mb-3">Revenue by Tag</h6>
+            <h6 class="section-header mb-3">Revenue by Tag <small class="text-muted fw-normal" title="Calculated before any discount.">(Pre-Discount)</small></h6>
             <div th:if="${report.tagRevenue.empty}" class="coming-soon-card">
                 <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
                 <span class="text-muted">No tagged revenue in this period.</span>
@@ -170,7 +178,7 @@
                                 <tr>
                                     <th>Product</th>
                                     <th class="text-center">Units Sold</th>
-                                    <th class="text-end">Revenue</th>
+                                    <th class="text-end" title="Calculated before any discount.">Revenue (Pre-Discount)</th>
                                     <th class="text-center">Stock</th>
                                 </tr>
                             </thead>
