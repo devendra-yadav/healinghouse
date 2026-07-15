@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.TagUsage;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Product;
@@ -27,6 +28,7 @@ public class TagService {
     private final TagRepository tagRepository;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
 
     @Transactional(readOnly = true)
     public List<Tag> findAll() {
@@ -122,6 +124,7 @@ public class TagService {
     /** Removes the tag from every service/product that has it, then deletes the tag itself. */
     public void delete(Long id) {
         Tag tag = getById(id);
+        assertNotCommissionOrBonus(tag.getName(), "deleted");
 
         List<ClinicService> services = clinicServiceRepository.findByTagsId(id);
         services.forEach(s -> s.getTags().remove(tag));
@@ -137,9 +140,9 @@ public class TagService {
     }
 
     /** Blocks renaming/merging away the two tag names commission calculations key off of by exact name. */
-    private static void assertNotCommissionOrBonus(String tagName, String action) {
-        if (CommissionCalculator.COMMISSION_TAG.equalsIgnoreCase(tagName)
-                || CommissionCalculator.BONUS_TAG.equalsIgnoreCase(tagName)) {
+    private void assertNotCommissionOrBonus(String tagName, String action) {
+        if (properties.getCommission().getCommissionTag().equalsIgnoreCase(tagName)
+                || properties.getCommission().getBonusTag().equalsIgnoreCase(tagName)) {
             throw new IllegalArgumentException(
                     "The '" + tagName + "' tag drives commission/bonus calculations and cannot be " + action + ".");
         }

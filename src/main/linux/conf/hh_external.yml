@@ -1,0 +1,28 @@
+healinghouse:
+  appointment:
+    max-duration-minutes: 1440
+  pagination:
+    max-page-size: 100
+  autocomplete:
+    patient-max-suggestions: 8
+    tag-max-suggestions: 10
+    combo-max-suggestions: 8
+  dashboard:
+    trend-days: 7
+    tag-breakdown-days: 30
+  reports:
+    default-range-days: 30
+    trend-label-format: "dd MMM"
+  commission:
+    commission-tag: Commission
+    bonus-tag: Bonus
+  owner:
+    full-name: "Marcia Gomes Yadav"
+  currency:
+    symbol: "₹"
+  export:
+    display-date-format: "dd MMM yyyy"
+    generated-timestamp-format: "dd MMM yyyy, hh:mm a"
+    row-date-time-format: "dd MMM, hh:mm a"
+    csv-date-format: "yyyy-MM-dd"
+    csv-date-time-format: "yyyy-MM-dd HH:mm"

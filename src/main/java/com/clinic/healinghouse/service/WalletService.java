@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.PatientWallet;
@@ -32,6 +33,7 @@ public class WalletService {
     private final WalletTransactionRepository transactionRepository;
     private final PatientRepository patientRepository;
     private final AppointmentRepository appointmentRepository;
+    private final HealingHouseProperties properties;
 
     @Transactional(readOnly = true)
     public BigDecimal getBalance(Long patientId) {
@@ -158,8 +160,10 @@ public class WalletService {
 
     private void requireSufficientBalance(PatientWallet wallet, BigDecimal amount) {
         if (amount.compareTo(wallet.getBalance()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Insufficient wallet balance. Available: ₹" + wallet.getBalance() + ", requested: ₹" + amount);
+                    "Insufficient wallet balance. Available: " + symbol + wallet.getBalance()
+                    + ", requested: " + symbol + amount);
         }
     }
 }

@@ -5,9 +5,11 @@ import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.Therapist;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -41,6 +43,17 @@ public interface AppointmentRepository
            "LEFT JOIN FETCH ac.combo " +
            "WHERE a.id = :id")
     Optional<Appointment> findWithCombosById(@Param("id") Long id);
+
+    /**
+     * Forces the parent Appointment's @Version to bump even though none of its own fields change —
+     * used by per-line therapist reassignment (which saves the AppointmentServiceLine/ProductLine row
+     * directly and would otherwise never touch the aggregate root's version) so a concurrent
+     * updateAppointment loaded before this commit fails its own optimistic-lock check instead of
+     * silently clobbering the reassignment on its next clear-and-rebuild of the lines.
+     */
+    @Lock(LockModeType.OPTIMISTIC_FORCE_INCREMENT)
+    @Query("SELECT a FROM Appointment a WHERE a.id = :id")
+    Optional<Appointment> lockForVersionBump(@Param("id") Long id);
 
     // ── Simple finders ────────────────────────────────────────────────────────
     List<Appointment> findByPatientOrderByAppointmentDateTimeDesc(Patient patient);

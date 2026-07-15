@@ -1,7 +1,11 @@
 package com.clinic.healinghouse.util;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
 import com.opencsv.CSVWriter;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 import java.io.IOException;
 import java.io.StringWriter;
 import java.math.BigDecimal;
@@ -9,25 +13,35 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Component
+@RequiredArgsConstructor
 public class CsvExportUtil {
 
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private final HealingHouseProperties properties;
 
-    public static String generateDailyReportCsv(DailyReportDTO report) throws IOException {
+    private DateTimeFormatter dateFormatter() {
+        return DateTimeFormatter.ofPattern(properties.getExport().getCsvDateFormat());
+    }
+
+    private DateTimeFormatter dateTimeFormatter() {
+        return DateTimeFormatter.ofPattern(properties.getExport().getCsvDateTimeFormat());
+    }
+
+    public String generateDailyReportCsv(DailyReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Daily Report - " + report.date().format(DATE_FORMATTER));
+            writeHeaders(writer, "Daily Report - " + report.date().format(dateFormatter()));
             writePeriodSummary(writer, report.summary());
             writeTherapistEarnings(writer, report.therapistEarnings());
         }
         return sw.toString();
     }
 
-    public static String generatePeriodReportCsv(PeriodReportDTO report) throws IOException {
+    public String generatePeriodReportCsv(PeriodReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Period Report - " + report.dateFrom().format(DATE_FORMATTER) +
-                    " to " + report.dateTo().format(DATE_FORMATTER));
+            writeHeaders(writer, "Period Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
             writePeriodSummary(writer, report.summary());
 
             writer.writeNext(new String[]{});
@@ -49,21 +63,21 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public static String generateComparisonReportCsv(ComparisonReportDTO report) throws IOException {
+    public String generateComparisonReportCsv(ComparisonReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Therapist Comparison - " + report.dateFrom().format(DATE_FORMATTER) +
-                    " to " + report.dateTo().format(DATE_FORMATTER));
-            writeTherapistEarnings(writer, report.therapistEarnings());
+            writeHeaders(writer, "Therapist Comparison - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
+            writeTherapistEarnings(writer, report.therapistEarnings(), false);
         }
         return sw.toString();
     }
 
-    public static String generatePatientReportCsv(PatientReportDTO report) throws IOException {
+    public String generatePatientReportCsv(PatientReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Patient Acquisition Report - " + report.dateFrom().format(DATE_FORMATTER) +
-                    " to " + report.dateTo().format(DATE_FORMATTER));
+            writeHeaders(writer, "Patient Acquisition Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
 
             writer.writeNext(new String[]{"Summary"});
             writer.writeNext(new String[]{
@@ -81,11 +95,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public static String generatePerformanceReportCsv(PerformanceReportDTO report) throws IOException {
+    public String generatePerformanceReportCsv(PerformanceReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Product/Service Performance - " + report.dateFrom().format(DATE_FORMATTER) +
-                    " to " + report.dateTo().format(DATE_FORMATTER));
+            writeHeaders(writer, "Product/Service Performance - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
 
             if (report.services() != null && !report.services().isEmpty()) {
                 writer.writeNext(new String[]{"Service Performance"});
@@ -101,11 +115,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public static String generateRevenueReportCsv(RevenueReportDTO report) throws IOException {
+    public String generateRevenueReportCsv(RevenueReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
-            writeHeaders(writer, "Actual Revenue Report - " + report.dateFrom().format(DATE_FORMATTER) +
-                    " to " + report.dateTo().format(DATE_FORMATTER));
+            writeHeaders(writer, "Actual Revenue Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
             writeRevenueSummary(writer, report.summary());
 
             if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
@@ -150,7 +164,7 @@ public class CsvExportUtil {
                 });
                 for (AppointmentRevenueRowDTO row : report.appointments()) {
                     writer.writeNext(new String[]{
-                            row.dateTime().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+                            row.dateTime().format(dateTimeFormatter()),
                             row.patientName(), row.therapistName(), row.status().name(),
                             formatCurrency(row.gross()), formatCurrency(row.discount()), formatCurrency(row.net()),
                             formatCurrency(row.collected()), formatCurrency(row.outstanding()),
@@ -162,7 +176,7 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    private static void writeRevenueSummary(CSVWriter writer, RevenueSummaryDTO summary) throws IOException {
+    private void writeRevenueSummary(CSVWriter writer, RevenueSummaryDTO summary) throws IOException {
         writer.writeNext(new String[]{"Summary"});
         writer.writeNext(new String[]{"Appointments", String.valueOf(summary.appointmentCount())});
         writer.writeNext(new String[]{"Gross Revenue", formatCurrency(summary.grossRevenue())});
@@ -176,7 +190,7 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{});
     }
 
-    private static void writeCatalogItemRevenue(CSVWriter writer, List<RevenueByCatalogItemDTO> items) throws IOException {
+    private void writeCatalogItemRevenue(CSVWriter writer, List<RevenueByCatalogItemDTO> items) throws IOException {
         writer.writeNext(new String[]{"Name", "Tags", "Bookings", "Net Revenue"});
         for (RevenueByCatalogItemDTO item : items) {
             writer.writeNext(new String[]{
@@ -186,13 +200,13 @@ public class CsvExportUtil {
         }
     }
 
-    private static void writeHeaders(CSVWriter writer, String title) {
+    private void writeHeaders(CSVWriter writer, String title) {
         writer.writeNext(new String[]{title});
-        writer.writeNext(new String[]{"Generated: " + LocalDate.now().format(DATE_FORMATTER)});
+        writer.writeNext(new String[]{"Generated: " + LocalDate.now().format(dateFormatter())});
         writer.writeNext(new String[]{});
     }
 
-    private static void writePeriodSummary(CSVWriter writer, PeriodSummaryDTO summary) throws IOException {
+    private void writePeriodSummary(CSVWriter writer, PeriodSummaryDTO summary) throws IOException {
         writer.writeNext(new String[]{"Summary"});
         writer.writeNext(new String[]{
                 "Total Appointments", String.valueOf(summary.totalAppointments()),
@@ -206,19 +220,36 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{});
     }
 
-    private static void writeTherapistEarnings(CSVWriter writer, List<TherapistEarningsDTO> earnings) throws IOException {
-        writer.writeNext(new String[]{
-                "Therapist", "Services Rev.(All, Pre-Discount)", "Products Rev.(All, Pre-Discount)", "Services(All)",
+    private void writeTherapistEarnings(CSVWriter writer, List<TherapistEarningsDTO> earnings) throws IOException {
+        writeTherapistEarnings(writer, earnings, true);
+    }
+
+    /**
+     * @param includeAllColumns whether to include the untagged "All" columns (Services/Products Rev.(All),
+     *                          Services(All)) — true for Daily/Period, false for Comparison, which per
+     *                          CLAUDE.md only shows tag-filtered figures.
+     */
+    private void writeTherapistEarnings(CSVWriter writer, List<TherapistEarningsDTO> earnings,
+                                         boolean includeAllColumns) throws IOException {
+        List<String> header = new java.util.ArrayList<>(List.of("Therapist"));
+        if (includeAllColumns) {
+            header.addAll(List.of("Services Rev.(All, Pre-Discount)", "Products Rev.(All, Pre-Discount)", "Services(All)"));
+        }
+        header.addAll(List.of(
                 "Services Rev.(Bonus tagged, Pre-Discount)", "Products Rev.(Commission tagged, Pre-Discount)", "Services(Bonus tagged)",
                 "Service Commission", "Product Commission", "Total Commission",
-                "Bonus Earned", "Bonus Amount", "Total Variable Pay", "Fixed Salary"
-        });
+                "Bonus Earned", "Bonus Amount", "Total Variable Pay", "Fixed Salary"));
+        writer.writeNext(header.toArray(new String[0]));
+
         for (TherapistEarningsDTO earning : earnings) {
-            writer.writeNext(new String[]{
-                    earning.therapist().getFullName(),
-                    formatCurrency(earning.allServicesRevenue()),
-                    formatCurrency(earning.allProductsRevenue()),
-                    String.valueOf(earning.allServicesCount()),
+            List<String> row = new java.util.ArrayList<>(List.of(earning.therapist().getFullName()));
+            if (includeAllColumns) {
+                row.addAll(List.of(
+                        formatCurrency(earning.allServicesRevenue()),
+                        formatCurrency(earning.allProductsRevenue()),
+                        String.valueOf(earning.allServicesCount())));
+            }
+            row.addAll(List.of(
                     formatCurrency(earning.bonusTaggedServicesRevenue()),
                     formatCurrency(earning.productsRevenue()),
                     String.valueOf(earning.servicesCount()),
@@ -228,18 +259,21 @@ public class CsvExportUtil {
                     earning.bonusEarned() ? "Yes" : "No",
                     formatCurrency(earning.bonusAmount()),
                     formatCurrency(earning.totalVariablePay()),
-                    formatCurrency(earning.fixedMonthlySalary())
-            });
+                    formatCurrency(earning.fixedMonthlySalary())));
+            writer.writeNext(row.toArray(new String[0]));
         }
         // Service Commission and Product Commission are each rounded independently and can
-        // therefore differ from Total Commission by up to ₹0.01 — Total Commission (sum-then-round)
-        // is the actual payout figure; the two category columns are informational only.
+        // therefore differ from Total Commission by up to the currency's smallest unit — Total
+        // Commission (sum-then-round) is the actual payout figure; the two category columns are
+        // informational only.
         writer.writeNext(new String[]{
-                "Note: Service Commission + Product Commission may differ from Total Commission by up to ₹0.01 due to independent per-category rounding. Total Commission is the actual payout figure."
+                "Note: Service Commission + Product Commission may differ from Total Commission by up to "
+                        + properties.getCurrency().getSymbol()
+                        + "0.01 due to independent per-category rounding. Total Commission is the actual payout figure."
         });
     }
 
-    private static void writeTagRevenue(CSVWriter writer, List<TagRevenueDTO> tagRevenues) throws IOException {
+    private void writeTagRevenue(CSVWriter writer, List<TagRevenueDTO> tagRevenues) throws IOException {
         writer.writeNext(new String[]{"Tag", "Revenue (Pre-Discount)"});
         for (TagRevenueDTO tag : tagRevenues) {
             writer.writeNext(new String[]{
@@ -249,7 +283,7 @@ public class CsvExportUtil {
         }
     }
 
-    private static void writeProductPerformance(CSVWriter writer, List<ProductPerformanceDTO> products) throws IOException {
+    private void writeProductPerformance(CSVWriter writer, List<ProductPerformanceDTO> products) throws IOException {
         writer.writeNext(new String[]{"Product Name", "Units Sold", "Revenue (Pre-Discount)", "Stock Level"});
         for (ProductPerformanceDTO product : products) {
             writer.writeNext(new String[]{
@@ -261,7 +295,7 @@ public class CsvExportUtil {
         }
     }
 
-    private static void writeServicePerformance(CSVWriter writer, List<ServicePerformanceDTO> services) throws IOException {
+    private void writeServicePerformance(CSVWriter writer, List<ServicePerformanceDTO> services) throws IOException {
         writer.writeNext(new String[]{"Service Name", "Count", "Revenue (Pre-Discount)", "Average Price (Pre-Discount)", "Top Therapist"});
         for (ServicePerformanceDTO service : services) {
             writer.writeNext(new String[]{
@@ -274,7 +308,7 @@ public class CsvExportUtil {
         }
     }
 
-    private static void writeTherapistPatientMetrics(CSVWriter writer, List<TherapistPatientMetricsDTO> metrics) throws IOException {
+    private void writeTherapistPatientMetrics(CSVWriter writer, List<TherapistPatientMetricsDTO> metrics) throws IOException {
         writer.writeNext(new String[]{"Therapist", "New Patients", "Repeat Patients", "Retention Rate"});
         for (TherapistPatientMetricsDTO metric : metrics) {
             writer.writeNext(new String[]{
@@ -286,13 +320,14 @@ public class CsvExportUtil {
         }
     }
 
-    private static String formatCurrency(BigDecimal value) {
-        if (value == null) return "₹0.00";
-        return "₹" + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+    private String formatCurrency(BigDecimal value) {
+        String symbol = properties.getCurrency().getSymbol();
+        if (value == null) return symbol + "0.00";
+        return symbol + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     /** retentionRate() is already 0-100 scaled — no extra *100 here. */
-    private static String formatPercentage(Double value) {
+    private String formatPercentage(Double value) {
         if (value == null) return "0%";
         return String.format("%.2f%%", value);
     }

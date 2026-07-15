@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.PatientWallet;
@@ -46,7 +47,7 @@ class WalletServiceTests {
 
     @BeforeEach
     void setUp() {
-        walletService = new WalletService(walletRepository, transactionRepository, patientRepository, appointmentRepository);
+        walletService = new WalletService(walletRepository, transactionRepository, patientRepository, appointmentRepository, new HealingHouseProperties());
     }
 
     private Patient patient() {

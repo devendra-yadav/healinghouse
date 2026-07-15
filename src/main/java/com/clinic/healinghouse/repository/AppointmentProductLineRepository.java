@@ -71,13 +71,14 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end);
 
-    // Products revenue grouped by tag x therapist (performance report cross-tab).
+    // Products revenue grouped by tag x therapist (performance report cross-tab). Grouped by
+    // therapist.id so two therapists sharing a name don't have their revenue silently merged.
     @Query("SELECT new com.clinic.healinghouse.dto.TagTherapistRevenueDTO(" +
-           "    t.name, pl.therapist.fullName, COALESCE(SUM(pl.lineTotal), 0)) " +
+           "    t.name, pl.therapist.id, pl.therapist.fullName, COALESCE(SUM(pl.lineTotal), 0)) " +
            "FROM AppointmentProductLine pl JOIN pl.product.tags t " +
            "WHERE pl.appointment.status = 'COMPLETED' " +
            "AND pl.appointment.appointmentDateTime BETWEEN :start AND :end " +
-           "GROUP BY t.name, pl.therapist.fullName")
+           "GROUP BY t.name, pl.therapist.id, pl.therapist.fullName")
     List<TagTherapistRevenueDTO> sumProductRevenueByTagAndTherapist(
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end);
@@ -96,20 +97,21 @@ public interface AppointmentProductLineRepository extends JpaRepository<Appointm
             @Param("appointmentIds") List<Long> appointmentIds);
 
     // Raw (pre-discount) products revenue per line-level therapist, scoped to an appointment id set.
+    // Grouped by therapist.id — see sumProductRevenueByTagAndTherapist's comment above.
     @Query("SELECT new com.clinic.healinghouse.dto.TherapistRevenueDTO(" +
-           "    pl.therapist.fullName, COALESCE(SUM(pl.lineTotal), 0)) " +
+           "    pl.therapist.id, pl.therapist.fullName, COALESCE(SUM(pl.lineTotal), 0)) " +
            "FROM AppointmentProductLine pl " +
            "WHERE pl.appointment.id IN :appointmentIds " +
-           "GROUP BY pl.therapist.fullName")
+           "GROUP BY pl.therapist.id, pl.therapist.fullName")
     List<TherapistRevenueDTO> sumRawProductRevenueByTherapistInAppointmentIds(
             @Param("appointmentIds") List<Long> appointmentIds);
 
     // Post-discount (effective) products revenue per line-level therapist, scoped to an appointment id set.
     @Query("SELECT new com.clinic.healinghouse.dto.TherapistRevenueDTO(" +
-           "    pl.therapist.fullName, COALESCE(SUM(COALESCE(pl.discountedLineTotal, pl.lineTotal)), 0)) " +
+           "    pl.therapist.id, pl.therapist.fullName, COALESCE(SUM(COALESCE(pl.discountedLineTotal, pl.lineTotal)), 0)) " +
            "FROM AppointmentProductLine pl " +
            "WHERE pl.appointment.id IN :appointmentIds " +
-           "GROUP BY pl.therapist.fullName")
+           "GROUP BY pl.therapist.id, pl.therapist.fullName")
     List<TherapistRevenueDTO> sumEffectiveProductRevenueByTherapistInAppointmentIds(
             @Param("appointmentIds") List<Long> appointmentIds);
 }

@@ -33,6 +33,11 @@
 
     <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+        <!-- Page-load payment/wallet snapshot, round-tripped so the server can detect a stale form
+             (someone else changed either value after this page loaded) instead of silently trusting a
+             client-computed target built on outdated data. -->
+        <input type="hidden" name="existingAmountPaidBaseline" th:if="${editMode}" th:value="${appointment.amountPaid}">
+        <input type="hidden" name="existingWalletAppliedBaseline" th:if="${editMode}" th:value="${appointment.walletAmountApplied}">
 
         <!-- ── Scheduling conflict warning ──────────────────────────────────── -->
         <div class="alert alert-warning" th:if="${conflicts != null and !conflicts.isEmpty()}">
@@ -776,6 +781,14 @@ function removeRow(btn, cls) {
 // discount resolves against that group's own raw subtotal first (phase 1), then the
 // whole-appointment discount layers on top of the resulting effective subtotal (phase 2) —
 // so what staff see here matches what gets saved.
+// Rounds to 2 decimals immediately, mirroring the server's RoundingMode.HALF_UP at each discount
+// phase boundary (AppointmentService.applyComboDiscount/applyDiscount) — without this, carrying raw
+// floats through both phases can make the preview's Grand Total differ from the saved total by ±₹0.01
+// in fractional-percentage/combo cases (Bug_Report_v3 #14).
+function round2(n) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 function updateTotals() {
     const groupRaw = {}; // groupKey -> raw subtotal across its service+product rows
 
@@ -821,9 +834,11 @@ function updateTotals() {
             if (group.discountType === 'PERCENTAGE') discount = raw * Math.min(group.discountValue, 100) / 100;
             else if (group.discountType === 'FLAT') discount = Math.min(group.discountValue, raw);
         }
+        discount = round2(discount);
         totalComboDiscount += discount;
         effectiveSubtotal += (raw - discount);
     });
+    effectiveSubtotal = round2(effectiveSubtotal);
 
     const discountType = document.getElementById('discountTypeSelect').value;
     const discountRaw  = parseFloat(document.getElementById('discountValueInput').value) || 0;
@@ -833,7 +848,8 @@ function updateTotals() {
     } else if (discountType === 'FLAT') {
         discountAmount = Math.min(discountRaw, effectiveSubtotal);
     }
-    const netGrand = effectiveSubtotal - discountAmount;
+    discountAmount = round2(discountAmount);
+    const netGrand = round2(effectiveSubtotal - discountAmount);
     // The clamp above only keeps this live preview sane — the server hard-rejects a >100% value
     // outright (AppointmentService.applyDiscount), so surface that here too rather than silently
     // capping the preview with no explanation (Bug_Report_v2 #10).

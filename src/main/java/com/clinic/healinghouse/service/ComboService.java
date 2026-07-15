@@ -109,6 +109,9 @@ public class ComboService {
             if (item == null || item.getItemId() == null) continue;
             ClinicService cs = clinicServiceRepository.findById(item.getItemId())
                     .orElseThrow(() -> new EntityNotFoundException("Service not found: " + item.getItemId()));
+            if (!cs.isActive()) {
+                throw new IllegalArgumentException("Service '" + cs.getName() + "' is inactive and cannot be added to a combo.");
+            }
             combo.getServiceItems().add(
                     ComboServiceItem.builder()
                             .combo(combo)
@@ -122,6 +125,9 @@ public class ComboService {
             if (item == null || item.getItemId() == null) continue;
             Product product = productRepository.findById(item.getItemId())
                     .orElseThrow(() -> new EntityNotFoundException("Product not found: " + item.getItemId()));
+            if (!product.isActive()) {
+                throw new IllegalArgumentException("Product '" + product.getName() + "' is inactive and cannot be added to a combo.");
+            }
             combo.getProductItems().add(
                     ComboProductItem.builder()
                             .combo(combo)

@@ -253,3 +253,14 @@ When implementing a specific step, reference it as "Phase X Step X.Y" from the r
 ## VERY Impotant and MUST DO
 - Be very concise in your responses.
 - Dont need to be polite or humble. Give 'to the point' answer
+
+
+## Rules for models:
+You are building a production-grade Spring Boot web application.
+
+- Main reasoning and important decisions → Always use Sonnet 5
+- Sub-agents:
+  → Use cheap/fast model for: boilerplate, simple classes, utilities, refactoring, formatting, running commands (/run), tests that are straightforward.
+  → Use Sonnet 5 for: architecture, security, complex business logic, database design, performance-critical parts, or anything I explicitly say is important.
+
+When in doubt, ask me first before spawning a sub-agent with cheap model on important parts.

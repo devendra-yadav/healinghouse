@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -12,22 +13,22 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 public class DashboardController {
 
-    private static final int TREND_DAYS = 7;
-    private static final int TAG_BREAKDOWN_DAYS = 30;
-
     private final DashboardService dashboardService;
+    private final HealingHouseProperties properties;
 
     @GetMapping("/")
     public String dashboard(Model model) {
         LocalDate today = LocalDate.now();
+        int trendDays = properties.getDashboard().getTrendDays();
+        int tagBreakdownDays = properties.getDashboard().getTagBreakdownDays();
 
         model.addAttribute("pageTitle", "Dashboard");
         model.addAttribute("kpis", dashboardService.getTodayKPIs());
         model.addAttribute("todayAppointments", dashboardService.getTodayAppointments());
         model.addAttribute("lowStockAlerts", dashboardService.getLowStockAlerts());
-        model.addAttribute("revenueTrend", dashboardService.getRevenueTrend(TREND_DAYS));
+        model.addAttribute("revenueTrend", dashboardService.getRevenueTrend(trendDays));
         model.addAttribute("tagRevenueBreakdown",
-                dashboardService.getTagRevenueBreakdown(today.minusDays(TAG_BREAKDOWN_DAYS - 1), today));
+                dashboardService.getTagRevenueBreakdown(today.minusDays(tagBreakdownDays - 1), today));
 
         return "dashboard";
     }

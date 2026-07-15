@@ -27,14 +27,15 @@ public class TherapistController {
     private final TherapistService therapistService;
     private final AppointmentService appointmentService;
     private final CommissionCalculator commissionCalculator;
+    private final PaginationUtil paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         model.addAttribute("therapists", showInactive
                 ? therapistService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("fullName")))
                 : therapistService.findAll(PageRequest.of(page, pageSize)));
@@ -56,7 +57,7 @@ public class TherapistController {
                          Model model, RedirectAttributes ra) {
         try {
             Therapist therapist = therapistService.getById(id);
-            page = PaginationUtil.clampPage(page);
+            page = paginationUtil.clampPage(page);
 
             LocalDate effectiveDateFrom = dateFrom != null ? dateFrom : LocalDate.now().withDayOfMonth(1);
             LocalDate effectiveDateTo;

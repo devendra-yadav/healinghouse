@@ -1,11 +1,13 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.dto.CalendarEventDTO;
 import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,20 +50,37 @@ public class AppointmentService {
     private final AppointmentProductLineRepository appointmentProductLineRepository;
     private final WalletService                    walletService;
     private final ComboRepository                  comboRepository;
+    private final HealingHouseProperties           properties;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
 
+    /** findConflictsForTherapist's DB pre-filter window is hardcoded to ±1 day regardless of this
+     * setting — see the check below and the comment at that pre-filter. */
+    private static final int PRE_FILTER_WINDOW_MINUTES = 24 * 60;
+
     /**
-     * Ceiling on how long a single appointment can occupy a therapist. Also what makes
-     * findConflicts' ±1-day DB pre-filter window provably safe (Bug_Report_v2 #12): without a cap,
-     * a candidate appointment starting more than a day before the requested window but running long
-     * enough to still overlap it would be excluded by that pre-filter before the exact overlap check
-     * ever runs. With every appointment capped at 24h, the latest a candidate can start and still
-     * reach into the requested window is within that same ±1-day margin, so the pre-filter can never
-     * miss a genuine overlap.
+     * Ceiling on how long a single appointment can occupy a therapist, sourced from
+     * {@code healinghouse.appointment.max-duration-minutes}. Also what makes findConflicts' ±1-day
+     * DB pre-filter window provably safe (Bug_Report_v2 #12): without a cap, a candidate appointment
+     * starting more than a day before the requested window but running long enough to still overlap
+     * it would be excluded by that pre-filter before the exact overlap check ever runs. With every
+     * appointment capped at 24h, the latest a candidate can start and still reach into the requested
+     * window is within that same ±1-day margin, so the pre-filter can never miss a genuine overlap.
+     * {@link #validateMaxDurationAgainstConflictPreFilter()} fails startup if this is misconfigured
+     * above the pre-filter's fixed 24h margin, since raising it silently would reopen that gap.
      */
-    private static final int MAX_DURATION_MINUTES = 24 * 60;
+    @PostConstruct
+    void validateMaxDurationAgainstConflictPreFilter() {
+        int configured = properties.getAppointment().getMaxDurationMinutes();
+        if (configured > PRE_FILTER_WINDOW_MINUTES) {
+            throw new IllegalStateException(
+                    "healinghouse.appointment.max-duration-minutes (" + configured
+                    + ") cannot exceed " + PRE_FILTER_WINDOW_MINUTES
+                    + " — findConflictsForTherapist's DB pre-filter window is hardcoded to ±1 day and "
+                    + "would silently miss double-booking conflicts for appointments longer than that.");
+        }
+    }
 
     // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -429,7 +448,9 @@ public class AppointmentService {
             totalServiceAmount = totalServiceAmount.add(lineTotal);
         }
 
-        // 5. Product lines — validate stock, snapshot price, decrement stock
+        // 5. Product lines — validate aggregate stock demand (across all lines for the same product
+        // in this submission, e.g. a standalone line plus a combo line), snapshot price.
+        validateAggregateStockDemand(form.getProductLines());
         BigDecimal totalProductAmount = BigDecimal.ZERO;
         for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
             if (plf == null || plf.getProductId() == null) continue;
@@ -438,13 +459,6 @@ public class AppointmentService {
             Product product = productRepository.findById(plf.getProductId())
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Product not found: " + plf.getProductId()));
-
-            if (product.getStockQuantity() < qty) {
-                throw new IllegalArgumentException(
-                        "Insufficient stock for '" + product.getName()
-                        + "'. Available: " + product.getStockQuantity()
-                        + ", requested: " + qty);
-            }
 
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
@@ -469,6 +483,7 @@ public class AppointmentService {
         // own lines first, then the whole-appointment discount layered on top of the result.
         appointment.setTotalServiceAmount(totalServiceAmount);
         appointment.setTotalProductAmount(totalProductAmount);
+        removeOrphanCombos(appointment);
         for (AppointmentCombo ac : appointment.getCombos()) {
             applyComboDiscount(appointment, ac);
         }
@@ -487,9 +502,10 @@ public class AppointmentService {
         appointment.setAmountPaid(appointment.getAmountPaid().add(walletRequested));
 
         if (appointment.getAmountPaid().compareTo(appointment.getGrandTotal()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Amount paid (₹" + appointment.getAmountPaid()
-                    + ") cannot exceed the grand total (₹" + appointment.getGrandTotal() + ").");
+                    "Amount paid (" + symbol + appointment.getAmountPaid()
+                    + ") cannot exceed the grand total (" + symbol + appointment.getGrandTotal() + ").");
         }
 
         Appointment saved = appointmentRepository.save(appointment);
@@ -519,8 +535,29 @@ public class AppointmentService {
         }
         if (appt.getBalanceDue().compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalStateException(
-                    "Cannot complete appointment: balance due of ₹" + appt.getBalanceDue() + " must be cleared first.");
+                    "Cannot complete appointment: balance due of " + properties.getCurrency().getSymbol()
+                    + appt.getBalanceDue() + " must be cleared first.");
         }
+
+        // Stock is only checked at booking time (an availability check, not a reservation) — it can
+        // have shrunk since then via another appointment completing first, or via this same
+        // appointment carrying the same product on more than one line. Re-validate live availability
+        // against aggregate demand right before it's actually consumed.
+        Map<Long, Integer> demandByProductId = new LinkedHashMap<>();
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            demandByProductId.merge(pl.getProduct().getId(), pl.getQuantity(), Integer::sum);
+        }
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            Product product = pl.getProduct();
+            int demand = demandByProductId.getOrDefault(product.getId(), 0);
+            if (product.getStockQuantity() < demand) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Available: " + product.getStockQuantity()
+                        + ", requested: " + demand);
+            }
+        }
+
         for (AppointmentProductLine pl : appt.getProductLines()) {
             Product product = pl.getProduct();
             product.setStockQuantity(product.getStockQuantity() - pl.getQuantity());
@@ -529,7 +566,7 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
-        Appointment saved = appointmentRepository.save(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked COMPLETED", saved.getId());
         return saved;
     }
@@ -570,6 +607,25 @@ public class AppointmentService {
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
 
+        // Reject a stale form: the edit page baked amountPaid/walletAmountApplied into hidden fields at
+        // load time, and the client computes prepaidCorrection/walletAmountApplied as targets built on
+        // top of that snapshot. If either has moved since (another staff member recorded a payment or
+        // changed the wallet amount in the meantime), trusting the client's target would silently erase
+        // or misapply that other change even though this appointment's @Version hasn't conflicted (each
+        // request loads fresh, non-overlapping data — no version check would ever catch this).
+        if (form.getExistingAmountPaidBaseline() != null
+                && form.getExistingAmountPaidBaseline().compareTo(nz(existing.getAmountPaid())) != 0) {
+            throw new IllegalStateException(
+                    "This appointment's payment info was updated by someone else since you opened this form. "
+                    + "Please refresh and try again.");
+        }
+        if (form.getExistingWalletAppliedBaseline() != null
+                && form.getExistingWalletAppliedBaseline().compareTo(nz(existing.getWalletAmountApplied())) != 0) {
+            throw new IllegalStateException(
+                    "This appointment's wallet amount was updated by someone else since you opened this form. "
+                    + "Please refresh and try again.");
+        }
+
         // Once an appointment leaves SCHEDULED, only notes/payment-info stay editable — everything
         // else (who/when/lines/discount/wallet) is frozen, matching this method's own contract
         // ("For non-SCHEDULED appointments only notes and payment info are updated"). Previously this
@@ -591,7 +647,8 @@ public class AppointmentService {
                     ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
             if (!originalPatientId.equals(patient.getId()) && walletAlreadyApplied.signum() > 0) {
                 throw new IllegalArgumentException(
-                        "Cannot change the patient on this appointment while wallet funds (₹" + walletAlreadyApplied
+                        "Cannot change the patient on this appointment while wallet funds ("
+                        + properties.getCurrency().getSymbol() + walletAlreadyApplied
                         + ") are applied to it. Remove the wallet amount first, then reassign the patient.");
             }
 
@@ -656,18 +713,13 @@ public class AppointmentService {
                 totalServiceAmount = totalServiceAmount.add(lineTotal);
             }
 
+            validateAggregateStockDemand(form.getProductLines());
             BigDecimal totalProductAmount = BigDecimal.ZERO;
             for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
                 if (plf == null || plf.getProductId() == null) continue;
                 int qty = Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
-                if (product.getStockQuantity() < qty) {
-                    throw new IllegalArgumentException(
-                            "Insufficient stock for '" + product.getName()
-                            + "'. Available: " + product.getStockQuantity()
-                            + ", requested: " + qty);
-                }
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
                 existing.getProductLines().add(
@@ -685,6 +737,7 @@ public class AppointmentService {
 
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
+            removeOrphanCombos(existing);
             for (AppointmentCombo ac : existing.getCombos()) {
                 applyComboDiscount(existing, ac);
             }
@@ -715,9 +768,10 @@ public class AppointmentService {
         }
 
         if (existing.getAmountPaid().compareTo(existing.getGrandTotal()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Amount paid (₹" + existing.getAmountPaid()
-                    + ") cannot exceed the grand total (₹" + existing.getGrandTotal() + ").");
+                    "Amount paid (" + symbol + existing.getAmountPaid()
+                    + ") cannot exceed the grand total (" + symbol + existing.getGrandTotal() + ").");
         }
 
         Appointment saved = saveWithConflictCheck(existing);
@@ -764,6 +818,7 @@ public class AppointmentService {
 
         line.setTherapist(therapist);
         appointmentServiceLineRepository.save(line);
+        appointmentRepository.lockForVersionBump(appointmentId);
         log.info("Reassigned service line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
         return List.of();
@@ -789,6 +844,7 @@ public class AppointmentService {
 
         line.setTherapist(therapist);
         appointmentProductLineRepository.save(line);
+        appointmentRepository.lockForVersionBump(appointmentId);
         log.info("Reassigned product line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
         return List.of();
@@ -822,6 +878,20 @@ public class AppointmentService {
             appointment.getCombos().add(ac);
         }
         return comboByGroupKey;
+    }
+
+    /**
+     * Drops any AppointmentCombo attached by buildComboSelections that ended up with no matching
+     * service/product line — a malformed JS state or partial submit can send a combo selection whose
+     * groupKey no line actually carries. Left unfiltered, applyComboDiscount would just no-op the
+     * discount for it (see its lines.isEmpty() branch) while an orphaned, zero-item, ₹0-savings combo
+     * still persists and shows up in the appointment detail page's "Combo Packages" section. Must run
+     * after both line-building loops so every line's appointmentCombo reference is already set.
+     */
+    private void removeOrphanCombos(Appointment appointment) {
+        appointment.getCombos().removeIf(ac ->
+                appointment.getServiceLines().stream().noneMatch(sl -> sl.getAppointmentCombo() == ac)
+                        && appointment.getProductLines().stream().noneMatch(pl -> pl.getAppointmentCombo() == ac));
     }
 
     /**
@@ -978,10 +1048,40 @@ public class AppointmentService {
     private record DiscountableLine(BigDecimal lineRaw, Consumer<BigDecimal> setter) {}
 
     private void validateDuration(Integer durationMinutes) {
-        if (durationMinutes != null && durationMinutes > MAX_DURATION_MINUTES) {
+        int maxDurationMinutes = properties.getAppointment().getMaxDurationMinutes();
+        if (durationMinutes != null && durationMinutes > maxDurationMinutes) {
             throw new IllegalArgumentException(
-                    "Appointment duration cannot exceed " + (MAX_DURATION_MINUTES / 60) + " hours.");
+                    "Appointment duration cannot exceed " + (maxDurationMinutes / 60) + " hours.");
         }
+    }
+
+    /**
+     * Sums quantity per product across every line in a single submission (a product can appear on more
+     * than one line — a standalone line plus a combo line, or two combo lines) and validates the
+     * aggregate demand against live stock, so two lines of the same product can't each pass an
+     * independent check blind to the other's demand.
+     */
+    private void validateAggregateStockDemand(List<AppointmentForm.ProductLineForm> productLines) {
+        Map<Long, Integer> demandByProductId = new LinkedHashMap<>();
+        for (AppointmentForm.ProductLineForm plf : productLines) {
+            if (plf == null || plf.getProductId() == null) continue;
+            int qty = Math.max(1, plf.getQuantity());
+            demandByProductId.merge(plf.getProductId(), qty, Integer::sum);
+        }
+        for (Map.Entry<Long, Integer> entry : demandByProductId.entrySet()) {
+            Product product = productRepository.findById(entry.getKey())
+                    .orElseThrow(() -> new EntityNotFoundException("Product not found: " + entry.getKey()));
+            if (product.getStockQuantity() < entry.getValue()) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Available: " + product.getStockQuantity()
+                        + ", requested: " + entry.getValue());
+            }
+        }
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
     }
 
     private DiscountType resolveDiscountType(String raw) {

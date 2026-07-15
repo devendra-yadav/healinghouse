@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
@@ -30,13 +31,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PatientController {
 
-    private static final int MAX_SUGGESTIONS = 8;
-
     private final PatientService        patientService;
     private final AppointmentService    appointmentService;
     private final TherapistService      therapistService;
     private final PatientHistoryService patientHistoryService;
     private final WalletService         walletService;
+    private final HealingHouseProperties properties;
+    private final PaginationUtil        paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
@@ -44,8 +45,8 @@ public class PatientController {
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         model.addAttribute("patients", showInactive
                 ? patientService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("fullName")))
                 : patientService.search(q, PageRequest.of(page, pageSize)));
@@ -61,7 +62,7 @@ public class PatientController {
     public List<PatientSuggestionDTO> search(@RequestParam(required = false) String q) {
         if (q == null || q.isBlank()) return List.of();
         return patientService.search(q).stream()
-                .limit(MAX_SUGGESTIONS)
+                .limit(properties.getAutocomplete().getPatientMaxSuggestions())
                 .map(p -> new PatientSuggestionDTO(p.getId(), p.getFullName(), p.getPhone()))
                 .toList();
     }
@@ -80,8 +81,8 @@ public class PatientController {
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
-            walletPage = PaginationUtil.clampPage(walletPage);
-            page = PaginationUtil.clampPage(page);
+            walletPage = paginationUtil.clampPage(walletPage);
+            page = paginationUtil.clampPage(page);
 
             AppointmentStatus statusEnum = null;
             if (status != null && !status.isBlank()) {

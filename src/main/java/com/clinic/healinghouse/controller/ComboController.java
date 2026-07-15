@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.ComboDetailDTO;
 import com.clinic.healinghouse.dto.ComboForm;
 import com.clinic.healinghouse.dto.ComboSuggestionDTO;
@@ -26,11 +27,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ComboController {
 
-    private static final int MAX_SUGGESTIONS = 8;
-
     private final ComboService comboService;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
+    private final PaginationUtil paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
@@ -38,8 +39,8 @@ public class ComboController {
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         boolean hasFilter = StringUtils.hasText(q);
         model.addAttribute("combos", (showInactive && !hasFilter)
                 ? comboService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
@@ -124,7 +125,7 @@ public class ComboController {
     public List<ComboSuggestionDTO> search(@RequestParam(required = false) String q) {
         if (q == null || q.isBlank()) return List.of();
         return comboService.search(q).stream()
-                .limit(MAX_SUGGESTIONS)
+                .limit(properties.getAutocomplete().getComboMaxSuggestions())
                 .map(comboService::toSuggestion)
                 .toList();
     }

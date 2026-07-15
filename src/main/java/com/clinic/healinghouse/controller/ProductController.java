@@ -27,6 +27,7 @@ public class ProductController {
 
     private final ProductService productService;
     private final TagService tagService;
+    private final PaginationUtil paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
@@ -35,8 +36,8 @@ public class ProductController {
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         boolean hasFilter = StringUtils.hasText(q) || StringUtils.hasText(tag);
         model.addAttribute("products", (showInactive && !hasFilter)
                 ? productService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))

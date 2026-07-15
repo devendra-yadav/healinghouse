@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.AppointmentStatus;
@@ -67,9 +68,11 @@ class AppointmentServiceTests {
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, patientRepository, therapistRepository,
                 clinicServiceRepository, productRepository, appointmentServiceLineRepository,
-                appointmentProductLineRepository, walletService, comboRepository);
-        when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
-        when(therapistRepository.findById(THERAPIST_ID)).thenReturn(Optional.of(therapist()));
+                appointmentProductLineRepository, walletService, comboRepository, new HealingHouseProperties());
+        // lenient: markAsCompleted and updateAppointment's stale-baseline guard-throws-before-lookup
+        // tests never reach these patient/therapist lookups.
+        lenient().when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
+        lenient().when(therapistRepository.findById(THERAPIST_ID)).thenReturn(Optional.of(therapist()));
         // lenient: a few tests (guard-throws-before-save cases) never reach the save() call
         lenient().when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
         // saveAndFlush is used by cancelAppointment/markAsNoShow/updateAppointment's conflict-checked
@@ -520,5 +523,162 @@ class AppointmentServiceTests {
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("500");
         assertThat(saved.getServiceLines()).hasSize(1);
         assertThat(saved.getServiceLines().get(0).getAppointmentCombo()).isNull();
+    }
+
+    // ── Bug_Report_v3 #4: markAsCompleted must re-validate stock, not just decrement blindly ──
+    @Test
+    void markAsCompleted_insufficientStock_throwsAndDoesNotDecrement() {
+        Product product = product(1L, BigDecimal.TEN, 2);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> appointmentService.markAsCompleted(10L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Insufficient stock");
+
+        assertThat(product.getStockQuantity()).isEqualTo(2); // untouched
+        assertThat(existing.getStatus()).isEqualTo(AppointmentStatus.SCHEDULED); // untouched
+    }
+
+    @Test
+    void markAsCompleted_sameProductOnTwoLines_validatesAggregateDemandAndDecrementsBoth() {
+        Product product = product(1L, BigDecimal.TEN, 5);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        // Each individual line (qty 3) is within stock (5), but the combined demand (6) isn't.
+        assertThatThrownBy(() -> appointmentService.markAsCompleted(10L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Insufficient stock");
+        assertThat(product.getStockQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void markAsCompleted_sufficientStock_decrementsAndUsesConflictSafeSave() {
+        Product product = product(1L, BigDecimal.TEN, 5);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        Appointment saved = appointmentService.markAsCompleted(10L);
+
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+        assertThat(product.getStockQuantity()).isEqualTo(2);
+        verify(appointmentRepository).saveAndFlush(existing); // saveWithConflictCheck, not plain save()
+    }
+
+    // ── Bug_Report_v3 #2: a stale page-load baseline must be rejected, not silently trusted ──
+    @Test
+    void updateAppointment_staleAmountPaidBaseline_throws() {
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(1000)) // someone else already paid it off
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingAmountPaidBaseline(BigDecimal.valueOf(500)); // stale: this page loaded before the other payment
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.updateAppointment(10L, form))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("updated by someone else");
+    }
+
+    @Test
+    void updateAppointment_staleWalletAppliedBaseline_throws() {
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(500))
+                .walletAmountApplied(BigDecimal.valueOf(500)) // someone else already changed this
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingWalletAppliedBaseline(BigDecimal.valueOf(200)); // stale
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.updateAppointment(10L, form))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("updated by someone else");
+    }
+
+    @Test
+    void updateAppointment_matchingBaseline_proceedsNormally() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(500))
+                .walletAmountApplied(BigDecimal.valueOf(500))
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingAmountPaidBaseline(BigDecimal.valueOf(500)); // matches — not stale
+        form.setExistingWalletAppliedBaseline(BigDecimal.valueOf(500)); // matches — not stale
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("1000");
+    }
+
+    // ── Bug_Report_v3 #13: a combo selection with no matching line must not persist as an orphan ──
+    @Test
+    void createAppointment_comboSelectionWithNoMatchingLines_isDropped() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(500))));
+        when(comboRepository.findById(1L)).thenReturn(Optional.of(combo(1L, DiscountType.FLAT, BigDecimal.valueOf(50))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getComboSelections().add(comboSelection(1L, "combo-1")); // selected...
+        form.getServiceLines().add(serviceLine(1L, 1)); // ...but no line actually carries "combo-1"
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getCombos()).isEmpty();
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("500");
     }
 }

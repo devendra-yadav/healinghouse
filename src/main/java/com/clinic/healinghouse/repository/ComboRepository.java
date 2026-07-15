@@ -28,10 +28,16 @@ public interface ComboRepository extends JpaRepository<Combo, Long> {
 
     boolean existsByProductItems_Product_Id(Long productId);
 
-    // Every combo (active or not) bundling this item — used to strip it out on deactivation.
-    List<Combo> findByServiceItems_Service_Id(Long serviceId);
+    // Every combo (active or not) bundling this item — used to strip it out on deactivation. DISTINCT +
+    // fetch-join the relevant collection (mirroring findWithServiceItemsById/findWithProductItemsById
+    // below) so a combo with 2+ item rows for the same service/product isn't returned twice — a plain
+    // derived finder would both inflate ComboService's "removed from N combo(s)" flash-message count
+    // and lazy-load the collection once per combo in the caller's loop.
+    @Query("SELECT DISTINCT c FROM Combo c LEFT JOIN FETCH c.serviceItems si WHERE si.service.id = :serviceId")
+    List<Combo> findByServiceItems_Service_Id(@Param("serviceId") Long serviceId);
 
-    List<Combo> findByProductItems_Product_Id(Long productId);
+    @Query("SELECT DISTINCT c FROM Combo c LEFT JOIN FETCH c.productItems pi WHERE pi.product.id = :productId")
+    List<Combo> findByProductItems_Product_Id(@Param("productId") Long productId);
 
     // ── Two separate queries to avoid MultipleBagFetchException (Combo has two
     //    @OneToMany bags — same trap Appointment already works around) ──────────

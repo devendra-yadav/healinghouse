@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.ComparisonReportDTO;
 import com.clinic.healinghouse.dto.DailyReportDTO;
 import com.clinic.healinghouse.dto.PatientFirstVisitDTO;
@@ -67,7 +68,7 @@ class ReportServiceTests {
     void setUp() {
         reportService = new ReportService(reportAggregator, revenueReportAggregator, dashboardService, therapistRepository,
                 appointmentRepository, serviceLineRepository, productLineRepository,
-                clinicServiceRepository, productRepository);
+                clinicServiceRepository, productRepository, new HealingHouseProperties());
     }
 
     private Therapist therapist(long id, String name) {
@@ -220,8 +221,8 @@ class ReportServiceTests {
                         .price(BigDecimal.valueOf(500)).build()));
         when(serviceLineRepository.sumServiceRevenueByServiceAndTherapist(any(), any()))
                 .thenReturn(List.of(
-                        new ServiceTherapistRevenueDTO("Massage", "Dr. A", BigDecimal.valueOf(1000)),
-                        new ServiceTherapistRevenueDTO("Massage", "Dr. B", BigDecimal.valueOf(1500))
+                        new ServiceTherapistRevenueDTO("Massage", 1L, "Dr. A", BigDecimal.valueOf(1000)),
+                        new ServiceTherapistRevenueDTO("Massage", 2L, "Dr. B", BigDecimal.valueOf(1500))
                 ));
         when(serviceLineRepository.sumServiceRevenueByTagAndTherapist(any(), any())).thenReturn(List.of());
 

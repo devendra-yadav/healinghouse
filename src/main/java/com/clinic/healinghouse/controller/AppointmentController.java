@@ -38,6 +38,7 @@ public class AppointmentController {
     private final TreatmentService   treatmentService;
     private final ProductService     productService;
     private final ComboService       comboService;
+    private final PaginationUtil     paginationUtil;
 
     // ── List ──────────────────────────────────────────────────────────────
     @GetMapping
@@ -59,8 +60,8 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
                 null, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
 
@@ -160,7 +161,7 @@ public class AppointmentController {
             ra.addFlashAttribute("successMessage",
                     "Appointment #" + saved.getId() + " created successfully.");
             return "redirect:/appointments/" + saved.getId();
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to save appointment. Please check your input.";
             return renderAppointmentFormWithError(model, form, msg, false, null, null);
@@ -261,7 +262,7 @@ public class AppointmentController {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
             return "redirect:/appointments/" + id + suffix;
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException | IllegalStateException e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please check your input.";
             return renderAppointmentFormWithError(model, form, msg, true, id, returnUrl);

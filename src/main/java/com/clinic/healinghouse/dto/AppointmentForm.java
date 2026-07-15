@@ -48,6 +48,15 @@ public class AppointmentForm {
      */
     private BigDecimal walletAmountApplied;
 
+    /**
+     * Page-load snapshot of the appointment's amountPaid/walletAmountApplied, round-tripped as hidden
+     * fields so AppointmentService.updateAppointment can detect a stale form (another staff member
+     * changed either value after this page loaded, before this submit) and reject rather than silently
+     * computing a delta/target against data that's no longer current. Null on create (nothing to check).
+     */
+    private BigDecimal existingAmountPaidBaseline;
+    private BigDecimal existingWalletAppliedBaseline;
+
     private List<ServiceLineForm> serviceLines = new ArrayList<>();
     private List<ProductLineForm> productLines  = new ArrayList<>();
 
@@ -72,6 +81,8 @@ public class AppointmentForm {
         f.setDiscountType(appt.getDiscountType() != null ? appt.getDiscountType().name() : "NONE");
         f.setDiscountValue(appt.getDiscountValue());
         f.setWalletAmountApplied(appt.getWalletAmountApplied());
+        f.setExistingAmountPaidBaseline(appt.getAmountPaid());
+        f.setExistingWalletAppliedBaseline(appt.getWalletAmountApplied());
         // newPaymentAmount defaults to 0 (nothing entered yet); prepaidCorrection stays null (no correction).
 
         // groupKey only needs to be stable for this one page load/regroup — every save re-derives

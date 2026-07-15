@@ -2,6 +2,9 @@ spring:
   application:
     name: healinghouse
 
+  config:
+    import: "optional:file:${hh_external_properties:}"
+
   datasource:
     url: jdbc:mysql://localhost:3306/healing_house_clinic?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true
     username: clinic_user

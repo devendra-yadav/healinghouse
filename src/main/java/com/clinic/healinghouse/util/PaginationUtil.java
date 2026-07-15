@@ -1,17 +1,21 @@
 package com.clinic.healinghouse.util;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
+
 /** Shared page-size bounds for list pages that let staff choose how many rows to view per page. */
-public final class PaginationUtil {
+@Component
+@RequiredArgsConstructor
+public class PaginationUtil {
 
-    public static final int MAX_PAGE_SIZE = 100;
+    private final HealingHouseProperties properties;
 
-    private PaginationUtil() {}
-
-    public static int clampPageSize(int requested) {
-        return Math.min(Math.max(requested, 1), MAX_PAGE_SIZE);
+    public int clampPageSize(int requested) {
+        return Math.min(Math.max(requested, 1), properties.getPagination().getMaxPageSize());
     }
 
-    public static int clampPage(int requested) {
+    public int clampPage(int requested) {
         return Math.max(requested, 0);
     }
 }

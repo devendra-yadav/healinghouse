@@ -13,8 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
  * zero/null, which silently misclassified any new therapist saved before her payout terms were
  * configured. The new `owner` column defaults to false at the DB level, so every pre-existing row
  * — including the actual clinic owner's — comes back as non-owner after the schema update. This
- * runner finds the owner by her known name (the same string DataSeeder already hardcodes for her
- * seed row) and flags her, exactly once; every subsequent startup is a no-op. Deliberately its own
+ * runner finds the owner by {@code healinghouse.owner.full-name} (the same property DataSeeder's
+ * seed row reads) and flags her, exactly once; every subsequent startup is a no-op. Deliberately its own
  * always-on component rather than folded into DataSeeder, which is dev/test-only (@Profile) — this
  * is a correctness fix for existing data, not master-data seeding, and prod/preprod have the same
  * pre-existing row needing the same one-time fix.
@@ -24,15 +24,15 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class OwnerFlagBackfill implements CommandLineRunner {
 
-    private static final String OWNER_FULL_NAME = "Marcia Gomes Yadav";
-
     private final TherapistRepository therapistRepository;
+    private final HealingHouseProperties properties;
 
     @Override
     @Transactional
     public void run(String... args) {
+        String ownerFullName = properties.getOwner().getFullName();
         therapistRepository.findAll().stream()
-                .filter(t -> OWNER_FULL_NAME.equals(t.getFullName()) && !t.isOwner())
+                .filter(t -> ownerFullName.equals(t.getFullName()) && !t.isOwner())
                 .forEach(t -> {
                     t.setOwner(true);
                     therapistRepository.save(t);

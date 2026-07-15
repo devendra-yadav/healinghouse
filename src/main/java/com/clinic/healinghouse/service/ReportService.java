@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.ComparisonReportDTO;
 import com.clinic.healinghouse.dto.DailyReportDTO;
 import com.clinic.healinghouse.dto.PatientFirstVisitDTO;
@@ -60,8 +61,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class ReportService {
 
-    private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("dd MMM");
-
     private final ReportAggregator reportAggregator;
     private final RevenueReportAggregator revenueReportAggregator;
     private final DashboardService dashboardService;
@@ -71,6 +70,7 @@ public class ReportService {
     private final AppointmentProductLineRepository productLineRepository;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
 
     public DailyReportDTO getDailyReport(LocalDate date) {
         PeriodSummaryDTO summary = reportAggregator.getPeriodSummary(date, date);
@@ -160,6 +160,7 @@ public class ReportService {
         List<String> labels = new ArrayList<>();
         List<Long> newCounts = new ArrayList<>();
         List<Long> repeatCounts = new ArrayList<>();
+        DateTimeFormatter trendLabelFormat = DateTimeFormatter.ofPattern(properties.getReports().getTrendLabelFormat());
 
         for (LocalDate day = dateFrom; !day.isAfter(dateTo); day = day.plusDays(1)) {
             long newToday = 0;
@@ -172,7 +173,7 @@ public class ReportService {
                     repeatToday++;
                 }
             }
-            labels.add(day.format(TREND_LABEL_FORMAT));
+            labels.add(day.format(trendLabelFormat));
             newCounts.add(newToday);
             repeatCounts.add(repeatToday);
         }
@@ -258,7 +259,9 @@ public class ReportService {
         LocalDateTime end = dateTo.atTime(LocalTime.MAX);
 
         Map<String, BigDecimal> totals = new LinkedHashMap<>();
-        Map<String, String[]> keyParts = new LinkedHashMap<>();
+        // Keyed by tagName + therapist.id (not name) so two therapists sharing a full name aren't
+        // silently merged into one cross-tab row.
+        Map<String, Object[]> keyParts = new LinkedHashMap<>();
 
         for (TagTherapistRevenueDTO r : serviceLineRepository.sumServiceRevenueByTagAndTherapist(start, end)) {
             mergeTagTherapistRevenue(totals, keyParts, r);
@@ -269,17 +272,17 @@ public class ReportService {
 
         return totals.entrySet().stream()
                 .map(e -> {
-                    String[] parts = keyParts.get(e.getKey());
-                    return new TagTherapistRevenueDTO(parts[0], parts[1], e.getValue());
+                    Object[] parts = keyParts.get(e.getKey());
+                    return new TagTherapistRevenueDTO((String) parts[0], (Long) parts[1], (String) parts[2], e.getValue());
                 })
                 .sorted(Comparator.comparing(TagTherapistRevenueDTO::revenue).reversed())
                 .toList();
     }
 
-    private static void mergeTagTherapistRevenue(Map<String, BigDecimal> totals, Map<String, String[]> keyParts,
+    private static void mergeTagTherapistRevenue(Map<String, BigDecimal> totals, Map<String, Object[]> keyParts,
                                                   TagTherapistRevenueDTO r) {
-        String key = r.tagName() + "|" + r.therapistName();
+        String key = r.tagName() + "|" + r.therapistId();
         totals.merge(key, r.revenue(), BigDecimal::add);
-        keyParts.putIfAbsent(key, new String[]{r.tagName(), r.therapistName()});
+        keyParts.putIfAbsent(key, new Object[]{r.tagName(), r.therapistId(), r.therapistName()});
     }
 }

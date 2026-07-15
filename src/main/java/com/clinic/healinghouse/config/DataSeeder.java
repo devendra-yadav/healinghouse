@@ -29,6 +29,7 @@ public class DataSeeder implements CommandLineRunner {
     private final ClinicServiceRepository  clinicServiceRepository;
     private final ProductRepository        productRepository;
     private final TagService               tagService;
+    private final HealingHouseProperties   properties;
 
     /** Resolves tag names via find-or-create so seeded catalog items share the same Tag pool as user-created ones. */
     private Set<Tag> tags(String... names) {
@@ -54,7 +55,7 @@ public class DataSeeder implements CommandLineRunner {
 
             // Owner — no salary or commission calculation
             Therapist.builder()
-                .fullName("Marcia Gomes Yadav")
+                .fullName(properties.getOwner().getFullName())
                 .specialization("Holistic Wellness & TCM Practitioner")
                 .phone("9800000001")
                 .email("marcia@healinghouse.in")

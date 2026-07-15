@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.util.PaginationUtil;
@@ -17,16 +18,16 @@ import java.util.List;
 @RequiredArgsConstructor
 public class TagController {
 
-    private static final int MAX_SUGGESTIONS = 10;
-
     private final TagService tagService;
+    private final HealingHouseProperties properties;
+    private final PaginationUtil paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        page = PaginationUtil.clampPage(page);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         model.addAttribute("tagUsages", tagService.findAllWithUsage(PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("pageTitle", "Tags");
@@ -39,7 +40,7 @@ public class TagController {
     public List<String> search(@RequestParam(required = false) String q) {
         return tagService.search(q).stream()
                 .map(Tag::getName)
-                .limit(MAX_SUGGESTIONS)
+                .limit(properties.getAutocomplete().getTagMaxSuggestions())
                 .toList();
     }
 

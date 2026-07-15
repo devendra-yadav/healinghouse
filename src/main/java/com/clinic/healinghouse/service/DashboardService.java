@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.DashboardKpiDTO;
 import com.clinic.healinghouse.dto.RevenueTrendDTO;
 import com.clinic.healinghouse.dto.TagRevenueDTO;
@@ -30,13 +31,12 @@ import java.util.Map;
 @Transactional(readOnly = true)
 public class DashboardService {
 
-    private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("dd MMM");
-
     private final AppointmentRepository appointmentRepository;
     private final ProductRepository productRepository;
     private final TherapistRepository therapistRepository;
     private final AppointmentServiceLineRepository serviceLineRepository;
     private final AppointmentProductLineRepository productLineRepository;
+    private final HealingHouseProperties properties;
 
     public DashboardKpiDTO getTodayKPIs() {
         LocalDate today = LocalDate.now();
@@ -64,11 +64,12 @@ public class DashboardService {
         LocalDate today = LocalDate.now();
         List<String> labels = new ArrayList<>(days);
         List<BigDecimal> values = new ArrayList<>(days);
+        DateTimeFormatter trendLabelFormat = DateTimeFormatter.ofPattern(properties.getReports().getTrendLabelFormat());
 
         for (int i = days - 1; i >= 0; i--) {
             LocalDate day = today.minusDays(i);
             BigDecimal revenue = appointmentRepository.sumRevenueByDateRange(day.atStartOfDay(), day.atTime(LocalTime.MAX));
-            labels.add(day.format(TREND_LABEL_FORMAT));
+            labels.add(day.format(trendLabelFormat));
             values.add(revenue);
         }
 

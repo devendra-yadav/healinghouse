@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.TherapistEarningsDTO;
 import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
@@ -33,7 +34,7 @@ class CommissionCalculatorTests {
 
     @BeforeEach
     void setUp() {
-        calculator = new CommissionCalculator(serviceLineRepository, productLineRepository);
+        calculator = new CommissionCalculator(serviceLineRepository, productLineRepository, new HealingHouseProperties());
     }
 
     private Therapist therapist(String name, BigDecimal commissionRate, Integer bonusThreshold, BigDecimal bonusAmount) {
@@ -51,11 +52,11 @@ class CommissionCalculatorTests {
     @Test
     void calculatesCommissionAsRevenueTimesRate() {
         Therapist t = therapist("Dr. A", BigDecimal.valueOf(0.10), 100, BigDecimal.valueOf(5000));
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.valueOf(10000));
-        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.valueOf(2000));
-        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Bonus")))
                 .thenReturn(50L);
 
         TherapistEarningsDTO earnings = calculator.calculateEarnings(t, dateFrom, dateTo);
@@ -121,11 +122,11 @@ class CommissionCalculatorTests {
 
         assertThat(newHire.isOwner()).isFalse();
 
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.valueOf(5000));
-        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.ZERO);
-        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(newHire), any(), any(), eq("Bonus")))
                 .thenReturn(10L);
 
         TherapistEarningsDTO earnings = calculator.calculateEarnings(newHire, dateFrom, dateTo);
@@ -138,11 +139,11 @@ class CommissionCalculatorTests {
     @Test
     void zeroRevenueProducesZeroCommissionAndNoBonus() {
         Therapist t = therapist("Dr. E", BigDecimal.valueOf(0.15), 100, BigDecimal.valueOf(5000));
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.ZERO);
-        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.ZERO);
-        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(eq(t), any(), any(), eq("Bonus")))
                 .thenReturn(0L);
 
         TherapistEarningsDTO earnings = calculator.calculateEarnings(t, dateFrom, dateTo);
@@ -157,15 +158,15 @@ class CommissionCalculatorTests {
         Therapist a = therapist("Dr. A", BigDecimal.valueOf(0.10), 100, BigDecimal.valueOf(5000));
         Therapist b = therapist("Dr. B", BigDecimal.valueOf(0.20), 100, BigDecimal.valueOf(5000));
 
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(a), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(a), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.valueOf(1000));
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(b), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(eq(b), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.valueOf(5000));
-        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+        when(serviceLineRepository.sumServiceRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq("Bonus")))
                 .thenReturn(BigDecimal.ZERO);
-        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.COMMISSION_TAG)))
+        when(productLineRepository.sumProductRevenueByTherapistAndDateRangeAndTag(any(), any(), any(), eq("Commission")))
                 .thenReturn(BigDecimal.ZERO);
-        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(any(), any(), any(), eq(CommissionCalculator.BONUS_TAG)))
+        when(serviceLineRepository.countServicesPerformedByTherapistAndDateRangeAndTag(any(), any(), any(), eq("Bonus")))
                 .thenReturn(1L);
         when(serviceLineRepository.sumAllServiceRevenueByTherapistAndDateRange(any(), any(), any()))
                 .thenReturn(BigDecimal.ZERO);
