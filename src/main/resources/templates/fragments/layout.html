@@ -90,6 +90,13 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link"
+                       th:classappend="${activePage == 'PackageTemplates'} ? 'active'"
+                       th:href="@{/package-templates}">
+                        <i class="bi bi-collection me-1"></i>Packages
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link"
                        th:classappend="${activePage == 'Appointments'} ? 'active'"
                        th:href="@{/appointments}">
                         <i class="bi bi-calendar2-check me-1"></i>Appointments

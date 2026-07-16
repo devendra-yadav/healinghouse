@@ -42,6 +42,12 @@
                class="btn btn-sm">
             </a>
         </div>
+
+        <a th:href="@{/products(q=${q},tag=${selectedTag},size=${products.size},showInactive=${!showInactive})}"
+           th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+           class="btn btn-sm ms-auto">
+            <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+        </a>
     </div>
 
     <div class="card shadow-sm">
@@ -68,6 +74,7 @@
                             <td class="text-muted" th:text="${stat.count}"></td>
                             <td>
                                 <span class="fw-semibold" th:text="${p.name}"></span>
+                                <span th:if="${!p.active}" class="badge bg-secondary ms-1">Inactive</span>
                                 <span th:if="${p.lowStock}"
                                       class="badge bg-danger ms-1">Low Stock</span>
                                 <div th:if="${p.description}" class="text-muted small text-truncate"
@@ -92,7 +99,18 @@
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                <form th:if="${!p.active}" th:action="@{/products/{id}/activate(id=${p.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button th:if="${!p.active}" type="button" class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
+                                        th:attr="data-name=${p.name}, data-url=@{/products/{id}/delete-permanent(id=${p.id})}">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                                <button th:if="${p.active}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${p.name}, data-url=@{/products/{id}/delete(id=${p.id})}">
                                     <i class="bi bi-trash"></i>
@@ -115,7 +133,7 @@
                 <select class="form-select form-select-sm" style="width:auto;"
                         onchange="location.href=this.value">
                     <option th:each="s : ${ {10,20,50,100} }"
-                            th:value="@{/products(q=${q},tag=${selectedTag},size=${s},page=0)}"
+                            th:value="@{/products(q=${q},tag=${selectedTag},size=${s},page=0,showInactive=${showInactive})}"
                             th:selected="${s == products.size}"
                             th:text="${s} + ' / page'">
                     </option>
@@ -126,12 +144,12 @@
                 <div th:if="${products.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!products.hasPrevious()} ? 'disabled'"
-                       th:href="@{/products(q=${q},tag=${selectedTag},size=${products.size},page=${products.number - 1})}">
+                       th:href="@{/products(q=${q},tag=${selectedTag},size=${products.size},page=${products.number - 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!products.hasNext()} ? 'disabled'"
-                       th:href="@{/products(q=${q},tag=${selectedTag},size=${products.size},page=${products.number + 1})}">
+                       th:href="@{/products(q=${q},tag=${selectedTag},size=${products.size},page=${products.number + 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
@@ -159,6 +177,25 @@
     </div>
 </div>
 
+<!-- Permanent Delete Confirmation Modal -->
+<div class="modal fade" id="deletePermanentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Permanently Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deletePermanentModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deletePermanentForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script>
@@ -167,6 +204,12 @@
         document.getElementById('deleteModalBody').textContent =
             'Deactivate product "' + btn.dataset.name + '"?';
         document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+    document.getElementById('deletePermanentModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deletePermanentModalBody').textContent =
+            'Permanently delete product "' + btn.dataset.name + '"? This cannot be undone.';
+        document.getElementById('deletePermanentForm').action = btn.dataset.url;
     });
 </script>
 </body>

@@ -66,6 +66,13 @@
                                 </button>
                             </div>
                             <div class="card-body pb-1">
+                                <div id="serviceItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                    <div class="col-5">Service</div>
+                                    <div class="col-2 text-center">Qty</div>
+                                    <div class="col-2 text-end">Rate</div>
+                                    <div class="col-2 text-end">Total</div>
+                                    <div class="col-1"></div>
+                                </div>
                                 <div id="serviceItemsContainer"></div>
                                 <div id="serviceItemsEmpty" class="text-muted small text-center py-3">
                                     <i class="bi bi-info-circle me-1"></i>No services added.
@@ -82,6 +89,13 @@
                                 </button>
                             </div>
                             <div class="card-body pb-1">
+                                <div id="productItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                    <div class="col-5">Product</div>
+                                    <div class="col-2 text-center">Qty</div>
+                                    <div class="col-2 text-end">Rate</div>
+                                    <div class="col-2 text-end">Total</div>
+                                    <div class="col-1"></div>
+                                </div>
                                 <div id="productItemsContainer"></div>
                                 <div id="productItemsEmpty" class="text-muted small text-center py-3">
                                     <i class="bi bi-info-circle me-1"></i>No products added.
@@ -186,18 +200,20 @@ function addServiceItemRow(preselectId, preselectQty) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center service-item-row';
     row.innerHTML =
-        `<div class="col-8 col-md-8">
+        `<div class="col-5">
             <select class="form-select form-select-sm si-select"
                     name="serviceItems[${i}].itemId" onchange="updatePricePreview()">
                 <option value="">— Service —</option>
                 ${buildOptions(ALL_SERVICES)}
             </select>
          </div>
-         <div class="col-2 col-md-2">
+         <div class="col-2">
             <input type="number" class="form-control form-control-sm si-qty"
                    name="serviceItems[${i}].quantity" value="1" min="1" oninput="updatePricePreview()">
          </div>
-         <div class="col-2 col-md-2 text-center">
+         <div class="col-2 text-end si-rate">₹0.00</div>
+         <div class="col-2 text-end fw-semibold si-total">₹0.00</div>
+         <div class="col-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'service-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -219,18 +235,20 @@ function addProductItemRow(preselectId, preselectQty) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center product-item-row';
     row.innerHTML =
-        `<div class="col-8 col-md-8">
+        `<div class="col-5">
             <select class="form-select form-select-sm pi-select"
                     name="productItems[${i}].itemId" onchange="updatePricePreview()">
                 <option value="">— Product —</option>
                 ${buildOptions(ALL_PRODUCTS)}
             </select>
          </div>
-         <div class="col-2 col-md-2">
+         <div class="col-2">
             <input type="number" class="form-control form-control-sm pi-qty"
                    name="productItems[${i}].quantity" value="1" min="1" oninput="updatePricePreview()">
          </div>
-         <div class="col-2 col-md-2 text-center">
+         <div class="col-2 text-end pi-rate">₹0.00</div>
+         <div class="col-2 text-end fw-semibold pi-total">₹0.00</div>
+         <div class="col-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'product-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -254,10 +272,12 @@ function removeRow(btn, cls) {
 }
 
 function toggleUI() {
-    document.getElementById('serviceItemsEmpty').classList.toggle('d-none',
-        document.querySelectorAll('.service-item-row').length > 0);
-    document.getElementById('productItemsEmpty').classList.toggle('d-none',
-        document.querySelectorAll('.product-item-row').length > 0);
+    const hasServices = document.querySelectorAll('.service-item-row').length > 0;
+    const hasProducts = document.querySelectorAll('.product-item-row').length > 0;
+    document.getElementById('serviceItemsEmpty').classList.toggle('d-none', hasServices);
+    document.getElementById('serviceItemsHeader').classList.toggle('d-none', !hasServices);
+    document.getElementById('productItemsEmpty').classList.toggle('d-none', hasProducts);
+    document.getElementById('productItemsHeader').classList.toggle('d-none', !hasProducts);
 }
 
 function onDiscountTypeChange() {
@@ -282,12 +302,20 @@ function updatePricePreview() {
     document.querySelectorAll('.service-item-row').forEach(row => {
         const s = serviceMap[row.querySelector('.si-select').value];
         const qty = parseInt(row.querySelector('.si-qty').value) || 0;
-        if (s) original += s.price * qty;
+        const rate = s ? s.price : 0;
+        const lineTotal = rate * qty;
+        row.querySelector('.si-rate').textContent = fmt(rate);
+        row.querySelector('.si-total').textContent = fmt(lineTotal);
+        if (s) original += lineTotal;
     });
     document.querySelectorAll('.product-item-row').forEach(row => {
         const p = productMap[row.querySelector('.pi-select').value];
         const qty = parseInt(row.querySelector('.pi-qty').value) || 0;
-        if (p) original += p.price * qty;
+        const rate = p ? p.price : 0;
+        const lineTotal = rate * qty;
+        row.querySelector('.pi-rate').textContent = fmt(rate);
+        row.querySelector('.pi-total').textContent = fmt(lineTotal);
+        if (p) original += lineTotal;
     });
 
     const type = document.getElementById('discountTypeSelect').value;
@@ -302,7 +330,7 @@ function updatePricePreview() {
 
 // Re-index rows on submit so gaps from deleted rows don't break Spring's indexed binding,
 // same pattern as appointments/form.html.
-document.getElementById('comboForm').addEventListener('submit', function () {
+document.getElementById('comboForm').addEventListener('submit', function (event) {
     let si = 0;
     document.querySelectorAll('.service-item-row').forEach(row => {
         const sel = row.querySelector('.si-select');
@@ -329,6 +357,10 @@ document.getElementById('comboForm').addEventListener('submit', function () {
             qty.disabled = true;
         }
     });
+    if (si === 0 && pi === 0) {
+        event.preventDefault();
+        alert('A combo must have at least one service or product.');
+    }
 });
 
 document.addEventListener('DOMContentLoaded', function () {

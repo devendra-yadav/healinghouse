@@ -22,6 +22,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     Page<Product> findByNameContainingIgnoreCaseAndActiveTrue(String name, Pageable pageable);
 
+    // Active-agnostic variants — list-page search/tag filter always matches active AND inactive.
+    Page<Product> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    Page<Product> findByTagsNameIgnoreCaseOrderByNameAsc(String tagName, Pageable pageable);
+
     List<Product> findByTagsId(Long tagId);
 
     long countByTagsId(Long tagId);

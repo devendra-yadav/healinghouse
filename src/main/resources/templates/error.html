@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar(null)}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1 d-flex align-items-center justify-content-center">
+    <div class="card p-4 text-center" style="max-width: 480px;">
+        <i class="bi bi-exclamation-triangle-fill text-danger fs-1 mb-3"></i>
+        <h4 class="mb-2">Something went wrong</h4>
+        <p class="text-muted mb-4">
+            An unexpected error occurred while processing your request. The issue has been logged
+            — please try again, and contact support if it keeps happening.
+        </p>
+        <a class="btn btn-primary" th:href="@{/}">Back to Dashboard</a>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

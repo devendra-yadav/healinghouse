@@ -20,6 +20,9 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
 
     List<AppointmentServiceLine> findByAppointment(Appointment appointment);
 
+    // Blocks permanent deletion of a ClinicService still referenced by appointment history.
+    boolean existsByService_Id(Long serviceId);
+
     // Commission-eligible services revenue for a therapist in a date range (completed appts only).
     // Scoped to the line's own therapist (who actually performed it), not the
     // appointment's main therapist — a single appointment can have lines performed
@@ -95,24 +98,27 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end);
 
-    // Per-service, per-therapist revenue — used to find each service's top-revenue therapist.
+    // Per-service, per-therapist revenue — used to find each service's top-revenue therapist. Grouped
+    // by therapist.id (not just fullName) so two therapists sharing a name don't have their revenue
+    // silently merged into one pseudo-entity before the "top therapist" comparison runs.
     @Query("SELECT new com.clinic.healinghouse.dto.ServiceTherapistRevenueDTO(" +
-           "    sl.service.name, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "    sl.service.name, sl.therapist.id, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
            "FROM AppointmentServiceLine sl " +
            "WHERE sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
-           "GROUP BY sl.service.name, sl.therapist.fullName")
+           "GROUP BY sl.service.name, sl.therapist.id, sl.therapist.fullName")
     List<ServiceTherapistRevenueDTO> sumServiceRevenueByServiceAndTherapist(
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end);
 
-    // Services revenue grouped by tag x therapist (performance report cross-tab).
+    // Services revenue grouped by tag x therapist (performance report cross-tab). Grouped by
+    // therapist.id — see sumServiceRevenueByServiceAndTherapist's comment above.
     @Query("SELECT new com.clinic.healinghouse.dto.TagTherapistRevenueDTO(" +
-           "    t.name, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "    t.name, sl.therapist.id, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
            "FROM AppointmentServiceLine sl JOIN sl.service.tags t " +
            "WHERE sl.appointment.status = 'COMPLETED' " +
            "AND sl.appointment.appointmentDateTime BETWEEN :start AND :end " +
-           "GROUP BY t.name, sl.therapist.fullName")
+           "GROUP BY t.name, sl.therapist.id, sl.therapist.fullName")
     List<TagTherapistRevenueDTO> sumServiceRevenueByTagAndTherapist(
             @Param("start") LocalDateTime start,
             @Param("end")   LocalDateTime end);
@@ -132,20 +138,21 @@ public interface AppointmentServiceLineRepository extends JpaRepository<Appointm
             @Param("appointmentIds") List<Long> appointmentIds);
 
     // Raw (pre-discount) services revenue per line-level therapist, scoped to an appointment id set.
+    // Grouped by therapist.id — see sumServiceRevenueByServiceAndTherapist's comment above.
     @Query("SELECT new com.clinic.healinghouse.dto.TherapistRevenueDTO(" +
-           "    sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
+           "    sl.therapist.id, sl.therapist.fullName, COALESCE(SUM(sl.priceAtTime * sl.quantity), 0)) " +
            "FROM AppointmentServiceLine sl " +
            "WHERE sl.appointment.id IN :appointmentIds " +
-           "GROUP BY sl.therapist.fullName")
+           "GROUP BY sl.therapist.id, sl.therapist.fullName")
     List<TherapistRevenueDTO> sumRawServiceRevenueByTherapistInAppointmentIds(
             @Param("appointmentIds") List<Long> appointmentIds);
 
     // Post-discount (effective) services revenue per line-level therapist, scoped to an appointment id set.
     @Query("SELECT new com.clinic.healinghouse.dto.TherapistRevenueDTO(" +
-           "    sl.therapist.fullName, COALESCE(SUM(COALESCE(sl.discountedLineTotal, sl.priceAtTime * sl.quantity)), 0)) " +
+           "    sl.therapist.id, sl.therapist.fullName, COALESCE(SUM(COALESCE(sl.discountedLineTotal, sl.priceAtTime * sl.quantity)), 0)) " +
            "FROM AppointmentServiceLine sl " +
            "WHERE sl.appointment.id IN :appointmentIds " +
-           "GROUP BY sl.therapist.fullName")
+           "GROUP BY sl.therapist.id, sl.therapist.fullName")
     List<TherapistRevenueDTO> sumEffectiveServiceRevenueByTherapistInAppointmentIds(
             @Param("appointmentIds") List<Long> appointmentIds);
 }

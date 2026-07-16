@@ -2,6 +2,8 @@ package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
+import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
+import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +26,9 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final TagService tagService;
+    private final AppointmentProductLineRepository appointmentProductLineRepository;
+    private final ComboRepository comboRepository;
+    private final ComboService comboService;
 
     @Transactional(readOnly = true)
     public List<Product> findAll() {
@@ -47,14 +52,19 @@ public class ProductService {
         return productRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim());
     }
 
-    /** Paginated variant, used by the products list page; tag filter takes precedence over search. */
+    /**
+     * Paginated variant, used by the products list page; tag filter takes precedence over search.
+     * Unlike the unpaginated {@link #search(String)} (used by booking-flow autocompletes, which must
+     * stay active-only), a filtered list-page search always matches active AND inactive — staff need
+     * to be able to find a deactivated product by name/tag without paging through the whole inactive list.
+     */
     @Transactional(readOnly = true)
     public Page<Product> search(String query, String tagName, Pageable pageable) {
         if (StringUtils.hasText(tagName)) {
-            return productRepository.findByTagsNameIgnoreCaseAndActiveTrueOrderByNameAsc(tagName, pageable);
+            return productRepository.findByTagsNameIgnoreCaseOrderByNameAsc(tagName, pageable);
         }
         if (StringUtils.hasText(query)) {
-            return productRepository.findByNameContainingIgnoreCaseAndActiveTrue(query.trim(), pageable);
+            return productRepository.findByNameContainingIgnoreCase(query.trim(), pageable);
         }
         return productRepository.findByActiveTrueOrderByNameAsc(pageable);
     }
@@ -62,6 +72,12 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<Product> findLowStock() {
         return productRepository.findLowStockProducts();
+    }
+
+    /** Includes deactivated products too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<Product> findAllIncludingInactive(Pageable pageable) {
+        return productRepository.findAll(pageable);
     }
 
     /** tagNames are resolved via find-or-create (see {@link TagService#findOrCreate}) before saving. */
@@ -83,10 +99,42 @@ public class ProductService {
         return tags;
     }
 
-    public void deactivate(Long id) {
+    /**
+     * Deactivating never touches any existing appointment — line items snapshot price/therapist at
+     * booking time and are fully decoupled from the live catalog. It does strip this product out of
+     * any combo that bundles it (see {@link ComboService#handleProductDeactivated}), since a combo's
+     * price is always live-computed and a combo can't keep offering an item that's no longer bookable.
+     */
+    public ComboService.CatalogItemRemovalResult deactivate(Long id) {
         Product product = getById(id);
         product.setActive(false);
         productRepository.save(product);
         log.info("Deactivated product id={} name='{}'", product.getId(), product.getName());
+        return comboService.handleProductDeactivated(id);
+    }
+
+    public void activate(Long id) {
+        Product product = getById(id);
+        product.setActive(true);
+        productRepository.save(product);
+        log.info("Reactivated product id={} name='{}'", product.getId(), product.getName());
+    }
+
+    /** Only allowed once deactivated, and only if unreferenced by appointment history or any combo definition. */
+    public void permanentlyDelete(Long id) {
+        Product product = getById(id);
+        if (product.isActive()) {
+            throw new IllegalArgumentException("Deactivate this product before permanently deleting it.");
+        }
+        if (appointmentProductLineRepository.existsByProduct_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + product.getName()
+                    + "\" — it is used in one or more appointments.");
+        }
+        if (comboRepository.existsByProductItems_Product_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + product.getName()
+                    + "\" — it is part of one or more combos.");
+        }
+        productRepository.delete(product);
+        log.info("Permanently deleted product id={} name='{}'", id, product.getName());
     }
 }

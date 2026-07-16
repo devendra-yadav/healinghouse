@@ -13,6 +13,9 @@ public interface AppointmentComboRepository extends JpaRepository<AppointmentCom
 
     List<AppointmentCombo> findByAppointment(Appointment appointment);
 
+    // Blocks permanent deletion of a Combo still referenced by appointment history.
+    boolean existsByCombo_Id(Long comboId);
+
     // Total combo discount per appointment, scoped to an appointment id set — avoids lazily
     // loading each Appointment's combos collection just to sum getTotalComboDiscount().
     @Query("SELECT new com.clinic.healinghouse.dto.ComboDiscountSummaryDTO(" +

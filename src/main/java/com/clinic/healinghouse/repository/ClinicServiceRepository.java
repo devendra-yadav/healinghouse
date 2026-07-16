@@ -21,6 +21,11 @@ public interface ClinicServiceRepository extends JpaRepository<ClinicService, Lo
 
     Page<ClinicService> findByNameContainingIgnoreCaseAndActiveTrue(String name, Pageable pageable);
 
+    // Active-agnostic variants — list-page search/tag filter always matches active AND inactive.
+    Page<ClinicService> findByNameContainingIgnoreCase(String name, Pageable pageable);
+
+    Page<ClinicService> findByTagsNameIgnoreCaseOrderByNameAsc(String tagName, Pageable pageable);
+
     List<ClinicService> findByTagsId(Long tagId);
 
     long countByTagsId(Long tagId);

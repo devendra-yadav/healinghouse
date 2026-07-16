@@ -214,7 +214,7 @@
                     <span class="card-icon text-success"><i class="bi bi-piggy-bank"></i></span>
                     <div>
                         <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.advanceReceived, 1, 2)}|">—</div>
-                        <small class="text-muted" title="Amount already paid on Scheduled appointments not yet resolved, plus Cancelled/No-Show appointments where the clinic keeps it — included in Net Revenue and Collected above.">
+                        <small class="text-muted" title="Amount already paid on Scheduled appointments not yet resolved, plus Cancelled/No-Show appointments where the clinic keeps it — shown separately and not included in Net Revenue or Collected above, which stay strictly Completed-only.">
                             Advance Payments <i class="bi bi-info-circle"></i>
                         </small>
                     </div>

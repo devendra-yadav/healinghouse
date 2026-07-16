@@ -264,7 +264,12 @@
     </div>
 
     <!-- ── Section C: Appointment History ──────────────────────────────── -->
-    <h5 class="section-header mb-2">Appointment History</h5>
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h5 class="section-header mb-0">Appointment History</h5>
+        <a th:href="@{/appointments/new(therapistId=${therapist.id})}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Appointment
+        </a>
+    </div>
 
     <div class="card shadow-sm">
         <div class="card-body p-0">

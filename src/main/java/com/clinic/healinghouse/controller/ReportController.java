@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.RevenueReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportFilter;
 import com.clinic.healinghouse.entity.AppointmentStatus;
@@ -10,6 +11,7 @@ import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TherapistService;
 import com.clinic.healinghouse.service.TreatmentService;
 import com.clinic.healinghouse.util.CsvExportUtil;
+import com.clinic.healinghouse.util.PaginationUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -32,11 +34,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ReportController {
 
-    private static final int DEFAULT_RANGE_DAYS = 30;
-
     private final ReportService reportService;
     private final TherapistService therapistService;
     private final TreatmentService treatmentService;
+    private final HealingHouseProperties properties;
+    private final PaginationUtil paginationUtil;
+    private final CsvExportUtil csvExportUtil;
+    private final PdfExportUtil pdfExportUtil;
     private final ProductService productService;
     private final TagService tagService;
 
@@ -62,7 +66,7 @@ public class ReportController {
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                           Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Period Report");
@@ -78,7 +82,7 @@ public class ReportController {
                               @RequestParam(required = false) List<Long> therapistIds,
                               Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null ? therapistIds : List.of();
 
@@ -99,7 +103,7 @@ public class ReportController {
                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                             Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Patient Acquisition");
@@ -114,7 +118,7 @@ public class ReportController {
                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                                Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Product/Service Performance");
@@ -139,12 +143,14 @@ public class ReportController {
                            @RequestParam(defaultValue = "20") int size,
                            Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
-        RevenueReportDTO report = reportService.getRevenueReport(filter, PageRequest.of(page, size));
+        RevenueReportDTO report = reportService.getRevenueReport(filter, PageRequest.of(page, pageSize));
 
         model.addAttribute("pageTitle", "Actual Revenue");
         model.addAttribute("selectedDateFrom", from);
@@ -179,7 +185,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws IOException {
         LocalDate selectedDate = date != null ? date : LocalDate.now();
         var report = reportService.getDailyReport(selectedDate);
-        String csv = CsvExportUtil.generateDailyReportCsv(report);
+        String csv = csvExportUtil.generateDailyReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -193,7 +199,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws Exception {
         LocalDate selectedDate = date != null ? date : LocalDate.now();
         var report = reportService.getDailyReport(selectedDate);
-        byte[] pdf = PdfExportUtil.generateDailyReportPdf(report);
+        byte[] pdf = pdfExportUtil.generateDailyReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -207,11 +213,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPeriodReport(from, to);
-        String csv = CsvExportUtil.generatePeriodReportCsv(report);
+        String csv = csvExportUtil.generatePeriodReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -225,11 +231,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPeriodReport(from, to);
-        byte[] pdf = PdfExportUtil.generatePeriodReportPdf(report);
+        byte[] pdf = pdfExportUtil.generatePeriodReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -244,16 +250,16 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) List<Long> therapistIds) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
-        if (selectedIds.isEmpty()) {
+        if (selectedIds.size() < 2) {
             return ResponseEntity.badRequest().build();
         }
 
         var report = reportService.getTherapistComparison(selectedIds, from, to);
-        String csv = CsvExportUtil.generateComparisonReportCsv(report);
+        String csv = csvExportUtil.generateComparisonReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -268,16 +274,16 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) List<Long> therapistIds) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
-        if (selectedIds.isEmpty()) {
+        if (selectedIds.size() < 2) {
             return ResponseEntity.badRequest().build();
         }
 
         var report = reportService.getTherapistComparison(selectedIds, from, to);
-        byte[] pdf = PdfExportUtil.generateComparisonReportPdf(report);
+        byte[] pdf = pdfExportUtil.generateComparisonReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -291,11 +297,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPatientAcquisitionReport(from, to);
-        String csv = CsvExportUtil.generatePatientReportCsv(report);
+        String csv = csvExportUtil.generatePatientReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -309,11 +315,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPatientAcquisitionReport(from, to);
-        byte[] pdf = PdfExportUtil.generatePatientReportPdf(report);
+        byte[] pdf = pdfExportUtil.generatePatientReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -327,11 +333,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getProductPerformanceReport(from, to);
-        String csv = CsvExportUtil.generatePerformanceReportCsv(report);
+        String csv = csvExportUtil.generatePerformanceReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -345,11 +351,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getProductPerformanceReport(from, to);
-        byte[] pdf = PdfExportUtil.generatePerformanceReportPdf(report);
+        byte[] pdf = pdfExportUtil.generatePerformanceReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -371,13 +377,13 @@ public class ReportController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean discountedOnly) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
         var report = reportService.getRevenueReport(filter, Pageable.unpaged());
-        String csv = CsvExportUtil.generateRevenueReportCsv(report);
+        String csv = csvExportUtil.generateRevenueReportCsv(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -399,13 +405,13 @@ public class ReportController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean discountedOnly) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(DEFAULT_RANGE_DAYS - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
         var report = reportService.getRevenueReport(filter, Pageable.unpaged());
-        byte[] pdf = PdfExportUtil.generateRevenueReportPdf(report);
+        byte[] pdf = pdfExportUtil.generateRevenueReportPdf(report);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

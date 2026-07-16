@@ -2,6 +2,18 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <!-- Choices.js: searchable select dropdowns for the sell-package modal's item rows -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css"/>
+    <style>
+        .choices__inner { min-height: calc(1.5em + 0.75rem + 2px); padding: 0.375rem 0.75rem; border-radius: 0.375rem; }
+        .choices { margin-bottom: 0; }
+        .pkg-service-item-row .choices__inner, .pkg-product-item-row .choices__inner {
+            min-height: calc(1.5em + 0.5rem + 2px); padding: 0.25rem 0.5rem; font-size: .875rem;
+        }
+        .pkg-service-item-row .choices__list--dropdown .choices__item, .pkg-product-item-row .choices__list--dropdown .choices__item {
+            font-size: .875rem;
+        }
+    </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
@@ -287,10 +299,151 @@
     <th:block th:replace="~{fragments/wallet-modals :: topUpModal(${patient.id}, ${walletBalance}, '/patients/' + ${patient.id}, false)}"/>
     <th:block th:replace="~{fragments/wallet-modals :: refundModal(${patient.id}, ${walletBalance}, '/patients/' + ${patient.id})}"/>
 
+    <!-- ── Section B.6: Packages ─────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-collection me-1"></i>Packages</span>
+            <button type="button" class="btn btn-sm btn-hh" data-bs-toggle="modal" data-bs-target="#sellPackageModal">
+                <i class="bi bi-plus-lg me-1"></i>Sell Package
+            </button>
+        </div>
+        <div class="card-body">
+            <div th:if="${patientPackages.empty}" class="text-muted small text-center py-3">
+                <i class="bi bi-info-circle me-1"></i>No packages purchased yet.
+            </div>
+            <div th:each="pkg : ${patientPackages}" class="card border mb-2">
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <span class="fw-semibold" th:text="${pkg.name}"></span>
+                            <span class="badge ms-1"
+                                  th:classappend="${pkg.status.name() == 'ACTIVE'}    ? 'bg-success' :
+                                                  (${pkg.status.name() == 'COMPLETED'} ? 'bg-secondary' :
+                                                  (${pkg.status.name() == 'EXPIRED'}   ? 'bg-warning text-dark' :
+                                                                                        'bg-danger'))"
+                                  th:text="${pkg.status}">
+                            </span>
+                            <div class="small text-muted">
+                                <span th:text="'Purchased ' + ${#temporals.format(pkg.purchasedAt, 'dd MMM yyyy')}"></span>
+                                <span th:if="${pkg.expiryDate != null}"
+                                      th:text="' · Expires ' + ${#temporals.format(pkg.expiryDate, 'dd MMM yyyy')}">
+                                </span>
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-semibold" th:text="|₹ ${#numbers.formatDecimal(pkg.totalPrice, 1, 2)}|"></div>
+                            <button type="button" class="btn btn-sm btn-outline-warning mt-1"
+                                    th:if="${pkg.status.name() == 'ACTIVE' or pkg.status.name() == 'EXPIRED'}"
+                                    data-bs-toggle="modal" data-bs-target="#packageRefundModal"
+                                    th:attr="data-url=@{/patients/{id}/packages/{pkgId}/refund(id=${patient.id},pkgId=${pkg.id})},
+                                             data-name=${pkg.name},
+                                             data-refundable=${pkg.refundableValue}">
+                                <i class="bi bi-arrow-return-left me-1"></i>Refund
+                            </button>
+                        </div>
+                    </div>
+                    <table class="table table-sm table-borderless mb-0 mt-2 small">
+                        <tbody>
+                            <tr th:each="item : ${pkg.items}">
+                                <td class="ps-0" th:text="${item.name}"></td>
+                                <td class="text-end" style="width:160px"
+                                    th:text="${item.sessionsUsed} + ' / ' + ${item.sessionsTotal} + ' used'"></td>
+                                <td class="text-end fw-semibold" style="width:120px"
+                                    th:text="${item.sessionsRemaining} + ' remaining'"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div th:if="${patientPackages.totalPages > 1}"
+                 class="d-flex justify-content-between align-items-center mt-2">
+                <span class="text-muted small"
+                      th:text="'Page ' + (${patientPackages.number} + 1) + ' of ' + ${patientPackages.totalPages}"></span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!patientPackages.hasPrevious()} ? 'disabled'"
+                       th:href="@{/patients/{id}(id=${patient.id},packageListPage=${patientPackages.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!patientPackages.hasNext()} ? 'disabled'"
+                       th:href="@{/patients/{id}(id=${patient.id},packageListPage=${patientPackages.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="table-responsive mt-3">
+                <table class="table table-sm table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th class="text-end">Amount</th>
+                            <th>Method</th>
+                            <th>Appointment</th>
+                            <th>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${packageTransactions.empty}">
+                            <td colspan="6" class="text-center text-muted py-3">No package activity yet.</td>
+                        </tr>
+                        <tr th:each="tx : ${packageTransactions}">
+                            <td class="text-nowrap" th:text="${#temporals.format(tx.createdAt, 'dd MMM yyyy, HH:mm')}"></td>
+                            <td>
+                                <span class="badge"
+                                      th:classappend="${tx.type.name() == 'PURCHASE'}  ? 'bg-success' :
+                                                      (${tx.type.name() == 'USAGE'}    ? 'bg-secondary' :
+                                                      (${tx.type.name() == 'REVERSAL'} ? 'bg-info text-dark' :
+                                                                                        'bg-warning text-dark'))"
+                                      th:text="${tx.type}">
+                                </span>
+                            </td>
+                            <td class="text-end fw-semibold"
+                                th:classappend="${tx.type.name() == 'PURCHASE' or tx.type.name() == 'REVERSAL'} ? 'text-success' : 'text-danger'"
+                                th:text="|₹ ${#numbers.formatDecimal(tx.amount, 1, 2)}|">
+                            </td>
+                            <td th:text="${tx.paymentMethod ?: '—'}"></td>
+                            <td>
+                                <a th:if="${tx.appointment != null}"
+                                   th:href="@{/appointments/{id}(id=${tx.appointment.id})}"
+                                   th:text="'#' + ${tx.appointment.id}">
+                                </a>
+                                <span th:unless="${tx.appointment != null}">—</span>
+                            </td>
+                            <td class="small text-muted" th:text="${tx.note ?: '—'}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div th:if="${packageTransactions.totalPages > 1}" class="card-footer d-flex justify-content-between align-items-center">
+            <span class="text-muted small"
+                  th:text="'Page ' + (${packageTransactions.number} + 1) + ' of ' + ${packageTransactions.totalPages}">
+            </span>
+            <div class="btn-group btn-group-sm">
+                <a class="btn btn-outline-secondary"
+                   th:classappend="${!packageTransactions.hasPrevious()} ? 'disabled'"
+                   th:href="@{/patients/{id}(id=${patient.id},packagePage=${packageTransactions.number - 1})}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <a class="btn btn-outline-secondary"
+                   th:classappend="${!packageTransactions.hasNext()} ? 'disabled'"
+                   th:href="@{/patients/{id}(id=${patient.id},packagePage=${packageTransactions.number + 1})}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    <th:block th:replace="~{fragments/package-modals :: sellPackageModal(${patient.id})}"/>
+    <th:block th:replace="~{fragments/package-modals :: packageRefundModal(${patient.id})}"/>
+
     <!-- ── Section C: Appointment History ──────────────────────────────── -->
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="section-header mb-0">Appointment History</h5>
-        <a th:href="@{/appointments/new}" class="btn btn-hh btn-sm">
+        <a th:href="@{/appointments/new(patientId=${patient.id})}" class="btn btn-hh btn-sm">
             <i class="bi bi-plus-lg me-1"></i>New Appointment
         </a>
     </div>
@@ -452,5 +605,257 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+const ALL_SERVICES = /*[[${allActiveServices}]]*/ [];
+const ALL_PRODUCTS = /*[[${allActiveProducts}]]*/ [];
+const ACTIVE_TEMPLATES = /*[[${activePackageTemplates}]]*/ [];
+/*]]>*/
+</script>
+
+<script>
+const pkgServiceMap = {};
+ALL_SERVICES.forEach(s => { pkgServiceMap[s.id] = s; });
+const pkgProductMap = {};
+ALL_PRODUCTS.forEach(p => { pkgProductMap[p.id] = p; });
+const templateMap = {};
+ACTIVE_TEMPLATES.forEach(t => { templateMap[t.id] = t; });
+
+let pkgSiIdx = 0, pkgPiIdx = 0;
+// True once staff directly types into Total Price — stops it auto-tracking the item-row sum.
+let pkgTotalPriceManuallyEdited = false;
+
+function pkgFmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function pkgEscHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function pkgBuildOptions(data) {
+    return data.map(d => `<option value="${d.id}">${pkgEscHtml(d.name)}</option>`).join('');
+}
+function initPkgItemSelect(sel, placeholder) {
+    return new Choices(sel, {
+        searchEnabled: true,
+        shouldSort: false,
+        itemSelectText: '',
+        placeholderValue: placeholder,
+        searchPlaceholderValue: 'Search…',
+        searchResultLimit: 50,
+        fuseOptions: { threshold: 0.3 }
+    });
+}
+
+function addPkgServiceItemRow(preselectId, preselectSessions) {
+    const i = pkgSiIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center pkg-service-item-row';
+    row.innerHTML =
+        `<div class="col-5">
+            <select class="form-select form-select-sm pkg-si-select"
+                    name="serviceItems[${i}].itemId" onchange="updatePkgPreview()">
+                <option value="">— Service —</option>
+                ${pkgBuildOptions(ALL_SERVICES)}
+            </select>
+         </div>
+         <div class="col-2">
+            <input type="number" class="form-control form-control-sm pkg-si-sessions"
+                   name="serviceItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
+         </div>
+         <div class="col-2 text-end pkg-si-rate">₹0.00</div>
+         <div class="col-2 text-end fw-semibold pkg-si-total">₹0.00</div>
+         <div class="col-1 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removePkgRow(this,'pkg-service-item-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('pkgServiceItemsContainer').appendChild(row);
+    const sel = row.querySelector('.pkg-si-select');
+    const choicesInstance = initPkgItemSelect(sel, '— Service —');
+    if (preselectId) {
+        choicesInstance.setChoiceByValue(String(preselectId));
+        if (preselectSessions) row.querySelector('.pkg-si-sessions').value = preselectSessions;
+    }
+    togglePkgUI();
+    updatePkgPreview();
+}
+
+function addPkgProductItemRow(preselectId, preselectSessions) {
+    const i = pkgPiIdx++;
+    const row = document.createElement('div');
+    row.className = 'row g-2 mb-2 align-items-center pkg-product-item-row';
+    row.innerHTML =
+        `<div class="col-5">
+            <select class="form-select form-select-sm pkg-pi-select"
+                    name="productItems[${i}].itemId" onchange="updatePkgPreview()">
+                <option value="">— Product —</option>
+                ${pkgBuildOptions(ALL_PRODUCTS)}
+            </select>
+         </div>
+         <div class="col-2">
+            <input type="number" class="form-control form-control-sm pkg-pi-sessions"
+                   name="productItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
+         </div>
+         <div class="col-2 text-end pkg-pi-rate">₹0.00</div>
+         <div class="col-2 text-end fw-semibold pkg-pi-total">₹0.00</div>
+         <div class="col-1 text-center">
+            <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
+                    onclick="removePkgRow(this,'pkg-product-item-row')">
+                <i class="bi bi-x-lg"></i>
+            </button>
+         </div>`;
+    document.getElementById('pkgProductItemsContainer').appendChild(row);
+    const sel = row.querySelector('.pkg-pi-select');
+    const choicesInstance = initPkgItemSelect(sel, '— Product —');
+    if (preselectId) {
+        choicesInstance.setChoiceByValue(String(preselectId));
+        if (preselectSessions) row.querySelector('.pkg-pi-sessions').value = preselectSessions;
+    }
+    togglePkgUI();
+    updatePkgPreview();
+}
+
+function removePkgRow(btn, cls) {
+    btn.closest('.' + cls).remove();
+    togglePkgUI();
+    updatePkgPreview();
+}
+
+function togglePkgUI() {
+    const hasServices = document.querySelectorAll('.pkg-service-item-row').length > 0;
+    const hasProducts = document.querySelectorAll('.pkg-product-item-row').length > 0;
+    document.getElementById('pkgServiceItemsEmpty').classList.toggle('d-none', hasServices);
+    document.getElementById('pkgServiceItemsHeader').classList.toggle('d-none', !hasServices);
+    document.getElementById('pkgProductItemsEmpty').classList.toggle('d-none', hasProducts);
+    document.getElementById('pkgProductItemsHeader').classList.toggle('d-none', !hasProducts);
+}
+
+// Raw (undiscounted) sum of current rows — a typing convenience hint, not a resolved price;
+// PatientPackage.totalPrice is always whatever staff types (or a template's already-discounted
+// suggestedPrice), never recomputed/capped client-side the way Combo's discount preview is.
+function updatePkgPreview() {
+    let raw = 0;
+    document.querySelectorAll('.pkg-service-item-row').forEach(row => {
+        const s = pkgServiceMap[row.querySelector('.pkg-si-select').value];
+        const sessions = parseInt(row.querySelector('.pkg-si-sessions').value) || 0;
+        const rate = s ? s.price : 0;
+        const lineTotal = rate * sessions;
+        row.querySelector('.pkg-si-rate').textContent = pkgFmt(rate);
+        row.querySelector('.pkg-si-total').textContent = pkgFmt(lineTotal);
+        if (s) raw += lineTotal;
+    });
+    document.querySelectorAll('.pkg-product-item-row').forEach(row => {
+        const p = pkgProductMap[row.querySelector('.pkg-pi-select').value];
+        const sessions = parseInt(row.querySelector('.pkg-pi-sessions').value) || 0;
+        const rate = p ? p.price : 0;
+        const lineTotal = rate * sessions;
+        row.querySelector('.pkg-pi-rate').textContent = pkgFmt(rate);
+        row.querySelector('.pkg-pi-total').textContent = pkgFmt(lineTotal);
+        if (p) raw += lineTotal;
+    });
+    document.getElementById('pkgSuggestedPrice').textContent = pkgFmt(raw);
+    const totalPriceInput = document.getElementById('pkgTotalPriceInput');
+    if (!pkgTotalPriceManuallyEdited) {
+        totalPriceInput.value = raw.toFixed(2);
+    }
+}
+
+function applyPackageTemplate() {
+    const id = document.getElementById('pkgTemplateSelect').value;
+    document.getElementById('pkgSourceTemplateId').value = id;
+
+    document.querySelectorAll('.pkg-service-item-row').forEach(r => r.remove());
+    document.querySelectorAll('.pkg-product-item-row').forEach(r => r.remove());
+
+    if (!id) {
+        // "— Custom package —" is not a package, it's "no template selected" — clear
+        // whatever a previously-selected template populated instead of leaving it behind.
+        document.getElementById('pkgNameInput').value = '';
+        document.getElementById('pkgTotalPriceInput').value = '';
+        pkgTotalPriceManuallyEdited = false;
+        togglePkgUI();
+        updatePkgPreview();
+        return;
+    }
+    const t = templateMap[id];
+    if (!t) return;
+
+    document.getElementById('pkgNameInput').value = t.name;
+    t.serviceItems.forEach(item => addPkgServiceItemRow(item.itemId, item.sessionCount));
+    t.productItems.forEach(item => addPkgProductItemRow(item.itemId, item.sessionCount));
+    document.getElementById('pkgTotalPriceInput').value = Number(t.suggestedPrice).toFixed(2);
+    // Template price is already discount-resolved — treat it like a manual override so the
+    // updatePkgPreview() call below (which refreshes per-row rate/total displays) doesn't
+    // clobber it with the plain undiscounted row sum.
+    pkgTotalPriceManuallyEdited = true;
+    updatePkgPreview();
+}
+
+// Searchable "Start From Template" select — same Choices.js pattern as the service/product
+// item-row pickers, with each option's price appended so staff can compare at a glance.
+const pkgTemplateSelectEl = document.getElementById('pkgTemplateSelect');
+pkgTemplateSelectEl.innerHTML = '<option value="">— Custom package —</option>' +
+    ACTIVE_TEMPLATES.map(t => `<option value="${t.id}">${pkgEscHtml(t.name)} — ${pkgFmt(t.suggestedPrice)}</option>`).join('');
+const pkgTemplateChoices = initPkgItemSelect(pkgTemplateSelectEl, '— Custom package —');
+
+document.getElementById('sellPackageModal').addEventListener('show.bs.modal', function () {
+    pkgTemplateChoices.setChoiceByValue('');
+    document.getElementById('pkgSourceTemplateId').value = '';
+    pkgTotalPriceManuallyEdited = false;
+});
+
+document.getElementById('pkgTotalPriceInput').addEventListener('input', function () {
+    pkgTotalPriceManuallyEdited = true;
+});
+
+document.getElementById('sellPackageForm').addEventListener('submit', function (event) {
+    let si = 0;
+    document.querySelectorAll('.pkg-service-item-row').forEach(row => {
+        const sel = row.querySelector('.pkg-si-select');
+        const sessions = row.querySelector('.pkg-si-sessions');
+        if (sel.value) {
+            sel.name = `serviceItems[${si}].itemId`;
+            sessions.name = `serviceItems[${si}].sessionCount`;
+            si++;
+        } else {
+            sel.disabled = true;
+            sessions.disabled = true;
+        }
+    });
+    let pi = 0;
+    document.querySelectorAll('.pkg-product-item-row').forEach(row => {
+        const sel = row.querySelector('.pkg-pi-select');
+        const sessions = row.querySelector('.pkg-pi-sessions');
+        if (sel.value) {
+            sel.name = `productItems[${pi}].itemId`;
+            sessions.name = `productItems[${pi}].sessionCount`;
+            pi++;
+        } else {
+            sel.disabled = true;
+            sessions.disabled = true;
+        }
+    });
+    if (si === 0 && pi === 0) {
+        event.preventDefault();
+        alert('A package must have at least one service or product.');
+    }
+});
+
+// Reusable refund modal — the triggering button's data-url/data-name/data-refundable populate the
+// form on open, same pattern as combos/list.html's deactivate confirmation modal.
+document.getElementById('packageRefundModal').addEventListener('show.bs.modal', function (e) {
+    const btn = e.relatedTarget;
+    const refundable = parseFloat(btn.dataset.refundable) || 0;
+    document.getElementById('packageRefundForm').action = btn.dataset.url;
+    document.getElementById('packageRefundModalBody').textContent =
+        'Refund package "' + btn.dataset.name + '" — refundable value: ' + pkgFmt(refundable);
+    const amountInput = document.getElementById('packageRefundAmountInput');
+    amountInput.max = refundable;
+    amountInput.value = refundable.toFixed(2);
+});
+</script>
 </body>
 </html>

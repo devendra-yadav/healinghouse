@@ -19,6 +19,7 @@ export APP_MAX_JAVA_HEAP=1024M
 app_home="/home/healinghouse/apps/healinghouse"
 logs_dir="$app_home/logs"
 logback_config="$app_home/conf/logback-spring.xml";
+hh_external_properties="$app_home/conf/hh_external.yml";
 
 if [ "a$HEALING_HOUSE_DB_PASSWORD" == "a" ]; then
   echo "DB password : >>$HEALING_HOUSE_DB_PASSWORD<< is blank. Set env variable >>HEALING_HOUSE_DB_PASSWORD<< and then start again";
@@ -28,7 +29,7 @@ else
   pid=$(ps -elf|grep healinghouse.jar|grep -i java|grep -v grep |awk '{print $4}');
 
   if [ "a$pid" == "a" ]; then
-    nohup java -Xms$APP_INIT_JAVA_HEAP -Xmx$APP_MAX_JAVA_HEAP -DHEALING_HOUSE_DB_PASSWORD=$HEALING_HOUSE_DB_PASSWORD -Dlogs_dir=$logs_dir -Dlogging.config=$logback_config -jar $app_home/lib/healinghouse.jar --spring.profiles.active=$env&
+    nohup java -Xms$APP_INIT_JAVA_HEAP -Xmx$APP_MAX_JAVA_HEAP -DHEALING_HOUSE_DB_PASSWORD=$HEALING_HOUSE_DB_PASSWORD -Dhh_external_properties=$hh_external_properties -Dlogs_dir=$logs_dir -Dlogging.config=$logback_config -jar $app_home/lib/healinghouse.jar --spring.profiles.active=$env&
     PID=$!
     echo "Started healing house aplication with PID: $PID";
   else

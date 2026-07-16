@@ -33,6 +33,11 @@
 
     <form id="appointmentForm" th:action="${formAction}" method="post" novalidate>
         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+        <!-- Page-load payment/wallet snapshot, round-tripped so the server can detect a stale form
+             (someone else changed either value after this page loaded) instead of silently trusting a
+             client-computed target built on outdated data. -->
+        <input type="hidden" name="existingAmountPaidBaseline" th:if="${editMode}" th:value="${appointment.amountPaid}">
+        <input type="hidden" name="existingWalletAppliedBaseline" th:if="${editMode}" th:value="${appointment.walletAmountApplied}">
 
         <!-- ── Scheduling conflict warning ──────────────────────────────────── -->
         <div class="alert alert-warning" th:if="${conflicts != null and !conflicts.isEmpty()}">
@@ -188,6 +193,20 @@
             </div>
         </div>
 
+        <!-- ── Already Paid (prepaid package sessions) ───────────────────── -->
+        <div class="card shadow-sm mb-3">
+            <div class="card-header py-2 fw-semibold">
+                <i class="bi bi-collection me-1"></i>Already Paid
+                <span class="text-muted fw-normal small">(prepaid package sessions)</span>
+            </div>
+            <div class="card-body">
+                <div id="packageAvailabilityEmpty" class="text-muted small text-center py-2">
+                    <i class="bi bi-info-circle me-1"></i>Select a patient to see their remaining prepaid sessions.
+                </div>
+                <div id="packageAvailabilityList" class="d-flex flex-wrap gap-2"></div>
+            </div>
+        </div>
+
         <!-- ── Notes + Payment + Summary ─────────────────────────────────── -->
         <div class="row g-3 mb-3">
             <!-- Left: notes + payment -->
@@ -280,7 +299,7 @@
 
                                 <div class="form-text">
                                     Available balance: <span id="walletBalanceDisplay" class="fw-semibold">₹0.00</span>
-                                    <a href="#" id="walletTopUpLink" class="ms-1 disabled"
+                                    <a href="#" id="walletTopUpLink" class="ms-1 disabled" aria-disabled="true"
                                        data-bs-toggle="modal" data-bs-target="#topUpModal">Top Up</a>
                                     <button type="button" class="btn btn-link btn-sm p-0 ms-1"
                                             onclick="refreshWalletBalance()">Refresh</button>
@@ -311,6 +330,9 @@
                                        th:value="${form.discountValue != null ? form.discountValue : ''}"
                                        oninput="updateTotals()"
                                        disabled>
+                                <div id="discountPercentWarning" class="alert alert-warning py-1 px-2 mt-1 mb-0 small d-none">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i>Percentage discount cannot exceed 100% — this will be rejected when you save.
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -355,6 +377,10 @@
                                 <tr>
                                     <td class="ps-3 text-muted">Applied from Wallet</td>
                                     <td class="pe-3 text-end fw-semibold" id="summaryWalletApplied">₹0.00</td>
+                                </tr>
+                                <tr>
+                                    <td class="ps-3 text-muted">Applied from Package</td>
+                                    <td class="pe-3 text-end fw-semibold" id="summaryPackageApplied">₹0.00</td>
                                 </tr>
                                 <tr th:if="${editMode}">
                                     <td class="ps-3 text-muted">
@@ -429,6 +455,7 @@ let currentWalletBalance = /*[[${walletBalance != null ? walletBalance : 0}]]*/ 
 /*<![CDATA[*/
 const EXISTING_AMOUNT_PAID = /*[[${appointment.amountPaid != null ? appointment.amountPaid : 0}]]*/ 0;
 const EXISTING_WALLET_APPLIED = /*[[${appointment.walletAmountApplied != null ? appointment.walletAmountApplied : 0}]]*/ 0;
+const EXISTING_PACKAGE_APPLIED = /*[[${appointment.packageAmountApplied != null ? appointment.packageAmountApplied : 0}]]*/ 0;
 /*]]>*/
 </script>
 
@@ -452,6 +479,10 @@ PRODUCT_DATA.forEach(p => { productMap[p.id] = p; });
 
 // Monotonically increasing counters — ensures unique field names even after row deletion
 let sIdx = 0, pIdx = 0, comboIdx = 0;
+
+// Live sum of package-covered lines' raw values — recomputed by updateTotals() on every
+// change, mirroring currentWalletBalance's role as shared state for updateBalance().
+let currentPackageApplied = 0;
 
 // groupKey -> { comboId, comboName, discountType, discountValue } — populated by addComboGroup
 // (new picks) and by the edit-mode pre-population block below (existing combos on reload).
@@ -495,16 +526,30 @@ function initItemSelect(sel, placeholder) {
 // comboGroupKey is only passed for a combo's own lines — those render "locked" (static
 // item/qty text plus a hidden input carrying the real value) since combo composition can't
 // be edited per-line (§5.4); the per-line therapist select stays fully editable either way.
-function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
+// packageItemId marks a line as covered by a prepaid package session (Packages_Requirements_v1.md
+// §5.4) — its service/qty identity is locked the same way a combo line's is (both pin what the
+// row means), but unlike a combo line it's individually removable (no "group" concept for
+// packages), so it keeps the normal remove button instead of the combo's non-removable link badge.
+function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey, preselectPrice, packageItemId) {
     const i = sIdx++;
-    const locked = !!comboGroupKey;
+    const inCombo = !!comboGroupKey;
+    const inPackage = !!packageItemId;
+    const identityLocked = inCombo || inPackage;
     const row = document.createElement('div');
-    row.className = 'row g-2 mb-2 align-items-center service-row' + (locked ? ' combo-line-row' : '');
-    if (locked) row.dataset.comboGroup = comboGroupKey;
+    row.className = 'row g-2 mb-2 align-items-center service-row'
+        + (inCombo ? ' combo-line-row' : '') + (inPackage ? ' package-line-row' : '');
+    if (inCombo) row.dataset.comboGroup = comboGroupKey;
+    if (inPackage) row.dataset.packageItem = packageItemId;
+    // Live price fetched moments ago from GET /combos/{id}/detail — preferred over the page-load
+    // SERVICE_DATA snapshot (serviceMap) below, which can go stale if a catalog price changed after
+    // this page loaded. updateTotals() reads this same attribute for its running-total calculation.
+    if (identityLocked && preselectPrice != null) row.dataset.livePrice = preselectPrice;
 
-    const selectCell = locked
-        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((serviceMap[preselectId] || {}).name || '')}</div>
+    const packageBadge = inPackage ? ' <span class="badge bg-success-subtle text-success border">Package</span>' : '';
+    const selectCell = identityLocked
+        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((serviceMap[preselectId] || {}).name || '')}${packageBadge}</div>
            <input type="hidden" class="s-select" name="serviceLines[${i}].serviceId" value="${preselectId}">`
+          + (inPackage ? `<input type="hidden" class="s-package-item" name="serviceLines[${i}].packageItemId" value="${packageItemId}">` : '')
         : `<select class="form-select form-select-sm s-select"
                     name="serviceLines[${i}].serviceId" required
                     onchange="onServiceChange(this)">
@@ -512,21 +557,21 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
                 ${buildOptions(SERVICE_DATA, 'id', 'name')}
             </select>`;
 
-    const qtyCell = locked
+    const qtyCell = identityLocked
         ? `<div class="text-center small">${preselectQty || 1}</div>
            <input type="hidden" class="s-qty" name="serviceLines[${i}].quantity" value="${preselectQty || 1}">`
         : `<input type="number" class="form-control form-control-sm s-qty"
                    name="serviceLines[${i}].quantity"
                    value="1" min="1" oninput="updateTotals()">`;
 
-    const removeCell = locked
+    const removeCell = inCombo
         ? `<span class="badge bg-info text-dark" title="Part of a combo — use Remove Combo to change this"><i class="bi bi-link-45deg"></i></span>`
         : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'service-row')">
                 <i class="bi bi-x-lg"></i>
             </button>`;
 
-    const groupKeyInput = locked
+    const groupKeyInput = inCombo
         ? `<input type="hidden" class="combo-group-key" name="serviceLines[${i}].comboGroupKey" value="${comboGroupKey}">`
         : '';
 
@@ -547,9 +592,9 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
          ${groupKeyInput}`;
     document.getElementById('servicesContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
-    if (locked) {
-        const s = serviceMap[preselectId];
-        row.querySelector('.s-rate').textContent = s ? fmt(s.price) + ' ea.' : '—';
+    if (identityLocked) {
+        const price = preselectPrice != null ? preselectPrice : (serviceMap[preselectId] || {}).price;
+        row.querySelector('.s-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
     } else {
         const sel = row.querySelector('.s-select');
         const choicesInstance = initItemSelect(sel, '— Service —');
@@ -571,16 +616,27 @@ function onServiceChange(sel) {
 }
 
 // ── Product rows ──────────────────────────────────────────────────────────
-function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey) {
+// See addServiceRow's matching comment re: packageItemId — same locked-identity-but-
+// individually-removable treatment as a package-covered service row.
+function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGroupKey, preselectPrice, packageItemId) {
     const i = pIdx++;
-    const locked = !!comboGroupKey;
+    const inCombo = !!comboGroupKey;
+    const inPackage = !!packageItemId;
+    const identityLocked = inCombo || inPackage;
     const row = document.createElement('div');
-    row.className = 'row g-2 mb-2 align-items-center product-row' + (locked ? ' combo-line-row' : '');
-    if (locked) row.dataset.comboGroup = comboGroupKey;
+    row.className = 'row g-2 mb-2 align-items-center product-row'
+        + (inCombo ? ' combo-line-row' : '') + (inPackage ? ' package-line-row' : '');
+    if (inCombo) row.dataset.comboGroup = comboGroupKey;
+    if (inPackage) row.dataset.packageItem = packageItemId;
+    // See addServiceRow's matching comment — live price from GET /combos/{id}/detail, preferred
+    // over the stale page-load PRODUCT_DATA snapshot (productMap).
+    if (identityLocked && preselectPrice != null) row.dataset.livePrice = preselectPrice;
 
-    const selectCell = locked
-        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((productMap[preselectId] || {}).name || '')}</div>
+    const packageBadge = inPackage ? ' <span class="badge bg-success-subtle text-success border">Package</span>' : '';
+    const selectCell = identityLocked
+        ? `<div class="form-control form-control-sm bg-light border-0 fw-semibold py-1">${escHtml((productMap[preselectId] || {}).name || '')}${packageBadge}</div>
            <input type="hidden" class="p-select" name="productLines[${i}].productId" value="${preselectId}">`
+          + (inPackage ? `<input type="hidden" class="p-package-item" name="productLines[${i}].packageItemId" value="${packageItemId}">` : '')
         : `<select class="form-select form-select-sm p-select"
                     name="productLines[${i}].productId"
                     onchange="onProductChange(this)">
@@ -588,21 +644,21 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
                 ${buildOptions(PRODUCT_DATA, 'id', 'name')}
             </select>`;
 
-    const qtyCell = locked
+    const qtyCell = identityLocked
         ? `<div class="text-center small">${preselectQty || 1}</div>
            <input type="hidden" class="p-qty" name="productLines[${i}].quantity" value="${preselectQty || 1}">`
         : `<input type="number" class="form-control form-control-sm p-qty"
                    name="productLines[${i}].quantity"
                    value="1" min="1" oninput="onProductQty(this)">`;
 
-    const removeCell = locked
+    const removeCell = inCombo
         ? `<span class="badge bg-info text-dark" title="Part of a combo — use Remove Combo to change this"><i class="bi bi-link-45deg"></i></span>`
         : `<button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'product-row')">
                 <i class="bi bi-x-lg"></i>
             </button>`;
 
-    const groupKeyInput = locked
+    const groupKeyInput = inCombo
         ? `<input type="hidden" class="combo-group-key" name="productLines[${i}].comboGroupKey" value="${comboGroupKey}">`
         : '';
 
@@ -626,15 +682,16 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
          ${groupKeyInput}`;
     document.getElementById('productsContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
-    if (locked) {
+    if (identityLocked) {
         const p = productMap[preselectId];
         const badge = row.querySelector('.p-stock');
+        const price = preselectPrice != null ? preselectPrice : (p || {}).price;
         if (p) {
             badge.textContent = 'Stock: ' + p.stock;
             badge.className   = 'p-stock badge ' +
                 (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
-            row.querySelector('.p-rate').textContent = fmt(p.price) + ' ea.';
         }
+        row.querySelector('.p-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
     } else {
         const sel = row.querySelector('.p-select');
         const choicesInstance = initItemSelect(sel, '— Product —');
@@ -679,11 +736,11 @@ function addComboGroup(comboDetail, preassignedGroupKey) {
     };
     if (comboDetail.serviceItems && comboDetail.serviceItems.length > 0) {
         insertComboHeaderIfMissing(document.getElementById('servicesContainer'), groupKey, comboDetail.name);
-        comboDetail.serviceItems.forEach(item => addServiceRow(item.itemId, item.quantity, null, groupKey));
+        comboDetail.serviceItems.forEach(item => addServiceRow(item.itemId, item.quantity, null, groupKey, item.price));
     }
     if (comboDetail.productItems && comboDetail.productItems.length > 0) {
         insertComboHeaderIfMissing(document.getElementById('productsContainer'), groupKey, comboDetail.name);
-        comboDetail.productItems.forEach(item => addProductRow(item.itemId, item.quantity, null, groupKey));
+        comboDetail.productItems.forEach(item => addProductRow(item.itemId, item.quantity, null, groupKey, item.price));
     }
     updateTotals();
     return groupKey;
@@ -765,30 +822,49 @@ function removeRow(btn, cls) {
 // discount resolves against that group's own raw subtotal first (phase 1), then the
 // whole-appointment discount layers on top of the resulting effective subtotal (phase 2) —
 // so what staff see here matches what gets saved.
+// Rounds to 2 decimals immediately, mirroring the server's RoundingMode.HALF_UP at each discount
+// phase boundary (AppointmentService.applyComboDiscount/applyDiscount) — without this, carrying raw
+// floats through both phases can make the preview's Grand Total differ from the saved total by ±₹0.01
+// in fractional-percentage/combo cases (Bug_Report_v3 #14).
+function round2(n) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+
 function updateTotals() {
     const groupRaw = {}; // groupKey -> raw subtotal across its service+product rows
 
     let sTotal = 0;
+    let packageTotal = 0;
     document.querySelectorAll('.service-row').forEach(row => {
         const sId = row.querySelector('.s-select').value;
         const qty = parseInt(row.querySelector('.s-qty').value) || 0;
-        const line = (sId && serviceMap[sId]) ? serviceMap[sId].price * qty : 0;
+        // Combo rows carry the live price fetched at add-time (see addServiceRow); everything
+        // else falls back to the page-load SERVICE_DATA snapshot.
+        const price = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice)
+                : (sId && serviceMap[sId]) ? serviceMap[sId].price : null;
+        const line = (sId && price != null) ? price * qty : 0;
         row.querySelector('.s-subtotal').textContent = fmt(line);
         sTotal += line;
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
+        if (row.dataset.packageItem) packageTotal += line;
     });
 
     let pTotal = 0;
     document.querySelectorAll('.product-row').forEach(row => {
         const pId = row.querySelector('.p-select').value;
         const qty = parseInt(row.querySelector('.p-qty').value) || 0;
-        const line = (pId && productMap[pId]) ? productMap[pId].price * qty : 0;
+        // See the service-row loop above — combo rows prefer their live add-time price.
+        const price = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice)
+                : (pId && productMap[pId]) ? productMap[pId].price : null;
+        const line = (pId && price != null) ? price * qty : 0;
         row.querySelector('.p-subtotal').textContent = fmt(line);
         pTotal += line;
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
+        if (row.dataset.packageItem) packageTotal += line;
     });
+    currentPackageApplied = round2(packageTotal);
 
     const groupedRawTotal = Object.values(groupRaw).reduce((a, b) => a + b, 0);
     const standaloneRaw = (sTotal + pTotal) - groupedRawTotal;
@@ -803,9 +879,11 @@ function updateTotals() {
             if (group.discountType === 'PERCENTAGE') discount = raw * Math.min(group.discountValue, 100) / 100;
             else if (group.discountType === 'FLAT') discount = Math.min(group.discountValue, raw);
         }
+        discount = round2(discount);
         totalComboDiscount += discount;
         effectiveSubtotal += (raw - discount);
     });
+    effectiveSubtotal = round2(effectiveSubtotal);
 
     const discountType = document.getElementById('discountTypeSelect').value;
     const discountRaw  = parseFloat(document.getElementById('discountValueInput').value) || 0;
@@ -815,7 +893,12 @@ function updateTotals() {
     } else if (discountType === 'FLAT') {
         discountAmount = Math.min(discountRaw, effectiveSubtotal);
     }
-    const netGrand = effectiveSubtotal - discountAmount;
+    discountAmount = round2(discountAmount);
+    const netGrand = round2(effectiveSubtotal - discountAmount);
+    // The clamp above only keeps this live preview sane — the server hard-rejects a >100% value
+    // outright (AppointmentService.applyDiscount), so surface that here too rather than silently
+    // capping the preview with no explanation (Bug_Report_v2 #10).
+    toggle('discountPercentWarning', discountType === 'PERCENTAGE' && discountRaw > 100);
 
     set('displayServiceTotal',  fmt(sTotal));
     set('displayProductTotal',  fmt(pTotal));
@@ -826,6 +909,7 @@ function updateTotals() {
     toggle('summaryDiscountRow', discountAmount > 0.001);
     set('summaryDiscountAmount', '- ' + fmt(discountAmount));
     set('summaryGrandTotal',    fmt(netGrand));
+    set('summaryPackageApplied', fmt(currentPackageApplied));
     updateBalance();
 }
 
@@ -866,23 +950,25 @@ function computeWalletApplied() {
 
 // "Amount Prepaid" = everything already committed to this appointment excluding the new
 // cash payment being entered right now — previous cash plus the (possibly just-updated)
-// wallet contribution. Shared by updateBalance() and the submit handler so both agree.
-function computePrepaid(walletApplied) {
+// wallet contribution plus whatever's currently package-covered. Shared by updateBalance()
+// and the submit handler so both agree.
+function computePrepaid(walletApplied, packageApplied) {
     const prepaidInput = document.getElementById('prepaidCorrectionInput');
     const usingPrepaidCorrection = prepaidInput && !prepaidInput.classList.contains('d-none');
     if (usingPrepaidCorrection) {
         return parseFloat(prepaidInput.value) || 0;
     }
     const existingCashOnly = (typeof EXISTING_AMOUNT_PAID !== 'undefined' ? EXISTING_AMOUNT_PAID : 0)
-                            - (typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0);
-    return existingCashOnly + walletApplied;
+                            - (typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0)
+                            - (typeof EXISTING_PACKAGE_APPLIED !== 'undefined' ? EXISTING_PACKAGE_APPLIED : 0);
+    return existingCashOnly + walletApplied + (packageApplied || 0);
 }
 
 function updateBalance() {
     const grand   = parseRaw('summaryGrandTotal');
     const paidNow = parseFloat(document.getElementById('amountPaidInput').value) || 0;
     const walletApplied = computeWalletApplied();
-    const prepaid = computePrepaid(walletApplied);
+    const prepaid = computePrepaid(walletApplied, currentPackageApplied);
 
     const prepaidDisplay = document.getElementById('prepaidDisplay');
     if (prepaidDisplay) prepaidDisplay.textContent = fmt(prepaid);
@@ -986,6 +1072,8 @@ function toggleWalletAppliedEdit() {
     const input   = document.getElementById('walletAppliedInput');
     const btn     = document.getElementById('editWalletAppliedBtn');
     const additionalInput = document.getElementById('walletAdditionalInput');
+    const prepaidInput = document.getElementById('prepaidCorrectionInput');
+    const editPrepaidBtn = document.getElementById('editPrepaidBtn');
     const editing = !input.classList.contains('d-none');
     if (editing) {
         input.value = typeof EXISTING_WALLET_APPLIED !== 'undefined' ? EXISTING_WALLET_APPLIED : 0;
@@ -993,13 +1081,17 @@ function toggleWalletAppliedEdit() {
         display.classList.remove('d-none');
         btn.innerHTML = '<i class="bi bi-pencil-square"></i>';
         if (additionalInput) { additionalInput.disabled = false; additionalInput.value = 0; }
+        if (editPrepaidBtn) editPrepaidBtn.disabled = false;
     } else {
         display.classList.add('d-none');
         input.classList.remove('d-none');
         input.focus();
         btn.innerHTML = '<i class="bi bi-x-lg"></i>';
-        // Mutual exclusion: directly correcting the total overrides the additive box.
+        // Mutual exclusion: directly correcting the total overrides the additive box, and (the
+        // other direction of the same rule togglePrepaidEdit already enforces) blocks the prepaid
+        // pencil too, so a submit can't silently drop whichever correction was entered second.
         if (additionalInput) additionalInput.disabled = true;
+        if (editPrepaidBtn) editPrepaidBtn.disabled = true;
     }
     updateBalance();
 }
@@ -1035,11 +1127,13 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
         const qty  = row.querySelector('.s-qty');
         const ther = row.querySelector('.line-therapist-select');
         const gk   = row.querySelector('.combo-group-key');
+        const pkg  = row.querySelector('.s-package-item');
         if (sel.value) {
             sel.name  = `serviceLines[${si}].serviceId`;
             qty.name  = `serviceLines[${si}].quantity`;
             ther.name = `serviceLines[${si}].therapistId`;
             if (gk) gk.name = `serviceLines[${si}].comboGroupKey`;
+            if (pkg) pkg.name = `serviceLines[${si}].packageItemId`;
             si++;
         } else {
             sel.disabled  = true;
@@ -1054,11 +1148,13 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
         const qty  = row.querySelector('.p-qty');
         const ther = row.querySelector('.line-therapist-select');
         const gk   = row.querySelector('.combo-group-key');
+        const pkg  = row.querySelector('.p-package-item');
         if (sel.value) {
             sel.name  = `productLines[${pi}].productId`;
             qty.name  = `productLines[${pi}].quantity`;
             ther.name = `productLines[${pi}].therapistId`;
             if (gk) gk.name = `productLines[${pi}].comboGroupKey`;
+            if (pkg) pkg.name = `productLines[${pi}].packageItemId`;
             pi++;
         } else {
             sel.disabled  = true;
@@ -1095,7 +1191,7 @@ document.getElementById('appointmentForm').addEventListener('submit', function(e
     const grand         = parseRaw('summaryGrandTotal');
     const paidNow        = parseFloat(document.getElementById('amountPaidInput').value) || 0;
     const walletApplied  = computeWalletApplied();
-    const prepaid        = computePrepaid(walletApplied);
+    const prepaid        = computePrepaid(walletApplied, currentPackageApplied);
 
     if (checkWalletIssues(walletApplied, grand, prepaid)) {
         e.preventDefault();
@@ -1159,7 +1255,14 @@ document.addEventListener('DOMContentLoaded', function () {
     // Balance display: server-rendered already in edit mode (currentWalletBalance init'd
     // from ${walletBalance}); in create mode it's fetched here once a patient is picked.
     renderWalletBalance(currentWalletBalance);
-    document.getElementById('walletTopUpLink').classList.toggle('disabled', !document.getElementById('patientSelect').value);
+    const walletTopUpLink = document.getElementById('walletTopUpLink');
+    walletTopUpLink.classList.toggle('disabled', !document.getElementById('patientSelect').value);
+    walletTopUpLink.setAttribute('aria-disabled', !document.getElementById('patientSelect').value);
+    // CSS .disabled only blocks pointer clicks — guard the modal trigger itself too, so a
+    // keyboard user tabbing in and pressing Enter can't still open it against no patient.
+    walletTopUpLink.addEventListener('click', function (e) {
+        if (this.classList.contains('disabled')) e.preventDefault();
+    });
     updateTopUpFormAction(document.getElementById('patientSelect').value);
     document.getElementById('patientSelect').addEventListener('change', function () {
         const pid = this.value;
@@ -1167,7 +1270,9 @@ document.addEventListener('DOMContentLoaded', function () {
         const hiddenPid = document.getElementById('topUpModalPatientId');
         if (hiddenPid) hiddenPid.value = pid || '';
         topUpLink.classList.toggle('disabled', !pid);
+        topUpLink.setAttribute('aria-disabled', !pid);
         updateTopUpFormAction(pid);
+        fetchPackageAvailability(pid);
         if (!pid) {
             currentWalletBalance = 0;
             renderWalletBalance(0);
@@ -1182,7 +1287,73 @@ document.addEventListener('DOMContentLoaded', function () {
                 updateBalance();
             });
     });
+    // Edit mode (or a conflict re-render) already has a patient selected at load time —
+    // fetch its pooled availability now rather than waiting for a change event that won't fire.
+    fetchPackageAvailability(document.getElementById('patientSelect').value);
 });
+
+// ── "Already Paid" pooled package availability ─────────────────────────────
+let packageAvailability = [];
+
+function fetchPackageAvailability(patientId) {
+    const listEl = document.getElementById('packageAvailabilityList');
+    const emptyEl = document.getElementById('packageAvailabilityEmpty');
+    if (!patientId) {
+        listEl.innerHTML = '';
+        emptyEl.textContent = 'Select a patient to see their remaining prepaid sessions.';
+        emptyEl.classList.remove('d-none');
+        packageAvailability = [];
+        return;
+    }
+    fetch('/patients/' + patientId + '/packages/available')
+        .then(r => r.ok ? r.json() : [])
+        .then(data => {
+            packageAvailability = data;
+            renderPackageAvailability();
+        })
+        .catch(() => { packageAvailability = []; renderPackageAvailability(); });
+}
+
+function renderPackageAvailability() {
+    const listEl = document.getElementById('packageAvailabilityList');
+    const emptyEl = document.getElementById('packageAvailabilityEmpty');
+    listEl.innerHTML = '';
+    const available = packageAvailability.filter(a => a.sessionsRemaining > 0);
+    if (available.length === 0) {
+        emptyEl.textContent = 'No prepaid package sessions available for this patient.';
+        emptyEl.classList.remove('d-none');
+        return;
+    }
+    emptyEl.classList.add('d-none');
+    available.forEach(item => {
+        const chip = document.createElement('div');
+        chip.className = 'border rounded px-2 py-1 d-flex align-items-center gap-2 small';
+        chip.innerHTML = `<span>${escHtml(item.name)}
+                <span class="badge bg-success-subtle text-success border">${item.sessionsRemaining} left</span></span>
+                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2">Add</button>`;
+        chip.querySelector('button').addEventListener('click', function () { addPackageLine(item); });
+        listEl.appendChild(chip);
+    });
+}
+
+// Clicking "Add" reuses the existing addServiceRow/addProductRow row-builders — a package
+// line renders like a combo line (locked service/qty identity) but stays individually
+// removable, per requirements §5.4/§7.3. nextItemId (resolved server-side by
+// PackageService.getPooledAvailability, FIFO-picked) becomes the packageItemId the server
+// re-validates and consumes from at save time — never trusted blindly (§5.3).
+function addPackageLine(item) {
+    if (item.serviceId) {
+        const s = serviceMap[item.serviceId];
+        addServiceRow(item.serviceId, 1, null, null, s ? s.price : null, item.nextItemId);
+    } else if (item.productId) {
+        const p = productMap[item.productId];
+        addProductRow(item.productId, 1, null, null, p ? p.price : null, item.nextItemId);
+    }
+    // Optimistic local decrement so the chip's count/Add-button reflect this click immediately —
+    // the server re-validates and re-resolves fresh at save time regardless (§5.3).
+    item.sessionsRemaining -= 1;
+    renderPackageAvailability();
+}
 
 function refreshWalletBalance() {
     document.getElementById('patientSelect').dispatchEvent(new Event('change'));
@@ -1207,7 +1378,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 insertComboHeaderIfMissing(document.getElementById('servicesContainer'),
                         sl.comboGroupKey, comboGroups[sl.comboGroupKey].comboName);
             }
-            addServiceRow(sl.serviceId, sl.quantity, sl.therapistId, sl.comboGroupKey);
+            addServiceRow(sl.serviceId, sl.quantity, sl.therapistId, sl.comboGroupKey, null, sl.packageItemId);
         });
     }
     if (typeof EDIT_PRODUCT_LINES !== 'undefined') {
@@ -1216,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 insertComboHeaderIfMissing(document.getElementById('productsContainer'),
                         pl.comboGroupKey, comboGroups[pl.comboGroupKey].comboName);
             }
-            addProductRow(pl.productId, pl.quantity, pl.therapistId, pl.comboGroupKey);
+            addProductRow(pl.productId, pl.quantity, pl.therapistId, pl.comboGroupKey, null, pl.packageItemId);
         });
     }
     // Sync the discount value input's enabled/disabled state with the pre-selected
@@ -1227,17 +1398,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Combo picker modal: search + add ────────────────────────────────────────
 let comboSearchDebounce = null;
+let comboPickerQuery = '';
+let comboPickerPage = 0;
 
-function renderComboResults(results) {
+function renderComboResults(data) {
     const container = document.getElementById('comboPickerResults');
     const empty = document.getElementById('comboPickerEmpty');
+    const pager = document.getElementById('comboPickerPager');
+    const results = data.combos || [];
     if (!results.length) {
         container.innerHTML = '';
         empty.classList.remove('d-none');
-        empty.textContent = 'No matching active combos.';
+        empty.textContent = comboPickerQuery ? 'No matching active combos.' : 'No active combos.';
+        pager.classList.add('d-none');
         return;
     }
     empty.classList.add('d-none');
+    if (data.totalPages > 1) {
+        pager.classList.remove('d-none');
+        document.getElementById('comboPickerPageLabel').textContent = 'Page ' + (data.page + 1) + ' of ' + data.totalPages;
+        document.getElementById('comboPickerPrevBtn').disabled = !data.hasPrevious;
+        document.getElementById('comboPickerNextBtn').disabled = !data.hasNext;
+    } else {
+        pager.classList.add('d-none');
+    }
     container.innerHTML = results.map(c => {
         const savingsBadge = c.savings > 0 ? `<span class="badge bg-success ms-2">Save ${fmt(c.savings)}</span>` : '';
         return `<div class="list-group-item d-flex justify-content-between align-items-center">
@@ -1260,8 +1444,16 @@ function renderComboResults(results) {
 function pickCombo(comboId, btn) {
     btn.disabled = true;
     fetch('/combos/' + comboId + '/detail')
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) {
+                alert('This combo is no longer available. Please refresh and try again.');
+                btn.disabled = false;
+                return null;
+            }
+            return r.json();
+        })
         .then(detail => {
+            if (!detail) return;
             addComboGroup(detail);
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Added';
             btn.classList.remove('btn-hh');
@@ -1270,25 +1462,32 @@ function pickCombo(comboId, btn) {
         .catch(() => { btn.disabled = false; });
 }
 
+function fetchComboResults(q, page) {
+    comboPickerQuery = q;
+    comboPickerPage = page;
+    fetch('/combos/search?q=' + encodeURIComponent(q) + '&page=' + page)
+        .then(r => r.json())
+        .then(renderComboResults)
+        .catch(() => renderComboResults({combos: []}));
+}
+
+function changeComboPage(delta) {
+    fetchComboResults(comboPickerQuery, comboPickerPage + delta);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('comboPickerSearchInput');
-    if (!input) return;
+    const modal = document.getElementById('comboPickerModal');
+    if (!input || !modal) return;
     input.addEventListener('input', function () {
         const q = this.value.trim();
         clearTimeout(comboSearchDebounce);
-        const empty = document.getElementById('comboPickerEmpty');
-        if (!q) {
-            document.getElementById('comboPickerResults').innerHTML = '';
-            empty.classList.remove('d-none');
-            empty.textContent = 'Type to search active combos.';
-            return;
-        }
-        comboSearchDebounce = setTimeout(() => {
-            fetch('/combos/search?q=' + encodeURIComponent(q))
-                .then(r => r.json())
-                .then(renderComboResults)
-                .catch(() => renderComboResults([]));
-        }, 250);
+        comboSearchDebounce = setTimeout(() => fetchComboResults(q, 0), 250);
+    });
+    // Browse the full active combo list on open, same as clearing the search box back to empty.
+    modal.addEventListener('show.bs.modal', function () {
+        input.value = '';
+        fetchComboResults('', 0);
     });
 });
 </script>

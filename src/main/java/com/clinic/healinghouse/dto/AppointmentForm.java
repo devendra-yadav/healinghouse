@@ -48,6 +48,15 @@ public class AppointmentForm {
      */
     private BigDecimal walletAmountApplied;
 
+    /**
+     * Page-load snapshot of the appointment's amountPaid/walletAmountApplied, round-tripped as hidden
+     * fields so AppointmentService.updateAppointment can detect a stale form (another staff member
+     * changed either value after this page loaded, before this submit) and reject rather than silently
+     * computing a delta/target against data that's no longer current. Null on create (nothing to check).
+     */
+    private BigDecimal existingAmountPaidBaseline;
+    private BigDecimal existingWalletAppliedBaseline;
+
     private List<ServiceLineForm> serviceLines = new ArrayList<>();
     private List<ProductLineForm> productLines  = new ArrayList<>();
 
@@ -72,6 +81,8 @@ public class AppointmentForm {
         f.setDiscountType(appt.getDiscountType() != null ? appt.getDiscountType().name() : "NONE");
         f.setDiscountValue(appt.getDiscountValue());
         f.setWalletAmountApplied(appt.getWalletAmountApplied());
+        f.setExistingAmountPaidBaseline(appt.getAmountPaid());
+        f.setExistingWalletAppliedBaseline(appt.getWalletAmountApplied());
         // newPaymentAmount defaults to 0 (nothing entered yet); prepaidCorrection stays null (no correction).
 
         // groupKey only needs to be stable for this one page load/regroup — every save re-derives
@@ -95,6 +106,9 @@ public class AppointmentForm {
             if (sl.getAppointmentCombo() != null) {
                 s.setComboGroupKey(groupKeyByComboId.get(sl.getAppointmentCombo().getId()));
             }
+            if (sl.getPackageServiceItem() != null) {
+                s.setPackageItemId(sl.getPackageServiceItem().getId());
+            }
             f.getServiceLines().add(s);
         });
         appt.getProductLines().forEach(pl -> {
@@ -104,6 +118,9 @@ public class AppointmentForm {
             p.setTherapistId(pl.getTherapist().getId());
             if (pl.getAppointmentCombo() != null) {
                 p.setComboGroupKey(groupKeyByComboId.get(pl.getAppointmentCombo().getId()));
+            }
+            if (pl.getPackageProductItem() != null) {
+                p.setPackageItemId(pl.getPackageProductItem().getId());
             }
             f.getProductLines().add(p);
         });
@@ -118,6 +135,12 @@ public class AppointmentForm {
         private Long therapistId;
         /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
         private String comboGroupKey;
+        /**
+         * Null for a normally-paid line; the specific PatientPackageServiceItem id this line draws
+         * a session from, resolved by PackageService.getPooledAvailability and re-validated
+         * server-side at save time (never trusted blindly) — see AppointmentService.
+         */
+        private Long packageItemId;
     }
 
     @Data
@@ -128,6 +151,8 @@ public class AppointmentForm {
         private Long therapistId;
         /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
         private String comboGroupKey;
+        /** Product-item mirror of ServiceLineForm.packageItemId. */
+        private Long packageItemId;
     }
 
     @Data

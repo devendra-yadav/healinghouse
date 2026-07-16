@@ -13,9 +13,16 @@
     <!-- Heading + New button -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Patients</h4>
-        <a th:href="@{/patients/new}" class="btn btn-hh btn-sm">
-            <i class="bi bi-person-plus me-1"></i>New Patient
-        </a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/patients(q=${q},showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+            </a>
+            <a th:href="@{/patients/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-person-plus me-1"></i>New Patient
+            </a>
+        </div>
     </div>
 
     <!-- Search -->
@@ -61,7 +68,10 @@
                         </tr>
                         <tr th:each="p, stat : ${patients}">
                             <td class="text-muted" th:text="${stat.count}"></td>
-                            <td class="fw-semibold" th:text="${p.fullName}"></td>
+                            <td class="fw-semibold">
+                                <span th:text="${p.fullName}"></span>
+                                <span th:if="${!p.active}" class="badge bg-secondary ms-1">Inactive</span>
+                            </td>
                             <td th:text="${p.phone ?: '—'}"></td>
                             <td th:text="${p.age != null ? p.age + ' yrs' : '—'}"></td>
                             <td th:text="${p.gender != null ? #strings.capitalize(#strings.toLowerCase(p.gender.name())) : '—'}"></td>
@@ -75,7 +85,13 @@
                                    class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                <form th:if="${!p.active}" th:action="@{/patients/{id}/activate(id=${p.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button th:if="${p.active}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${p.fullName}, data-url=@{/patients/{id}/delete(id=${p.id})}">
                                     <i class="bi bi-person-dash"></i>
@@ -92,7 +108,7 @@
                 <select class="form-select form-select-sm" style="width:auto;"
                         onchange="location.href=this.value">
                     <option th:each="s : ${ {10,20,50,100} }"
-                            th:value="@{/patients(q=${q},size=${s},page=0)}"
+                            th:value="@{/patients(q=${q},size=${s},page=0,showInactive=${showInactive})}"
                             th:selected="${s == patients.size}"
                             th:text="${s} + ' / page'">
                     </option>
@@ -103,12 +119,12 @@
                 <div th:if="${patients.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!patients.hasPrevious()} ? 'disabled'"
-                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number - 1})}">
+                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number - 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!patients.hasNext()} ? 'disabled'"
-                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number + 1})}">
+                       th:href="@{/patients(q=${q},size=${patients.size},page=${patients.number + 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>

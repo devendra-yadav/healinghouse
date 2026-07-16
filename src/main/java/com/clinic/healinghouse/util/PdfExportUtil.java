@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.util;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
 import com.itextpdf.io.font.FontProgram;
 import com.itextpdf.io.font.FontProgramFactory;
@@ -33,6 +34,8 @@ import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -44,11 +47,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Component
+@RequiredArgsConstructor
 public class PdfExportUtil {
 
-    private static final DateTimeFormatter DISPLAY_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy");
-    private static final DateTimeFormatter GENERATED_FORMATTER = DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a");
-    private static final DateTimeFormatter ROW_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("dd MMM, hh:mm a");
+    private final HealingHouseProperties properties;
+
     private static final DecimalFormat CURRENCY_FORMAT = new DecimalFormat("#,##0.00");
 
     private static final Color BRAND_PRIMARY = new DeviceRgb(0xAE, 0x2E, 0x2B);
@@ -115,137 +119,155 @@ public class PdfExportUtil {
         }
     }
 
-    public static byte[] generateDailyReportPdf(DailyReportDTO report) throws Exception {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
-        Document document = newDocument(pdfDoc, true);
-
-        addLetterhead(document, "Daily Report", "For " + report.date().format(DISPLAY_DATE_FORMATTER));
-        addPeriodSummaryTable(document, report.summary());
-        addSectionTitle(document, "Therapist Earnings");
-        addTherapistEarningsTable(document, report.therapistEarnings());
-
-        finish(document, pdfDoc);
-        return baos.toByteArray();
+    private DateTimeFormatter displayDateFormatter() {
+        return DateTimeFormatter.ofPattern(properties.getExport().getDisplayDateFormat());
     }
 
-    public static byte[] generatePeriodReportPdf(PeriodReportDTO report) throws Exception {
+    private DateTimeFormatter generatedFormatter() {
+        return DateTimeFormatter.ofPattern(properties.getExport().getGeneratedTimestampFormat());
+    }
+
+    private DateTimeFormatter rowDateTimeFormatter() {
+        return DateTimeFormatter.ofPattern(properties.getExport().getRowDateTimeFormat());
+    }
+
+    public byte[] generateDailyReportPdf(DailyReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
-
-        addLetterhead(document, "Period Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addPeriodSummaryTable(document, report.summary());
-        addSectionTitle(document, "Therapist Earnings");
-        addTherapistEarningsTable(document, report.therapistEarnings());
-
-        if (report.tagRevenue() != null && !report.tagRevenue().isEmpty()) {
-            addSection(document, "Tag Revenue Breakdown", buildTagRevenueTable(report.tagRevenue()));
+        try {
+            addLetterhead(document, "Daily Report", "For " + report.date().format(displayDateFormatter()));
+            addPeriodSummaryTable(document, report.summary());
+            addSectionTitle(document, "Therapist Earnings");
+            addTherapistEarningsTable(document, report.therapistEarnings());
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.productPerformance() != null && !report.productPerformance().isEmpty()) {
-            addSection(document, "Product Performance", buildProductPerformanceTable(report.productPerformance()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
-    public static byte[] generateComparisonReportPdf(ComparisonReportDTO report) throws Exception {
+    public byte[] generatePeriodReportPdf(PeriodReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Period Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addPeriodSummaryTable(document, report.summary());
+            addSectionTitle(document, "Therapist Earnings");
+            addTherapistEarningsTable(document, report.therapistEarnings());
 
-        addLetterhead(document, "Therapist Comparison", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addTherapistEarningsTable(document, report.therapistEarnings());
+            if (report.tagRevenue() != null && !report.tagRevenue().isEmpty()) {
+                addSection(document, "Tag Revenue Breakdown", buildTagRevenueTable(report.tagRevenue()));
+            }
 
-        finish(document, pdfDoc);
+            if (report.productPerformance() != null && !report.productPerformance().isEmpty()) {
+                addSection(document, "Product Performance", buildProductPerformanceTable(report.productPerformance()));
+            }
+        } finally {
+            finish(document, pdfDoc);
+        }
         return baos.toByteArray();
     }
 
-    public static byte[] generatePatientReportPdf(PatientReportDTO report) throws Exception {
+    public byte[] generateComparisonReportPdf(ComparisonReportDTO report) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Therapist Comparison", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addTherapistEarningsTable(document, report.therapistEarnings(), false);
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generatePatientReportPdf(PatientReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Patient Acquisition Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
 
-        addLetterhead(document, "Patient Acquisition Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9f);
+            addLabelCell(table, "New Patients", TextAlignment.CENTER);
+            addDataCell(table, String.valueOf(report.totalNewPatients()), TextAlignment.CENTER, false);
+            addLabelCell(table, "Repeat Patients", TextAlignment.CENTER);
+            addDataCell(table, String.valueOf(report.totalRepeatPatients()), TextAlignment.CENTER, false);
+            addLabelCell(table, "Overall Retention", TextAlignment.CENTER);
+            addDataCell(table, formatPercentage(report.overallRetentionRate()), TextAlignment.CENTER, false);
+            document.add(table);
 
-        Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9f);
-        addLabelCell(table, "New Patients", TextAlignment.CENTER);
-        addDataCell(table, String.valueOf(report.totalNewPatients()), TextAlignment.CENTER, false);
-        addLabelCell(table, "Repeat Patients", TextAlignment.CENTER);
-        addDataCell(table, String.valueOf(report.totalRepeatPatients()), TextAlignment.CENTER, false);
-        addLabelCell(table, "Overall Retention", TextAlignment.CENTER);
-        addDataCell(table, formatPercentage(report.overallRetentionRate()), TextAlignment.CENTER, false);
-        document.add(table);
-
-        if (report.therapistMetrics() != null && !report.therapistMetrics().isEmpty()) {
-            addSection(document, "Therapist Patient Metrics", buildTherapistPatientMetricsTable(report.therapistMetrics()));
+            if (report.therapistMetrics() != null && !report.therapistMetrics().isEmpty()) {
+                addSection(document, "Therapist Patient Metrics", buildTherapistPatientMetricsTable(report.therapistMetrics()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
-    public static byte[] generatePerformanceReportPdf(PerformanceReportDTO report) throws Exception {
+    public byte[] generatePerformanceReportPdf(PerformanceReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Product/Service Performance", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
 
-        addLetterhead(document, "Product/Service Performance", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
+            if (report.services() != null && !report.services().isEmpty()) {
+                addSection(document, "Service Performance", buildServicePerformanceTable(report.services()));
+            }
 
-        if (report.services() != null && !report.services().isEmpty()) {
-            addSection(document, "Service Performance", buildServicePerformanceTable(report.services()));
+            if (report.products() != null && !report.products().isEmpty()) {
+                addSection(document, "Product Performance", buildProductPerformanceTable(report.products()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.products() != null && !report.products().isEmpty()) {
-            addSection(document, "Product Performance", buildProductPerformanceTable(report.products()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
-    public static byte[] generateRevenueReportPdf(RevenueReportDTO report) throws Exception {
+    public byte[] generateRevenueReportPdf(RevenueReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addRevenueSummaryTable(document, report.summary());
 
-        addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(DISPLAY_DATE_FORMATTER) +
-                "  to  " + report.dateTo().format(DISPLAY_DATE_FORMATTER));
-        addRevenueSummaryTable(document, report.summary());
+            if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
+                addSection(document, "Collected by Payment Method", buildPaymentMethodTable(report.byPaymentMethod()));
+            }
 
-        if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
-            addSection(document, "Collected by Payment Method", buildPaymentMethodTable(report.byPaymentMethod()));
+            if (report.byTherapist() != null && !report.byTherapist().isEmpty()) {
+                addSection(document, "Revenue by Therapist", buildRevenueByTherapistTable(report.byTherapist()));
+            }
+
+            if (report.servicesNetRevenue() != null && !report.servicesNetRevenue().isEmpty()) {
+                addSection(document, "Net Revenue by Service", buildCatalogItemRevenueTable(report.servicesNetRevenue()));
+            }
+
+            if (report.productsNetRevenue() != null && !report.productsNetRevenue().isEmpty()) {
+                addSection(document, "Net Revenue by Product", buildCatalogItemRevenueTable(report.productsNetRevenue()));
+            }
+
+            if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
+                addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
+            }
+        } finally {
+            finish(document, pdfDoc);
         }
-
-        if (report.byTherapist() != null && !report.byTherapist().isEmpty()) {
-            addSection(document, "Revenue by Therapist", buildRevenueByTherapistTable(report.byTherapist()));
-        }
-
-        if (report.servicesNetRevenue() != null && !report.servicesNetRevenue().isEmpty()) {
-            addSection(document, "Net Revenue by Service", buildCatalogItemRevenueTable(report.servicesNetRevenue()));
-        }
-
-        if (report.productsNetRevenue() != null && !report.productsNetRevenue().isEmpty()) {
-            addSection(document, "Net Revenue by Product", buildCatalogItemRevenueTable(report.productsNetRevenue()));
-        }
-
-        if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
-            addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
-        }
-
-        finish(document, pdfDoc);
         return baos.toByteArray();
     }
 
     // ---- document scaffolding ----------------------------------------------------------
 
-    private static Document newDocument(PdfDocument pdfDoc, boolean landscape) throws IOException {
+    private Document newDocument(PdfDocument pdfDoc, boolean landscape) throws IOException {
         initFontsForDocument();
         PageSize pageSize = landscape ? PageSize.A4.rotate() : PageSize.A4;
         Document document = new Document(pdfDoc, pageSize);
@@ -267,7 +289,7 @@ public class PdfExportUtil {
         return document;
     }
 
-    private static void finish(Document document, PdfDocument pdfDoc) {
+    private void finish(Document document, PdfDocument pdfDoc) {
         // The "of N" total page count isn't known until every page has been laid out, so each
         // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
         // the real count once, right before close — safe because the XObject is its own
@@ -279,7 +301,7 @@ public class PdfExportUtil {
         CURRENT_FOOTER_HANDLER.remove();
     }
 
-    private static void addLetterhead(Document document, String title, String subtitle) {
+    private void addLetterhead(Document document, String title, String subtitle) {
         Table header = new Table(UnitValue.createPercentArray(new float[]{1, 5}));
         header.setWidth(UnitValue.createPercentValue(100));
         header.setBorder(Border.NO_BORDER);
@@ -308,12 +330,12 @@ public class PdfExportUtil {
         document.add(header);
 
         document.add(new LineSeparator(new SolidLine(1.25f)).setStrokeColor(BRAND_PRIMARY).setMarginTop(8).setMarginBottom(4));
-        document.add(new Paragraph("Generated on " + LocalDateTime.now().format(GENERATED_FORMATTER))
+        document.add(new Paragraph("Generated on " + LocalDateTime.now().format(generatedFormatter()))
                 .setFontSize(7.5f).setFontColor(TEXT_MUTED).setTextAlignment(TextAlignment.RIGHT).setMargin(0));
         document.add(new Paragraph("\n").setFontSize(4));
     }
 
-    private static void addSectionTitle(Document document, String title) {
+    private void addSectionTitle(Document document, String title) {
         document.add(sectionTitleParagraph(title));
         document.add(sectionRuleLine());
     }
@@ -330,20 +352,20 @@ public class PdfExportUtil {
      * forces the layout anyway and corrupts the page tree (a later NPE while stamping footers) —
      * see the "Cannot invoke Map.get because this.map is null" bug in PdfPage.getPageSize().
      */
-    private static void addSection(Document document, String title, Table table) {
+    private void addSection(Document document, String title, Table table) {
         document.add(sectionTitleParagraph(title));
         document.add(sectionRuleLine());
         document.add(table);
     }
 
-    private static Paragraph sectionTitleParagraph(String title) {
+    private Paragraph sectionTitleParagraph(String title) {
         return new Paragraph(title)
                 .setFont(boldFont()).setFontSize(11.5f).setFontColor(BRAND_DARK)
                 .setMarginTop(12).setMarginBottom(2)
                 .setKeepWithNext(true);
     }
 
-    private static LineSeparator sectionRuleLine() {
+    private LineSeparator sectionRuleLine() {
         return new LineSeparator(new SolidLine(0.75f)).setStrokeColor(BORDER_COLOR).setMarginBottom(6)
                 .setKeepWithNext(true);
     }
@@ -402,7 +424,7 @@ public class PdfExportUtil {
 
     // ---- tables ----------------------------------------------------------------------
 
-    private static Table newTable(float[] widths, float fontSize) {
+    private Table newTable(float[] widths, float fontSize) {
         Table table = new Table(UnitValue.createPercentArray(widths));
         table.setWidth(UnitValue.createPercentValue(100));
         table.setFontSize(fontSize);
@@ -411,7 +433,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static void addPeriodSummaryTable(Document document, PeriodSummaryDTO summary) {
+    private void addPeriodSummaryTable(Document document, PeriodSummaryDTO summary) {
         Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9.5f);
 
         addLabelCell(table, "Total Appointments", TextAlignment.LEFT);
@@ -431,13 +453,27 @@ public class PdfExportUtil {
         document.add(table);
     }
 
-    private static void addTherapistEarningsTable(Document document, List<TherapistEarningsDTO> earnings) {
-        Table table = newTable(new float[]{1.6f, 1, 1, 0.7f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
+    private void addTherapistEarningsTable(Document document, List<TherapistEarningsDTO> earnings) {
+        addTherapistEarningsTable(document, earnings, true);
+    }
+
+    /**
+     * @param includeAllColumns whether to include the untagged "All" columns (Svcs/Prod Rev.(All),
+     *                          Svcs(All)) — true for Daily/Period, false for Comparison, which per
+     *                          CLAUDE.md only shows tag-filtered figures.
+     */
+    private void addTherapistEarningsTable(Document document, List<TherapistEarningsDTO> earnings,
+                                            boolean includeAllColumns) {
+        Table table = includeAllColumns
+                ? newTable(new float[]{1.6f, 1, 1, 0.7f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f)
+                : newTable(new float[]{1.6f, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
-        addHeaderCell(table, "Svcs Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
-        addHeaderCell(table, "Prod Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
-        addHeaderCell(table, "Svcs(All)", TextAlignment.CENTER);
+        if (includeAllColumns) {
+            addHeaderCell(table, "Svcs Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
+            addHeaderCell(table, "Prod Rev.(All, Pre-Disc.)", TextAlignment.RIGHT);
+            addHeaderCell(table, "Svcs(All)", TextAlignment.CENTER);
+        }
         addHeaderCell(table, "Svcs Rev.(Bonus, Pre-Disc.)", TextAlignment.RIGHT);
         addHeaderCell(table, "Prod Rev.(Comm., Pre-Disc.)", TextAlignment.RIGHT);
         addHeaderCell(table, "Svcs(Bonus)", TextAlignment.CENTER);
@@ -452,9 +488,11 @@ public class PdfExportUtil {
         boolean shaded = false;
         for (TherapistEarningsDTO earning : earnings) {
             addDataCell(table, earning.therapist().getFullName(), TextAlignment.LEFT, shaded);
-            addDataCell(table, formatCurrency(earning.allServicesRevenue()), TextAlignment.RIGHT, shaded);
-            addDataCell(table, formatCurrency(earning.allProductsRevenue()), TextAlignment.RIGHT, shaded);
-            addDataCell(table, String.valueOf(earning.allServicesCount()), TextAlignment.CENTER, shaded);
+            if (includeAllColumns) {
+                addDataCell(table, formatCurrency(earning.allServicesRevenue()), TextAlignment.RIGHT, shaded);
+                addDataCell(table, formatCurrency(earning.allProductsRevenue()), TextAlignment.RIGHT, shaded);
+                addDataCell(table, String.valueOf(earning.allServicesCount()), TextAlignment.CENTER, shaded);
+            }
             addDataCell(table, formatCurrency(earning.bonusTaggedServicesRevenue()), TextAlignment.RIGHT, shaded);
             addDataCell(table, formatCurrency(earning.productsRevenue()), TextAlignment.RIGHT, shaded);
             addDataCell(table, String.valueOf(earning.servicesCount()), TextAlignment.CENTER, shaded);
@@ -469,9 +507,16 @@ public class PdfExportUtil {
         }
 
         document.add(table);
+        // Svc Comm/Prod Comm are each rounded independently and can differ from Total Comm by up to
+        // the currency's smallest unit — Total Comm (sum-then-round) is the actual payout figure,
+        // the two category columns are informational only.
+        document.add(new Paragraph("Svc Comm + Prod Comm may differ from Total Comm by up to "
+                + properties.getCurrency().getSymbol()
+                + "0.01 due to independent per-category rounding. Total Comm is the actual payout figure.")
+                .setFont(regularFont()).setFontSize(7.5f).setFontColor(TEXT_MUTED).setMultipliedLeading(1.2f).setMarginTop(2));
     }
 
-    private static Table buildTagRevenueTable(List<TagRevenueDTO> tagRevenues) {
+    private Table buildTagRevenueTable(List<TagRevenueDTO> tagRevenues) {
         Table table = newTable(new float[]{2, 1}, 9.5f);
 
         addHeaderCell(table, "Tag", TextAlignment.LEFT);
@@ -487,7 +532,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildProductPerformanceTable(List<ProductPerformanceDTO> products) {
+    private Table buildProductPerformanceTable(List<ProductPerformanceDTO> products) {
         Table table = newTable(new float[]{2, 1, 1, 1}, 9.5f);
 
         addHeaderCell(table, "Product Name", TextAlignment.LEFT);
@@ -507,7 +552,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildServicePerformanceTable(List<ServicePerformanceDTO> services) {
+    private Table buildServicePerformanceTable(List<ServicePerformanceDTO> services) {
         Table table = newTable(new float[]{2, 0.8f, 1, 1, 1.5f}, 9.5f);
 
         addHeaderCell(table, "Service Name", TextAlignment.LEFT);
@@ -529,7 +574,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static void addRevenueSummaryTable(Document document, RevenueSummaryDTO summary) {
+    private void addRevenueSummaryTable(Document document, RevenueSummaryDTO summary) {
         Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9.5f);
 
         addLabelCell(table, "Appointments", TextAlignment.LEFT);
@@ -556,7 +601,7 @@ public class PdfExportUtil {
         document.add(table);
     }
 
-    private static Table buildPaymentMethodTable(List<RevenueByPaymentMethodDTO> byPaymentMethod) {
+    private Table buildPaymentMethodTable(List<RevenueByPaymentMethodDTO> byPaymentMethod) {
         Table table = newTable(new float[]{2, 1}, 9.5f);
 
         addHeaderCell(table, "Method", TextAlignment.LEFT);
@@ -571,7 +616,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildRevenueByTherapistTable(List<RevenueByTherapistDTO> byTherapist) {
+    private Table buildRevenueByTherapistTable(List<RevenueByTherapistDTO> byTherapist) {
         Table table = newTable(new float[]{1.6f, 1, 1, 1}, 9.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
@@ -590,7 +635,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildCatalogItemRevenueTable(List<RevenueByCatalogItemDTO> items) {
+    private Table buildCatalogItemRevenueTable(List<RevenueByCatalogItemDTO> items) {
         Table table = newTable(new float[]{2, 2, 1, 1.2f}, 9.5f);
 
         addHeaderCell(table, "Name", TextAlignment.LEFT);
@@ -609,7 +654,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildAppointmentRevenueRowsTable(List<AppointmentRevenueRowDTO> rows) {
+    private Table buildAppointmentRevenueRowsTable(List<AppointmentRevenueRowDTO> rows) {
         Table table = newTable(new float[]{1.3f, 1.3f, 1.3f, 0.9f, 1, 1, 1, 1, 1, 1}, 8f);
 
         addHeaderCell(table, "Date/Time", TextAlignment.LEFT);
@@ -625,7 +670,7 @@ public class PdfExportUtil {
 
         boolean shaded = false;
         for (AppointmentRevenueRowDTO row : rows) {
-            addDataCell(table, row.dateTime().format(ROW_DATETIME_FORMATTER), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.dateTime().format(rowDateTimeFormatter()), TextAlignment.LEFT, shaded);
             addDataCell(table, row.patientName(), TextAlignment.LEFT, shaded);
             addDataCell(table, row.therapistName(), TextAlignment.LEFT, shaded);
             addDataCell(table, row.status().name(), TextAlignment.CENTER, shaded);
@@ -640,7 +685,7 @@ public class PdfExportUtil {
         return table;
     }
 
-    private static Table buildTherapistPatientMetricsTable(List<TherapistPatientMetricsDTO> metrics) {
+    private Table buildTherapistPatientMetricsTable(List<TherapistPatientMetricsDTO> metrics) {
         Table table = newTable(new float[]{1.5f, 1, 1, 1}, 9.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
@@ -662,7 +707,7 @@ public class PdfExportUtil {
 
     // ---- cell styling ------------------------------------------------------------------
 
-    private static void addHeaderCell(Table table, String content, TextAlignment align) {
+    private void addHeaderCell(Table table, String content, TextAlignment align) {
         table.addHeaderCell(labelStyledCell(content, align));
     }
 
@@ -670,11 +715,11 @@ public class PdfExportUtil {
      * grids where labels and values are interleaved within a row rather than forming a
      * standalone header row (using table.addHeaderCell there would misregister a repeating
      * page header and corrupt the row layout). */
-    private static void addLabelCell(Table table, String content, TextAlignment align) {
+    private void addLabelCell(Table table, String content, TextAlignment align) {
         table.addCell(labelStyledCell(content, align));
     }
 
-    private static Cell labelStyledCell(String content, TextAlignment align) {
+    private Cell labelStyledCell(String content, TextAlignment align) {
         Cell cell = new Cell().add(new Paragraph(content).setFont(boldFont()).setFontColor(ColorConstants.WHITE));
         cell.setBackgroundColor(BRAND_PRIMARY);
         cell.setTextAlignment(align);
@@ -684,12 +729,12 @@ public class PdfExportUtil {
         return cell;
     }
 
-    private static void addBlankCell(Table table) {
+    private void addBlankCell(Table table) {
         Cell cell = new Cell().setBorder(Border.NO_BORDER);
         table.addCell(cell);
     }
 
-    private static void addDataCell(Table table, String content, TextAlignment align, boolean shaded) {
+    private void addDataCell(Table table, String content, TextAlignment align, boolean shaded) {
         Cell cell = new Cell().add(new Paragraph(content == null ? "" : content));
         cell.setTextAlignment(align);
         cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
@@ -700,7 +745,7 @@ public class PdfExportUtil {
         table.addCell(cell);
     }
 
-    private static void addBadgeCell(Table table, String content, boolean positive, boolean shaded) {
+    private void addBadgeCell(Table table, String content, boolean positive, boolean shaded) {
         Cell cell = new Cell().add(new Paragraph(content).setFont(boldFont())
                 .setFontColor(positive ? POSITIVE : TEXT_MUTED));
         cell.setTextAlignment(TextAlignment.CENTER);
@@ -714,13 +759,15 @@ public class PdfExportUtil {
 
     // ---- formatting --------------------------------------------------------------------
 
-    private static String formatCurrency(BigDecimal value) {
-        if (value == null) return "₹ 0.00";
-        return "₹ " + CURRENCY_FORMAT.format(value.setScale(2, RoundingMode.HALF_UP));
+    private String formatCurrency(BigDecimal value) {
+        String symbol = properties.getCurrency().getSymbol();
+        if (value == null) return symbol + " 0.00";
+        return symbol + " " + CURRENCY_FORMAT.format(value.setScale(2, RoundingMode.HALF_UP));
     }
 
-    private static String formatPercentage(Double value) {
+    /** retentionRate() is already 0-100 scaled — no extra *100 here. */
+    private String formatPercentage(Double value) {
         if (value == null) return "0%";
-        return String.format("%.2f%%", value * 100);
+        return String.format("%.2f%%", value);
     }
 }

@@ -1,11 +1,14 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.dto.CalendarEventDTO;
 import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import com.clinic.healinghouse.util.ProportionalAllocator;
+import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -46,10 +49,39 @@ public class AppointmentService {
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
     private final WalletService                    walletService;
+    private final PackageService                   packageService;
     private final ComboRepository                  comboRepository;
+    private final HealingHouseProperties           properties;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
+
+    /** findConflictsForTherapist's DB pre-filter window is hardcoded to ±1 day regardless of this
+     * setting — see the check below and the comment at that pre-filter. */
+    private static final int PRE_FILTER_WINDOW_MINUTES = 24 * 60;
+
+    /**
+     * Ceiling on how long a single appointment can occupy a therapist, sourced from
+     * {@code healinghouse.appointment.max-duration-minutes}. Also what makes findConflicts' ±1-day
+     * DB pre-filter window provably safe (Bug_Report_v2 #12): without a cap, a candidate appointment
+     * starting more than a day before the requested window but running long enough to still overlap
+     * it would be excluded by that pre-filter before the exact overlap check ever runs. With every
+     * appointment capped at 24h, the latest a candidate can start and still reach into the requested
+     * window is within that same ±1-day margin, so the pre-filter can never miss a genuine overlap.
+     * {@link #validateMaxDurationAgainstConflictPreFilter()} fails startup if this is misconfigured
+     * above the pre-filter's fixed 24h margin, since raising it silently would reopen that gap.
+     */
+    @PostConstruct
+    void validateMaxDurationAgainstConflictPreFilter() {
+        int configured = properties.getAppointment().getMaxDurationMinutes();
+        if (configured > PRE_FILTER_WINDOW_MINUTES) {
+            throw new IllegalStateException(
+                    "healinghouse.appointment.max-duration-minutes (" + configured
+                    + ") cannot exceed " + PRE_FILTER_WINDOW_MINUTES
+                    + " — findConflictsForTherapist's DB pre-filter window is hardcoded to ±1 day and "
+                    + "would silently miss double-booking conflicts for appointments longer than that.");
+        }
+    }
 
     // ── Reads ─────────────────────────────────────────────────────────────────
 
@@ -198,37 +230,52 @@ public class AppointmentService {
         });
         if (therapistIds.isEmpty()) return List.of();
 
+        List<TherapistConflictDTO> conflicts = new ArrayList<>();
+        for (Long therapistId : therapistIds) {
+            conflicts.addAll(findConflictsForTherapist(therapistId, start, end, excludeAppointmentId));
+        }
+        return conflicts;
+    }
+
+    /**
+     * Checks whether a single therapist is already booked on another SCHEDULED/COMPLETED
+     * appointment overlapping [start, end), excluding excludeAppointmentId. The single-therapist
+     * building block behind both the whole-form check above (looped over every therapist on the
+     * form) and per-line therapist reassignment (reassignServiceLineTherapist/reassignProductLineTherapist),
+     * which only ever needs to check the one therapist being newly assigned.
+     */
+    @Transactional(readOnly = true)
+    public List<TherapistConflictDTO> findConflictsForTherapist(Long therapistId, LocalDateTime start,
+                                                                  LocalDateTime end, Long excludeAppointmentId) {
         // Widened bound (± 1 day) so appointments that straddle midnight are still caught;
         // exact overlap is verified below, this is just a cheap pre-filter for the query.
         LocalDateTime boundStart = start.toLocalDate().minusDays(1).atStartOfDay();
         LocalDateTime boundEnd   = end.toLocalDate().plusDays(1).atStartOfDay();
 
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(AppointmentSpec.hasTherapistId(therapistId))
+                .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+
+        String therapistName = therapistRepository.findById(therapistId)
+                .map(Therapist::getFullName)
+                .orElse("Therapist #" + therapistId);
+
         List<TherapistConflictDTO> conflicts = new ArrayList<>();
-        for (Long therapistId : therapistIds) {
-            Specification<Appointment> spec = Specification
-                    .where(AppointmentSpec.withPatientAndTherapist())
-                    .and(AppointmentSpec.hasTherapistId(therapistId))
-                    .and(AppointmentSpec.betweenDates(boundStart, boundEnd));
+        for (Appointment candidate : appointmentRepository.findAll(spec)) {
+            if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
+            if (candidate.getStatus() == AppointmentStatus.CANCELLED
+                    || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
 
-            String therapistName = therapistRepository.findById(therapistId)
-                    .map(Therapist::getFullName)
-                    .orElse("Therapist #" + therapistId);
+            LocalDateTime candidateStart = candidate.getAppointmentDateTime();
+            LocalDateTime candidateEnd   = candidate.getEndDateTime();
+            boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
+            if (!overlaps) continue;
 
-            for (Appointment candidate : appointmentRepository.findAll(spec)) {
-                if (excludeAppointmentId != null && candidate.getId().equals(excludeAppointmentId)) continue;
-                if (candidate.getStatus() == AppointmentStatus.CANCELLED
-                        || candidate.getStatus() == AppointmentStatus.NO_SHOW) continue;
-
-                LocalDateTime candidateStart = candidate.getAppointmentDateTime();
-                LocalDateTime candidateEnd   = candidate.getEndDateTime();
-                boolean overlaps = candidateStart.isBefore(end) && start.isBefore(candidateEnd);
-                if (!overlaps) continue;
-
-                conflicts.add(new TherapistConflictDTO(
-                        therapistId, therapistName,
-                        candidate.getId(), candidate.getPatient().getFullName(),
-                        candidateStart, candidateEnd));
-            }
+            conflicts.add(new TherapistConflictDTO(
+                    therapistId, therapistName,
+                    candidate.getId(), candidate.getPatient().getFullName(),
+                    candidateStart, candidateEnd));
         }
         return conflicts;
     }
@@ -301,6 +348,7 @@ public class AppointmentService {
         if (newStart == null || newDuration == null || newDuration <= 0) {
             throw new IllegalArgumentException("A valid date/time and duration are required.");
         }
+        validateDuration(newDuration);
 
         AppointmentForm probe = AppointmentForm.from(appt);
         probe.setAppointmentDateTime(newStart);
@@ -362,6 +410,7 @@ public class AppointmentService {
             } catch (IllegalArgumentException ignored) {}
         }
 
+        validateDuration(form.getDurationMinutes());
         Appointment appointment = Appointment.builder()
                 .patient(patient)
                 .therapist(therapist)
@@ -378,6 +427,7 @@ public class AppointmentService {
         Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(appointment, form.getComboSelections());
 
         // 4. Service lines — snapshot price at booking time
+        List<PendingPackageConsumption> pendingPackageConsumptions = new ArrayList<>();
         BigDecimal totalServiceAmount = BigDecimal.ZERO;
         for (AppointmentForm.ServiceLineForm slf : rawServices) {
             ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
@@ -387,6 +437,12 @@ public class AppointmentService {
             BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
+            PatientPackageServiceItem packageItem = null;
+            if (slf.getPackageItemId() != null) {
+                packageItem = packageService.resolveServiceItemForConsumption(slf.getPackageItemId(), patient.getId());
+                pendingPackageConsumptions.add(new PendingPackageConsumption(packageItem.getId(), null, lineTotal));
+            }
+
             appointment.getServiceLines().add(
                     AppointmentServiceLine.builder()
                             .appointment(appointment)
@@ -395,12 +451,15 @@ public class AppointmentService {
                             .priceAtTime(cs.getPrice())
                             .quantity(qty)
                             .appointmentCombo(lineCombo)
+                            .packageServiceItem(packageItem)
                             .build());
 
             totalServiceAmount = totalServiceAmount.add(lineTotal);
         }
 
-        // 5. Product lines — validate stock, snapshot price, decrement stock
+        // 5. Product lines — validate aggregate stock demand (across all lines for the same product
+        // in this submission, e.g. a standalone line plus a combo line), snapshot price.
+        validateAggregateStockDemand(form.getProductLines());
         BigDecimal totalProductAmount = BigDecimal.ZERO;
         for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
             if (plf == null || plf.getProductId() == null) continue;
@@ -410,15 +469,14 @@ public class AppointmentService {
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Product not found: " + plf.getProductId()));
 
-            if (product.getStockQuantity() < qty) {
-                throw new IllegalArgumentException(
-                        "Insufficient stock for '" + product.getName()
-                        + "'. Available: " + product.getStockQuantity()
-                        + ", requested: " + qty);
-            }
-
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+
+            PatientPackageProductItem packageItem = null;
+            if (plf.getPackageItemId() != null) {
+                packageItem = packageService.resolveProductItemForConsumption(plf.getPackageItemId(), patient.getId());
+                pendingPackageConsumptions.add(new PendingPackageConsumption(null, packageItem.getId(), lineTotal));
+            }
 
             appointment.getProductLines().add(
                     AppointmentProductLine.builder()
@@ -429,13 +487,11 @@ public class AppointmentService {
                             .priceAtTime(product.getPrice())
                             .lineTotal(lineTotal)
                             .appointmentCombo(lineCombo)
+                            .packageProductItem(packageItem)
                             .build());
 
-            // Decrement stock — treatment has been administered
-            product.setStockQuantity(product.getStockQuantity() - qty);
-            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                    product.getId(), product.getName(), qty, product.getStockQuantity());
-
+            // Stock is only decremented when the appointment is later marked COMPLETED (see
+            // markAsCompleted) — this is just an availability check at booking time.
             totalProductAmount = totalProductAmount.add(lineTotal);
         }
 
@@ -443,10 +499,21 @@ public class AppointmentService {
         // own lines first, then the whole-appointment discount layered on top of the result.
         appointment.setTotalServiceAmount(totalServiceAmount);
         appointment.setTotalProductAmount(totalProductAmount);
+        removeOrphanCombos(appointment);
         for (AppointmentCombo ac : appointment.getCombos()) {
             applyComboDiscount(appointment, ac);
         }
         applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
+
+        // 6a. Package-covered lines — a payment source alongside cash/UPI/card/wallet, never a
+        // discount; always exactly the sum of covered lines' own (undiscounted) values, since a
+        // package session covers a line's full value (no partial coverage). Actual consumption
+        // (sessionsUsed++, ledger write) is deferred until after save (see below), mirroring the
+        // wallet debit-last ordering so a mid-transaction failure rolls back cleanly.
+        BigDecimal packageAmountApplied = pendingPackageConsumptions.stream()
+                .map(PendingPackageConsumption::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        appointment.setPackageAmountApplied(packageAmountApplied);
+        appointment.setAmountPaid(appointment.getAmountPaid().add(packageAmountApplied));
 
         // 6b. Wallet balance applied — a payment source alongside cash/UPI/card, never a discount.
         // Silently capped at grandTotal (mirrors applyDiscount's resolved.min(subtotal)) rather than
@@ -461,16 +528,24 @@ public class AppointmentService {
         appointment.setAmountPaid(appointment.getAmountPaid().add(walletRequested));
 
         if (appointment.getAmountPaid().compareTo(appointment.getGrandTotal()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Amount paid (₹" + appointment.getAmountPaid()
-                    + ") cannot exceed the grand total (₹" + appointment.getGrandTotal() + ").");
+                    "Amount paid (" + symbol + appointment.getAmountPaid()
+                    + ") cannot exceed the grand total (" + symbol + appointment.getGrandTotal() + ").");
         }
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        // Debited last so it's the only step that can still fail after every other validation
-        // passed — @Transactional rolls the whole method back on an insufficient-balance failure,
-        // no manual compensation needed.
+        // Debited/consumed last so they're the only steps that can still fail after every other
+        // validation passed — @Transactional rolls the whole method back on an insufficient-balance
+        // or insufficient-sessions failure, no manual compensation needed.
+        for (PendingPackageConsumption pc : pendingPackageConsumptions) {
+            if (pc.serviceItemId() != null) {
+                packageService.consumeServiceItem(pc.serviceItemId(), saved.getId(), pc.amount());
+            } else {
+                packageService.consumeProductItem(pc.productItemId(), saved.getId(), pc.amount());
+            }
+        }
         if (walletRequested.signum() > 0) {
             walletService.applyToAppointment(patient.getId(), saved.getId(), walletRequested);
         }
@@ -482,56 +557,106 @@ public class AppointmentService {
 
     // ── Status transitions ────────────────────────────────────────────────────
 
-    /** SCHEDULED → COMPLETED. Sets completedAt timestamp. */
+    /** SCHEDULED → COMPLETED. Sets completedAt timestamp and decrements product stock (treatment actually administered now). */
     public Appointment markAsCompleted(Long id) {
-        Appointment appt = appointmentRepository.findById(id)
+        Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
+        appointmentRepository.findWithProductLinesById(id); // initialises productLines in L1 cache
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException(
                     "Only SCHEDULED appointments can be marked as completed.");
         }
         if (appt.getBalanceDue().compareTo(BigDecimal.ZERO) > 0) {
             throw new IllegalStateException(
-                    "Cannot complete appointment: balance due of ₹" + appt.getBalanceDue() + " must be cleared first.");
+                    "Cannot complete appointment: balance due of " + properties.getCurrency().getSymbol()
+                    + appt.getBalanceDue() + " must be cleared first.");
+        }
+
+        // Stock is only checked at booking time (an availability check, not a reservation) — it can
+        // have shrunk since then via another appointment completing first, or via this same
+        // appointment carrying the same product on more than one line. Re-validate live availability
+        // against aggregate demand right before it's actually consumed.
+        Map<Long, Integer> demandByProductId = new LinkedHashMap<>();
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            demandByProductId.merge(pl.getProduct().getId(), pl.getQuantity(), Integer::sum);
+        }
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            Product product = pl.getProduct();
+            int demand = demandByProductId.getOrDefault(product.getId(), 0);
+            if (product.getStockQuantity() < demand) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Available: " + product.getStockQuantity()
+                        + ", requested: " + demand);
+            }
+        }
+
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            Product product = pl.getProduct();
+            product.setStockQuantity(product.getStockQuantity() - pl.getQuantity());
+            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
+                    product.getId(), product.getName(), pl.getQuantity(), product.getStockQuantity());
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
-        Appointment saved = appointmentRepository.save(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked COMPLETED", saved.getId());
         return saved;
     }
 
-    /** SCHEDULED → CANCELLED. Stores reason and restores product stock. */
+    /** SCHEDULED → CANCELLED. Stores reason. Stock is never decremented before COMPLETED, so nothing to restore. */
     public Appointment cancelAppointment(Long id, String reason) {
         Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
-        appointmentRepository.findWithProductLinesById(id); // needed by restoreProductStock
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException("Only SCHEDULED appointments can be cancelled.");
         }
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
         reverseFullWalletIfAny(appt);
-        restoreProductStock(appt);
-        Appointment saved = appointmentRepository.save(appt);
+        reverseAllPackageConsumption(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
         return saved;
     }
 
-    /** SCHEDULED → NO_SHOW. Restores product stock (patient never arrived). */
+    /** SCHEDULED → NO_SHOW. Stock is never decremented before COMPLETED, so nothing to restore. */
     public Appointment markAsNoShow(Long id) {
         Appointment appt = appointmentRepository.findWithServiceLinesById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Appointment not found: " + id));
-        appointmentRepository.findWithProductLinesById(id); // needed by restoreProductStock
         if (appt.getStatus() != AppointmentStatus.SCHEDULED) {
             throw new IllegalStateException("Only SCHEDULED appointments can be marked as no-show.");
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
         reverseFullWalletIfAny(appt);
-        restoreProductStock(appt);
-        Appointment saved = appointmentRepository.save(appt);
+        reverseAllPackageConsumption(appt);
+        Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked NO_SHOW", saved.getId());
         return saved;
+    }
+
+    /**
+     * Credits back every package-covered line on an appointment being cancelled/no-showed —
+     * mirrors reverseFullWalletIfAny. Unlike the update-flow reconciliation, every currently-
+     * attached line is being reversed (not diffed against a resubmission), so no multiset math
+     * is needed — one reverse call per line.
+     */
+    private void reverseAllPackageConsumption(Appointment appt) {
+        for (AppointmentServiceLine sl : appt.getServiceLines()) {
+            if (sl.getPackageServiceItem() != null) {
+                packageService.reverseServiceItem(sl.getPackageServiceItem().getId(), appt.getId());
+            }
+        }
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            if (pl.getPackageProductItem() != null) {
+                packageService.reverseProductItem(pl.getPackageProductItem().getId(), appt.getId());
+            }
+        }
+        BigDecimal applied = appt.getPackageAmountApplied();
+        if (applied != null && applied.signum() > 0) {
+            appt.setAmountPaid(appt.getAmountPaid().subtract(applied).max(BigDecimal.ZERO));
+            appt.setPackageAmountApplied(BigDecimal.ZERO);
+        }
     }
 
     /**
@@ -541,10 +666,58 @@ public class AppointmentService {
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
 
-        Patient patient = patientRepository.findById(form.getPatientId())
-                .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
-        Therapist therapist = therapistRepository.findById(form.getTherapistId())
-                .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        // Reject a stale form: the edit page baked amountPaid/walletAmountApplied into hidden fields at
+        // load time, and the client computes prepaidCorrection/walletAmountApplied as targets built on
+        // top of that snapshot. If either has moved since (another staff member recorded a payment or
+        // changed the wallet amount in the meantime), trusting the client's target would silently erase
+        // or misapply that other change even though this appointment's @Version hasn't conflicted (each
+        // request loads fresh, non-overlapping data — no version check would ever catch this).
+        if (form.getExistingAmountPaidBaseline() != null
+                && form.getExistingAmountPaidBaseline().compareTo(nz(existing.getAmountPaid())) != 0) {
+            throw new IllegalStateException(
+                    "This appointment's payment info was updated by someone else since you opened this form. "
+                    + "Please refresh and try again.");
+        }
+        if (form.getExistingWalletAppliedBaseline() != null
+                && form.getExistingWalletAppliedBaseline().compareTo(nz(existing.getWalletAmountApplied())) != 0) {
+            throw new IllegalStateException(
+                    "This appointment's wallet amount was updated by someone else since you opened this form. "
+                    + "Please refresh and try again.");
+        }
+
+        // Once an appointment leaves SCHEDULED, only notes/payment-info stay editable — everything
+        // else (who/when/lines/discount/wallet) is frozen, matching this method's own contract
+        // ("For non-SCHEDULED appointments only notes and payment info are updated"). Previously this
+        // was only enforced for the line-item rebuild below; patient/therapist/date/duration/wallet
+        // were silently editable via this endpoint on any COMPLETED/CANCELLED/NO_SHOW appointment too.
+        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED;
+
+        Patient patient = existing.getPatient();
+        Therapist therapist = existing.getTherapist();
+
+        if (editable) {
+            Long originalPatientId = existing.getPatient().getId();
+            patient = patientRepository.findById(form.getPatientId())
+                    .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
+            therapist = therapistRepository.findById(form.getTherapistId())
+                    .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+            BigDecimal walletAlreadyApplied = existing.getWalletAmountApplied() != null
+                    ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
+            if (!originalPatientId.equals(patient.getId()) && walletAlreadyApplied.signum() > 0) {
+                throw new IllegalArgumentException(
+                        "Cannot change the patient on this appointment while wallet funds ("
+                        + properties.getCurrency().getSymbol() + walletAlreadyApplied
+                        + ") are applied to it. Remove the wallet amount first, then reassign the patient.");
+            }
+
+            validateDuration(form.getDurationMinutes());
+            existing.setPatient(patient);
+            existing.setTherapist(therapist);
+            existing.setAppointmentDateTime(form.getAppointmentDateTime());
+            existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
+                    ? form.getDurationMinutes() : 60);
+        }
 
         PaymentMethod pm = null;
         if (form.getPaymentMethod() != null && !form.getPaymentMethod().isBlank()) {
@@ -552,11 +725,6 @@ public class AppointmentService {
             catch (IllegalArgumentException ignored) {}
         }
 
-        existing.setPatient(patient);
-        existing.setTherapist(therapist);
-        existing.setAppointmentDateTime(form.getAppointmentDateTime());
-        existing.setDurationMinutes(form.getDurationMinutes() != null && form.getDurationMinutes() > 0
-                ? form.getDurationMinutes() : 60);
         existing.setNotes(form.getNotes());
         existing.setPaymentMethod(pm);
 
@@ -571,7 +739,22 @@ public class AppointmentService {
         }
         existing.setAmountPaid(prepaidBase.add(newPayment));
 
-        if (existing.getStatus() == AppointmentStatus.SCHEDULED) {
+        // Package-covered-line reconciliation state for the clear-and-rebuild below — see
+        // reconcilePackageDelta's javadoc for why this must be a multiset (occurrence-count) diff
+        // rather than a set diff: the same PatientPackageServiceItem/ProductItem can legitimately
+        // back more than one line in this appointment (staff clicking "Add" twice for a service
+        // with 2+ pooled sessions). Populated only when editable; both empty otherwise, which is a
+        // correct no-op (a non-editable appointment's package lines are untouched here — they were
+        // already reversed by reverseAllPackageConsumption if this appointment was just cancelled/
+        // no-showed, or should simply stay consumed if it's COMPLETED).
+        Map<Long, Integer> oldServiceItemCounts = Map.of();
+        Map<Long, Integer> oldProductItemCounts = Map.of();
+        Map<Long, Integer> newServiceItemCounts = Map.of();
+        Map<Long, Integer> newProductItemCounts = Map.of();
+        Map<Long, BigDecimal> serviceItemUnitAmounts = Map.of();
+        Map<Long, BigDecimal> productItemUnitAmounts = Map.of();
+
+        if (editable) {
             List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
                     .filter(s -> s != null && s.getServiceId() != null)
                     .toList();
@@ -579,20 +762,34 @@ public class AppointmentService {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
 
-            restoreProductStock(existing);  // restore before clearing lines
+            oldServiceItemCounts = tallyServicePackageItemCounts(existing.getServiceLines());
+            oldProductItemCounts = tallyProductPackageItemCounts(existing.getProductLines());
+
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
             existing.getCombos().clear();
 
             Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(existing, form.getComboSelections());
 
+            Map<Long, Integer> newSvcCounts = new LinkedHashMap<>();
+            Map<Long, BigDecimal> svcUnitAmounts = new LinkedHashMap<>();
             BigDecimal totalServiceAmount = BigDecimal.ZERO;
+            BigDecimal packageTotal = BigDecimal.ZERO;
             for (AppointmentForm.ServiceLineForm slf : rawServices) {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = Math.max(1, slf.getQuantity());
                 BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+
+                PatientPackageServiceItem packageItem = null;
+                if (slf.getPackageItemId() != null) {
+                    packageItem = packageService.resolveServiceItemForConsumption(slf.getPackageItemId(), patient.getId());
+                    newSvcCounts.merge(packageItem.getId(), 1, Integer::sum);
+                    svcUnitAmounts.put(packageItem.getId(), lineTotal);
+                    packageTotal = packageTotal.add(lineTotal);
+                }
+
                 existing.getServiceLines().add(
                         AppointmentServiceLine.builder()
                                 .appointment(existing)
@@ -601,24 +798,33 @@ public class AppointmentService {
                                 .priceAtTime(cs.getPrice())
                                 .quantity(qty)
                                 .appointmentCombo(lineCombo)
+                                .packageServiceItem(packageItem)
                                 .build());
                 totalServiceAmount = totalServiceAmount.add(lineTotal);
             }
+            newServiceItemCounts = newSvcCounts;
+            serviceItemUnitAmounts = svcUnitAmounts;
 
+            validateAggregateStockDemand(form.getProductLines());
+            Map<Long, Integer> newPrdCounts = new LinkedHashMap<>();
+            Map<Long, BigDecimal> prdUnitAmounts = new LinkedHashMap<>();
             BigDecimal totalProductAmount = BigDecimal.ZERO;
             for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
                 if (plf == null || plf.getProductId() == null) continue;
                 int qty = Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
-                if (product.getStockQuantity() < qty) {
-                    throw new IllegalArgumentException(
-                            "Insufficient stock for '" + product.getName()
-                            + "'. Available: " + product.getStockQuantity()
-                            + ", requested: " + qty);
-                }
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+
+                PatientPackageProductItem packageItem = null;
+                if (plf.getPackageItemId() != null) {
+                    packageItem = packageService.resolveProductItemForConsumption(plf.getPackageItemId(), patient.getId());
+                    newPrdCounts.merge(packageItem.getId(), 1, Integer::sum);
+                    prdUnitAmounts.put(packageItem.getId(), lineTotal);
+                    packageTotal = packageTotal.add(lineTotal);
+                }
+
                 existing.getProductLines().add(
                         AppointmentProductLine.builder()
                                 .appointment(existing)
@@ -628,45 +834,60 @@ public class AppointmentService {
                                 .priceAtTime(product.getPrice())
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
+                                .packageProductItem(packageItem)
                                 .build());
-                product.setStockQuantity(product.getStockQuantity() - qty);
-                log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                        product.getId(), product.getName(), qty, product.getStockQuantity());
                 totalProductAmount = totalProductAmount.add(lineTotal);
             }
+            newProductItemCounts = newPrdCounts;
+            productItemUnitAmounts = prdUnitAmounts;
 
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
+            removeOrphanCombos(existing);
             for (AppointmentCombo ac : existing.getCombos()) {
                 applyComboDiscount(existing, ac);
             }
             applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
+
+            // Package-covered lines — always exactly the sum of covered lines' own values, recomputed
+            // fresh on every rebuild (no user-entered target, unlike wallet's walletAmountApplied).
+            BigDecimal previousPackageApplied = existing.getPackageAmountApplied() != null
+                    ? existing.getPackageAmountApplied() : BigDecimal.ZERO;
+            existing.setAmountPaid(existing.getAmountPaid().subtract(previousPackageApplied).add(packageTotal));
+            existing.setPackageAmountApplied(packageTotal);
         }
 
         // Wallet balance applied — a target, not a delta: it's the total wallet-sourced amount this
         // appointment should now carry, silently capped at the (possibly just-shrunk) grandTotal. The
         // capping IS the auto-reversal trigger for a discount added/increased or a line removed: whenever
         // grandTotal drops below the previously-applied amount, the delta below comes out negative.
+        // Gated by `editable`: once non-SCHEDULED, cancelAppointment/markAsNoShow have already reversed
+        // any applied wallet amount via reverseFullWalletIfAny — this endpoint must not let staff
+        // re-apply (or top up) wallet funds against an appointment no service is being rendered for.
         BigDecimal previousWalletApplied = existing.getWalletAmountApplied() != null
                 ? existing.getWalletAmountApplied() : BigDecimal.ZERO;
-        BigDecimal walletRequested = form.getWalletAmountApplied() != null
-                ? form.getWalletAmountApplied() : previousWalletApplied;
-        if (walletRequested.signum() < 0) {
-            throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
-        }
-        walletRequested = walletRequested.min(existing.getGrandTotal());
-        BigDecimal walletDelta = walletRequested.subtract(previousWalletApplied);
+        BigDecimal walletDelta = BigDecimal.ZERO;
+        if (editable) {
+            BigDecimal walletRequested = form.getWalletAmountApplied() != null
+                    ? form.getWalletAmountApplied() : previousWalletApplied;
+            if (walletRequested.signum() < 0) {
+                throw new IllegalArgumentException("Wallet amount applied cannot be negative.");
+            }
+            walletRequested = walletRequested.min(existing.getGrandTotal());
+            walletDelta = walletRequested.subtract(previousWalletApplied);
 
-        existing.setAmountPaid(existing.getAmountPaid().subtract(previousWalletApplied).add(walletRequested));
-        existing.setWalletAmountApplied(walletRequested);
+            existing.setAmountPaid(existing.getAmountPaid().subtract(previousWalletApplied).add(walletRequested));
+            existing.setWalletAmountApplied(walletRequested);
+        }
 
         if (existing.getAmountPaid().compareTo(existing.getGrandTotal()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Amount paid (₹" + existing.getAmountPaid()
-                    + ") cannot exceed the grand total (₹" + existing.getGrandTotal() + ").");
+                    "Amount paid (" + symbol + existing.getAmountPaid()
+                    + ") cannot exceed the grand total (" + symbol + existing.getGrandTotal() + ").");
         }
 
-        Appointment saved = appointmentRepository.save(existing);
+        Appointment saved = saveWithConflictCheck(existing);
 
         if (walletDelta.signum() > 0) {
             walletService.applyToAppointment(existing.getPatient().getId(), saved.getId(), walletDelta);
@@ -674,16 +895,78 @@ public class AppointmentService {
             walletService.reverseForAppointment(existing.getPatient().getId(), saved.getId(), walletDelta.abs());
         }
 
+        // Package consumption reconciliation — run after save so an insufficient-sessions failure
+        // (another appointment consumed the last session concurrently) rolls back the whole update.
+        reconcilePackageDelta(oldServiceItemCounts, newServiceItemCounts, serviceItemUnitAmounts, true, saved.getId());
+        reconcilePackageDelta(oldProductItemCounts, newProductItemCounts, productItemUnitAmounts, false, saved.getId());
+
         log.info("Updated appointment id={}", saved.getId());
         return saved;
     }
 
+    /**
+     * Reconciles package-covered-line consumption after a full clear-and-rebuild, by occurrence
+     * count per item id rather than by line identity (lines don't round-trip their own db id, and
+     * the same item can legitimately back more than one line — see the caller's comment). For each
+     * item id in the union of old/new keys: delta==0 is a no-op (covers both "unchanged, resubmitted
+     * with the same id" and "never referenced" — never reverse-then-reapply per requirements §5.5),
+     * delta&gt;0 consumes that many additional sessions, delta&lt;0 reverses that many.
+     */
+    private void reconcilePackageDelta(Map<Long, Integer> oldCounts, Map<Long, Integer> newCounts,
+                                        Map<Long, BigDecimal> unitAmounts, boolean isService, Long appointmentId) {
+        Set<Long> allItemIds = new LinkedHashSet<>();
+        allItemIds.addAll(oldCounts.keySet());
+        allItemIds.addAll(newCounts.keySet());
+        for (Long itemId : allItemIds) {
+            int delta = newCounts.getOrDefault(itemId, 0) - oldCounts.getOrDefault(itemId, 0);
+            if (delta > 0) {
+                BigDecimal amount = unitAmounts.get(itemId);
+                for (int i = 0; i < delta; i++) {
+                    if (isService) packageService.consumeServiceItem(itemId, appointmentId, amount);
+                    else packageService.consumeProductItem(itemId, appointmentId, amount);
+                }
+            } else if (delta < 0) {
+                for (int i = 0; i < -delta; i++) {
+                    if (isService) packageService.reverseServiceItem(itemId, appointmentId);
+                    else packageService.reverseProductItem(itemId, appointmentId);
+                }
+            }
+        }
+    }
+
+    private Map<Long, Integer> tallyServicePackageItemCounts(List<AppointmentServiceLine> lines) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (AppointmentServiceLine sl : lines) {
+            if (sl.getPackageServiceItem() != null) counts.merge(sl.getPackageServiceItem().getId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private Map<Long, Integer> tallyProductPackageItemCounts(List<AppointmentProductLine> lines) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (AppointmentProductLine pl : lines) {
+            if (pl.getPackageProductItem() != null) counts.merge(pl.getPackageProductItem().getId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private record PendingPackageConsumption(Long serviceItemId, Long productItemId, BigDecimal amount) {}
+
     // ── Per-line therapist reassignment ──────────────────────────────────────
     // Allowed regardless of appointment status: only the line's therapist changes,
     // price/quantity/stock are untouched, so commission/revenue recalculates live
-    // even for COMPLETED appointments.
+    // even for COMPLETED appointments. Still subject to the same double-booking check as the
+    // main create/update flow (warn, never hard-block) — see findConflictsForTherapist.
 
-    public AppointmentServiceLine reassignServiceLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+    /**
+     * Reassigns a service line's therapist, unless the new therapist is already booked elsewhere
+     * during this appointment's window and forceReassign wasn't set — in which case nothing is
+     * persisted and the conflict(s) are returned for the caller to display (mirrors the
+     * conflicts/forceSave pattern createAppointment/updateAppointment use). An empty list means
+     * the reassignment was applied.
+     */
+    public List<TherapistConflictDTO> reassignServiceLineTherapist(Long appointmentId, Long lineId,
+                                                                     Long newTherapistId, boolean forceReassign) {
         AppointmentServiceLine line = appointmentServiceLineRepository.findById(lineId)
                 .orElseThrow(() -> new EntityNotFoundException("Service line not found: " + lineId));
         if (!line.getAppointment().getId().equals(appointmentId)) {
@@ -691,14 +974,25 @@ public class AppointmentService {
         }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+        Appointment appt = line.getAppointment();
+        List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
+                newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
+        if (!conflicts.isEmpty() && !forceReassign) {
+            return conflicts;
+        }
+
         line.setTherapist(therapist);
-        AppointmentServiceLine saved = appointmentServiceLineRepository.save(line);
+        appointmentServiceLineRepository.save(line);
+        appointmentRepository.lockForVersionBump(appointmentId);
         log.info("Reassigned service line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
-        return saved;
+        return List.of();
     }
 
-    public AppointmentProductLine reassignProductLineTherapist(Long appointmentId, Long lineId, Long newTherapistId) {
+    /** Product-line counterpart of reassignServiceLineTherapist — same conflict-check contract. */
+    public List<TherapistConflictDTO> reassignProductLineTherapist(Long appointmentId, Long lineId,
+                                                                     Long newTherapistId, boolean forceReassign) {
         AppointmentProductLine line = appointmentProductLineRepository.findById(lineId)
                 .orElseThrow(() -> new EntityNotFoundException("Product line not found: " + lineId));
         if (!line.getAppointment().getId().equals(appointmentId)) {
@@ -706,11 +1000,20 @@ public class AppointmentService {
         }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+
+        Appointment appt = line.getAppointment();
+        List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
+                newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
+        if (!conflicts.isEmpty() && !forceReassign) {
+            return conflicts;
+        }
+
         line.setTherapist(therapist);
-        AppointmentProductLine saved = appointmentProductLineRepository.save(line);
+        appointmentProductLineRepository.save(line);
+        appointmentRepository.lockForVersionBump(appointmentId);
         log.info("Reassigned product line id={} (appointment id={}) to therapist '{}'",
                 lineId, appointmentId, therapist.getFullName());
-        return saved;
+        return List.of();
     }
 
     // ── Combos ────────────────────────────────────────────────────────────────
@@ -744,21 +1047,35 @@ public class AppointmentService {
     }
 
     /**
+     * Drops any AppointmentCombo attached by buildComboSelections that ended up with no matching
+     * service/product line — a malformed JS state or partial submit can send a combo selection whose
+     * groupKey no line actually carries. Left unfiltered, applyComboDiscount would just no-op the
+     * discount for it (see its lines.isEmpty() branch) while an orphaned, zero-item, ₹0-savings combo
+     * still persists and shows up in the appointment detail page's "Combo Packages" section. Must run
+     * after both line-building loops so every line's appointmentCombo reference is already set.
+     */
+    private void removeOrphanCombos(Appointment appointment) {
+        appointment.getCombos().removeIf(ac ->
+                appointment.getServiceLines().stream().noneMatch(sl -> sl.getAppointmentCombo() == ac)
+                        && appointment.getProductLines().stream().noneMatch(pl -> pl.getAppointmentCombo() == ac));
+    }
+
+    /**
      * Phase 1 of the two-phase discount: resolves one combo's own discount against the raw
      * lineTotal of just that combo's lines, and distributes it across only those lines. Lines
      * outside any combo are untouched here (see distributeDiscount for the whole-appointment phase).
      */
     private void applyComboDiscount(Appointment appointment, AppointmentCombo ac) {
-        List<DiscountableLine> lines = new ArrayList<>();
+        List<ProportionalAllocator.AllocationLine> lines = new ArrayList<>();
         appointment.getServiceLines().stream()
                 .filter(sl -> sl.getAppointmentCombo() == ac)
-                .forEach(sl -> lines.add(new DiscountableLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
+                .forEach(sl -> lines.add(new ProportionalAllocator.AllocationLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
         appointment.getProductLines().stream()
                 .filter(pl -> pl.getAppointmentCombo() == ac)
-                .forEach(pl -> lines.add(new DiscountableLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
+                .forEach(pl -> lines.add(new ProportionalAllocator.AllocationLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
 
         BigDecimal comboSubtotal = lines.stream()
-                .map(DiscountableLine::lineRaw).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(ProportionalAllocator.AllocationLine::rawAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         ac.setOriginalSubtotalSnapshot(comboSubtotal);
 
         DiscountType type = ac.getDiscountType();
@@ -775,7 +1092,7 @@ public class AppointmentService {
                 : rawValue.setScale(2, RoundingMode.HALF_UP);
         resolved = resolved.min(comboSubtotal);
         ac.setDiscountAmount(resolved);
-        distributeAmount(lines, comboSubtotal, resolved);
+        ProportionalAllocator.distribute(lines, comboSubtotal, resolved);
     }
 
     // ── Discount ──────────────────────────────────────────────────────────────
@@ -828,41 +1145,50 @@ public class AppointmentService {
 
     /** Phase 2's line collector — basis is each line's current effective total, not its raw total. */
     private void distributeDiscount(Appointment appointment, BigDecimal subtotal, BigDecimal discountAmount) {
-        List<DiscountableLine> lines = new ArrayList<>();
+        List<ProportionalAllocator.AllocationLine> lines = new ArrayList<>();
         appointment.getServiceLines().forEach(sl ->
-                lines.add(new DiscountableLine(sl.getEffectiveLineTotal(), sl::setDiscountedLineTotal)));
+                lines.add(new ProportionalAllocator.AllocationLine(sl.getEffectiveLineTotal(), sl::setDiscountedLineTotal)));
         appointment.getProductLines().forEach(pl ->
-                lines.add(new DiscountableLine(pl.getEffectiveLineTotal(), pl::setDiscountedLineTotal)));
-        distributeAmount(lines, subtotal, discountAmount);
+                lines.add(new ProportionalAllocator.AllocationLine(pl.getEffectiveLineTotal(), pl::setDiscountedLineTotal)));
+        ProportionalAllocator.distribute(lines, subtotal, discountAmount);
     }
 
-    /**
-     * Splits amount proportionally across the given lines, by each line's share of basisSubtotal.
-     * Lines are processed smallest-basis first; the last (largest) line absorbs whatever rounding
-     * remainder is left, so the per-line shares always sum exactly to amount. Shared by both discount
-     * phases — only which lines and which basis value get passed in differs between them.
-     */
-    private void distributeAmount(List<DiscountableLine> lines, BigDecimal basisSubtotal, BigDecimal amount) {
-        if (lines.isEmpty()) return;
-        lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
-
-        BigDecimal allocated = BigDecimal.ZERO;
-        for (int i = 0; i < lines.size(); i++) {
-            DiscountableLine line = lines.get(i);
-            BigDecimal share;
-            if (i == lines.size() - 1) {
-                share = amount.subtract(allocated);
-            } else {
-                share = amount.multiply(line.lineRaw())
-                        .divide(basisSubtotal, 10, RoundingMode.HALF_UP)
-                        .setScale(2, RoundingMode.HALF_UP);
-                allocated = allocated.add(share);
-            }
-            line.setter().accept(line.lineRaw().subtract(share));
+    private void validateDuration(Integer durationMinutes) {
+        int maxDurationMinutes = properties.getAppointment().getMaxDurationMinutes();
+        if (durationMinutes != null && durationMinutes > maxDurationMinutes) {
+            throw new IllegalArgumentException(
+                    "Appointment duration cannot exceed " + (maxDurationMinutes / 60) + " hours.");
         }
     }
 
-    private record DiscountableLine(BigDecimal lineRaw, Consumer<BigDecimal> setter) {}
+    /**
+     * Sums quantity per product across every line in a single submission (a product can appear on more
+     * than one line — a standalone line plus a combo line, or two combo lines) and validates the
+     * aggregate demand against live stock, so two lines of the same product can't each pass an
+     * independent check blind to the other's demand.
+     */
+    private void validateAggregateStockDemand(List<AppointmentForm.ProductLineForm> productLines) {
+        Map<Long, Integer> demandByProductId = new LinkedHashMap<>();
+        for (AppointmentForm.ProductLineForm plf : productLines) {
+            if (plf == null || plf.getProductId() == null) continue;
+            int qty = Math.max(1, plf.getQuantity());
+            demandByProductId.merge(plf.getProductId(), qty, Integer::sum);
+        }
+        for (Map.Entry<Long, Integer> entry : demandByProductId.entrySet()) {
+            Product product = productRepository.findById(entry.getKey())
+                    .orElseThrow(() -> new EntityNotFoundException("Product not found: " + entry.getKey()));
+            if (product.getStockQuantity() < entry.getValue()) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Available: " + product.getStockQuantity()
+                        + ", requested: " + entry.getValue());
+            }
+        }
+    }
+
+    private static BigDecimal nz(BigDecimal value) {
+        return value != null ? value : BigDecimal.ZERO;
+    }
 
     private DiscountType resolveDiscountType(String raw) {
         if (raw == null || raw.isBlank()) return DiscountType.NONE;
@@ -882,12 +1208,23 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
     }
 
-    private void restoreProductStock(Appointment appt) {
-        for (AppointmentProductLine pl : appt.getProductLines()) {
-            Product p = pl.getProduct();
-            p.setStockQuantity(p.getStockQuantity() + pl.getQuantity());
+
+    /**
+     * Flushes the appointment save immediately (rather than deferring to transaction commit) so a
+     * lost-update race against the same appointment row — e.g. a double-clicked status change or a
+     * double-submitted edit, both of which may also carry a wallet reversal/debit alongside this save
+     * — surfaces here as a clear, friendly message and rolls back the whole transaction (including
+     * any wallet mutation already flushed earlier in the same method) instead of letting a second,
+     * stale write silently re-apply its own wallet change on top of the first, already-committed one.
+     * Mirrors WalletService.persistBalance's identical pattern for PatientWallet.
+     */
+    private Appointment saveWithConflictCheck(Appointment appt) {
+        try {
+            return appointmentRepository.saveAndFlush(appt);
+        } catch (ObjectOptimisticLockingFailureException ex) {
+            throw new IllegalStateException(
+                    "This appointment was just updated by someone else. Please refresh and try again.", ex);
         }
-        // Product changes are flushed automatically within the same transaction
     }
 
     /** Credits back any wallet-sourced payment on an appointment that's being cancelled/no-showed. */

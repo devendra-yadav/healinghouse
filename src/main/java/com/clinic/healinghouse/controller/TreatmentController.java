@@ -8,6 +8,7 @@ import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -26,18 +27,25 @@ public class TreatmentController {
 
     private final TreatmentService treatmentService;
     private final TagService tagService;
+    private final PaginationUtil paginationUtil;
 
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(required = false) String tag,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        int pageSize = PaginationUtil.clampPageSize(size);
-        model.addAttribute("services", treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
+        boolean hasFilter = StringUtils.hasText(q) || StringUtils.hasText(tag);
+        model.addAttribute("services", (showInactive && !hasFilter)
+                ? treatmentService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("name")))
+                : treatmentService.search(q, tag, PageRequest.of(page, pageSize)));
         model.addAttribute("allTags", tagService.findAll());
         model.addAttribute("selectedTag", tag);
         model.addAttribute("q", q);
+        model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Services");
         return "services/list";
     }
@@ -89,8 +97,26 @@ public class TreatmentController {
 
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        treatmentService.deactivate(id);
-        ra.addFlashAttribute("successMessage", "Service deactivated successfully.");
+        var comboImpact = treatmentService.deactivate(id);
+        ra.addFlashAttribute("successMessage", "Service deactivated successfully." + comboImpact.describe());
         return "redirect:/services";
+    }
+
+    @PostMapping("/{id}/activate")
+    public String activate(@PathVariable Long id, RedirectAttributes ra) {
+        treatmentService.activate(id);
+        ra.addFlashAttribute("successMessage", "Service reactivated successfully.");
+        return "redirect:/services";
+    }
+
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            treatmentService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Service permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/services?showInactive=true";
     }
 }

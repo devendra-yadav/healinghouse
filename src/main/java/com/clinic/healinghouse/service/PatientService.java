@@ -45,6 +45,12 @@ public class PatientService {
         return patientRepository.searchActive(query.trim(), pageable);
     }
 
+    /** Includes deactivated patients too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<Patient> findAllIncludingInactive(Pageable pageable) {
+        return patientRepository.findAll(pageable);
+    }
+
     public Patient save(Patient patient) {
         boolean isNew = patient.getId() == null;
         Patient saved = patientRepository.save(patient);
@@ -57,5 +63,12 @@ public class PatientService {
         patient.setActive(false);
         patientRepository.save(patient);
         log.info("Deactivated patient id={} name='{}'", patient.getId(), patient.getFullName());
+    }
+
+    public void activate(Long id) {
+        Patient patient = getById(id);
+        patient.setActive(true);
+        patientRepository.save(patient);
+        log.info("Reactivated patient id={} name='{}'", patient.getId(), patient.getFullName());
     }
 }

@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.PatientWallet;
@@ -13,6 +14,7 @@ import com.clinic.healinghouse.repository.WalletTransactionRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -31,6 +33,7 @@ public class WalletService {
     private final WalletTransactionRepository transactionRepository;
     private final PatientRepository patientRepository;
     private final AppointmentRepository appointmentRepository;
+    private final HealingHouseProperties properties;
 
     @Transactional(readOnly = true)
     public BigDecimal getBalance(Long patientId) {
@@ -50,10 +53,22 @@ public class WalletService {
                 .orElseGet(() -> {
                     Patient patient = patientRepository.findById(patientId)
                             .orElseThrow(() -> new EntityNotFoundException("Patient not found: " + patientId));
-                    PatientWallet created = walletRepository.save(
-                            PatientWallet.builder().patient(patient).balance(BigDecimal.ZERO).build());
-                    log.info("Created wallet for patient id={}", patientId);
-                    return created;
+                    try {
+                        // saveAndFlush (not save): forces the INSERT to run synchronously right here so
+                        // a PK collision from a concurrent first-use surfaces as DataIntegrityViolationException
+                        // in THIS catch block. Under Hibernate's default deferred flush, a plain save()
+                        // only schedules the INSERT — the actual failure wouldn't surface until the next
+                        // flush/commit point, outside this try/catch, defeating the fallback below.
+                        PatientWallet created = walletRepository.saveAndFlush(
+                                PatientWallet.builder().patient(patient).balance(BigDecimal.ZERO).build());
+                        log.info("Created wallet for patient id={}", patientId);
+                        return created;
+                    } catch (DataIntegrityViolationException e) {
+                        // Lost a race with a concurrent first-use — the winner's row now exists, use it.
+                        return walletRepository.findById(patientId)
+                                .orElseThrow(() -> new IllegalStateException(
+                                        "Failed to create or load wallet for patient " + patientId, e));
+                    }
                 });
     }
 
@@ -145,8 +160,10 @@ public class WalletService {
 
     private void requireSufficientBalance(PatientWallet wallet, BigDecimal amount) {
         if (amount.compareTo(wallet.getBalance()) > 0) {
+            String symbol = properties.getCurrency().getSymbol();
             throw new IllegalArgumentException(
-                    "Insufficient wallet balance. Available: ₹" + wallet.getBalance() + ", requested: ₹" + amount);
+                    "Insufficient wallet balance. Available: " + symbol + wallet.getBalance()
+                    + ", requested: " + symbol + amount);
         }
     }
 }

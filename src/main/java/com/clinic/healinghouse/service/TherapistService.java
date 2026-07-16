@@ -44,6 +44,12 @@ public class TherapistService {
         return therapistRepository.findByActiveTrueOrderByFullNameAsc(pageable);
     }
 
+    /** Includes deactivated therapists too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
+    @Transactional(readOnly = true)
+    public Page<Therapist> findAllIncludingInactive(Pageable pageable) {
+        return therapistRepository.findAll(pageable);
+    }
+
     public Therapist save(Therapist therapist) {
         boolean isNew = therapist.getId() == null;
         Therapist saved = therapistRepository.save(therapist);
@@ -56,5 +62,12 @@ public class TherapistService {
         therapist.setActive(false);
         therapistRepository.save(therapist);
         log.info("Deactivated therapist id={} name='{}'", therapist.getId(), therapist.getFullName());
+    }
+
+    public void activate(Long id) {
+        Therapist therapist = getById(id);
+        therapist.setActive(true);
+        therapistRepository.save(therapist);
+        log.info("Reactivated therapist id={} name='{}'", therapist.getId(), therapist.getFullName());
     }
 }

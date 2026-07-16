@@ -38,6 +38,7 @@ public class AppointmentController {
     private final TreatmentService   treatmentService;
     private final ProductService     productService;
     private final ComboService       comboService;
+    private final PaginationUtil     paginationUtil;
 
     // ── List ──────────────────────────────────────────────────────────────
     @GetMapping
@@ -59,7 +60,8 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
-        int pageSize = PaginationUtil.clampPageSize(size);
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
                 null, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "appointmentDateTime")));
 
@@ -78,12 +80,14 @@ public class AppointmentController {
     // ── New form ──────────────────────────────────────────────────────────
     @GetMapping("/new")
     public String newForm(@RequestParam(required = false) Long therapistId,
+                          @RequestParam(required = false) Long patientId,
                           @RequestParam(required = false)
                           @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime appointmentDateTime,
                           Model model) {
         populateFormModel(model);
         AppointmentForm form = new AppointmentForm();
         if (therapistId != null) form.setTherapistId(therapistId);
+        if (patientId != null) form.setPatientId(patientId);
         if (appointmentDateTime != null) form.setAppointmentDateTime(appointmentDateTime);
         model.addAttribute("form", form);
         model.addAttribute("editMode",   false);
@@ -150,17 +154,8 @@ public class AppointmentController {
         if (!forceSave) {
             List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, null);
             if (!conflicts.isEmpty()) {
-                populateFormModel(model);
-                model.addAttribute("form",                 form);
-                model.addAttribute("conflicts",             conflicts);
-                model.addAttribute("existingServiceLines",  form.getServiceLines());
-                model.addAttribute("existingProductLines",  form.getProductLines());
-                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
-                model.addAttribute("editMode",   false);
-                model.addAttribute("formAction", "/appointments/save");
-                model.addAttribute("cancelUrl",  "/appointments");
-                model.addAttribute("pageTitle",  "New Appointment");
-                return "appointments/form";
+                model.addAttribute("conflicts", conflicts);
+                return renderAppointmentFormWithError(model, form, null, false, null, null);
             }
         }
         try {
@@ -168,6 +163,10 @@ public class AppointmentController {
             ra.addFlashAttribute("successMessage",
                     "Appointment #" + saved.getId() + " created successfully.");
             return "redirect:/appointments/" + saved.getId();
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            String msg = e.getMessage();
+            if (msg == null || msg.isBlank()) msg = "Failed to save appointment. Please check your input.";
+            return renderAppointmentFormWithError(model, form, msg, false, null, null);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to save appointment. Please try again.";
@@ -212,6 +211,7 @@ public class AppointmentController {
                         m.put("quantity",    sl.getQuantity());
                         m.put("therapistId", sl.getTherapist().getId());
                         m.put("comboGroupKey", sl.getAppointmentCombo() != null ? "combo-" + sl.getAppointmentCombo().getId() : null);
+                        m.put("packageItemId", sl.getPackageServiceItem() != null ? sl.getPackageServiceItem().getId() : null);
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
@@ -221,6 +221,7 @@ public class AppointmentController {
                         m.put("quantity",    pl.getQuantity());
                         m.put("therapistId", pl.getTherapist().getId());
                         m.put("comboGroupKey", pl.getAppointmentCombo() != null ? "combo-" + pl.getAppointmentCombo().getId() : null);
+                        m.put("packageItemId", pl.getPackageProductItem() != null ? pl.getPackageProductItem().getId() : null);
                         return m;
                     }).toList();
 
@@ -257,27 +258,18 @@ public class AppointmentController {
         if (!forceSave) {
             List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, id);
             if (!conflicts.isEmpty()) {
-                populateFormModel(model);
-                model.addAttribute("form",                 form);
-                model.addAttribute("conflicts",             conflicts);
-                model.addAttribute("existingServiceLines",  form.getServiceLines());
-                model.addAttribute("existingProductLines",  form.getProductLines());
-                model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
-                model.addAttribute("editMode",   true);
-                model.addAttribute("formAction", "/appointments/" + id + "/update");
-                model.addAttribute("returnUrl",  returnUrl);
-                model.addAttribute("cancelUrl",  (returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id);
-                model.addAttribute("pageTitle",  "Edit Appointment #" + id);
-                Appointment appt = appointmentService.getById(id);
-                model.addAttribute("appointment", appt);
-                model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
-                return "appointments/form";
+                model.addAttribute("conflicts", conflicts);
+                return renderAppointmentFormWithError(model, form, null, true, id, returnUrl);
             }
         }
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
             return "redirect:/appointments/" + id + suffix;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            String msg = e.getMessage();
+            if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please check your input.";
+            return renderAppointmentFormWithError(model, form, msg, true, id, returnUrl);
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg == null || msg.isBlank()) msg = "Failed to update appointment. Please try again.";
@@ -328,15 +320,25 @@ public class AppointmentController {
     }
 
     // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    // Subject to the same double-booking check as create/update (warn, never hard-block): if the
+    // new therapist is already busy elsewhere during this appointment's window, the reassignment
+    // is NOT applied and the conflict is flashed back for the detail page's warning banner to show,
+    // with a "Reassign Anyway" action that resubmits the same request with forceReassign=true.
     @PostMapping("/{id}/service-lines/{lineId}/reassign-therapist")
     public String reassignServiceLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
                                                @RequestParam Long therapistId,
+                                               @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
         try {
-            appointmentService.reassignServiceLineTherapist(id, lineId, therapistId);
-            ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+            List<TherapistConflictDTO> conflicts =
+                    appointmentService.reassignServiceLineTherapist(id, lineId, therapistId, forceReassign);
+            if (!conflicts.isEmpty()) {
+                flashReassignConflict(ra, conflicts, "service", lineId, therapistId);
+            } else {
+                ra.addFlashAttribute("successMessage", "Therapist reassigned for that service line.");
+            }
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
@@ -347,15 +349,31 @@ public class AppointmentController {
     public String reassignProductLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
                                                @RequestParam Long therapistId,
+                                               @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
         try {
-            appointmentService.reassignProductLineTherapist(id, lineId, therapistId);
-            ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+            List<TherapistConflictDTO> conflicts =
+                    appointmentService.reassignProductLineTherapist(id, lineId, therapistId, forceReassign);
+            if (!conflicts.isEmpty()) {
+                flashReassignConflict(ra, conflicts, "product", lineId, therapistId);
+            } else {
+                ra.addFlashAttribute("successMessage", "Therapist reassigned for that product line.");
+            }
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
+    }
+
+    private void flashReassignConflict(RedirectAttributes ra, List<TherapistConflictDTO> conflicts,
+                                       String lineType, Long lineId, Long therapistId) {
+        ra.addFlashAttribute("errorMessage",
+                "That therapist is already booked at this time. Review the conflict below, then confirm if you still want to reassign.");
+        ra.addFlashAttribute("reassignConflicts", conflicts);
+        ra.addFlashAttribute("reassignConflictLineType", lineType);
+        ra.addFlashAttribute("reassignConflictLineId", lineId);
+        ra.addFlashAttribute("reassignConflictTherapistId", therapistId);
     }
 
     private String returnUrlSuffix(String returnUrl) {
@@ -365,6 +383,40 @@ public class AppointmentController {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
+
+    /**
+     * Re-renders the appointment form with the staff-submitted data intact, used both for a
+     * double-booking conflict warning (errorMessage == null, "conflicts" already on the model)
+     * and for a validation-style failure from create/updateAppointment (errorMessage set).
+     * Without this, a rejected save/update used to redirect to a blank form, discarding everything
+     * the user had entered.
+     */
+    private String renderAppointmentFormWithError(Model model, AppointmentForm form, String errorMessage,
+                                                  boolean editMode, Long id, String returnUrl) {
+        populateFormModel(model);
+        model.addAttribute("form",                 form);
+        if (errorMessage != null) model.addAttribute("errorMessage", errorMessage);
+        model.addAttribute("existingServiceLines",  form.getServiceLines());
+        model.addAttribute("existingProductLines",  form.getProductLines());
+        model.addAttribute("existingComboGroups",   existingComboGroupsFromForm(form));
+        model.addAttribute("editMode",   editMode);
+        model.addAttribute("formAction", editMode ? "/appointments/" + id + "/update" : "/appointments/save");
+        model.addAttribute("cancelUrl",  editMode
+                ? ((returnUrl != null && !returnUrl.isBlank()) ? returnUrl : "/appointments/" + id)
+                : "/appointments");
+        model.addAttribute("pageTitle",  editMode ? "Edit Appointment #" + id : "New Appointment");
+        if (editMode) {
+            model.addAttribute("returnUrl", returnUrl);
+            try {
+                Appointment appt = appointmentService.getById(id);
+                model.addAttribute("appointment", appt);
+                model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
+            } catch (Exception ignored) {
+                // Appointment may have been removed concurrently; the form still renders without the sidebar.
+            }
+        }
+        return "appointments/form";
+    }
 
     /** Combo group metadata for edit-mode pre-population, keyed the same way AppointmentForm.from does. */
     private List<Map<String, Object>> existingComboGroupsFromAppointment(Appointment appt) {

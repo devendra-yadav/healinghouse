@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentRevenueRowDTO;
 import com.clinic.healinghouse.dto.ComboDiscountSummaryDTO;
 import com.clinic.healinghouse.dto.ProductRevenueSummaryDTO;
@@ -54,14 +55,13 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class RevenueReportAggregator {
 
-    private static final DateTimeFormatter TREND_LABEL_FORMAT = DateTimeFormatter.ofPattern("dd MMM");
-
     private final AppointmentRepository appointmentRepository;
     private final AppointmentComboRepository appointmentComboRepository;
     private final AppointmentServiceLineRepository serviceLineRepository;
     private final AppointmentProductLineRepository productLineRepository;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
 
     public RevenueReportDTO getRevenueReport(RevenueReportFilter filter, Pageable pageable) {
         LocalDate dateFrom = filter.dateFrom();
@@ -88,9 +88,9 @@ public class RevenueReportAggregator {
         // a patient's advance payment — either a Scheduled appointment still awaiting its outcome, or a
         // Cancelled/No-Show one where the patient forfeited it (wallet-sourced amounts are already reversed
         // by AppointmentService for the latter two, so amountPaid here is real cash/UPI/card money kept).
-        // Each appointment has exactly one status at query time, so this never overlaps with the completed
-        // bucket above — folded into Net Revenue/Collected, but only the amount actually paid, never the
-        // appointment's full (service-not-yet-or-never-rendered) grandTotal.
+        // Shown only as its own standalone "Advance Payments" figure — never folded into Net Revenue,
+        // Collected, or any other headline/breakdown figure, all of which stay strictly COMPLETED-only
+        // (revenue is recognized at completion, matching the wallet feature's own principle).
         Specification<Appointment> advanceSpec = baseSpec.and(AppointmentSpec.hasStatusIn(
                 List.of(AppointmentStatus.SCHEDULED, AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW)));
         List<Appointment> withAdvance = appointmentRepository.findAll(advanceSpec);
@@ -98,12 +98,11 @@ public class RevenueReportAggregator {
         Map<Long, BigDecimal> comboDiscountByAppointment = comboDiscountMap(completedIds);
 
         RevenueSummaryDTO summary = buildSummary(dateFrom, dateTo, completed, withAdvance, comboDiscountByAppointment);
-        List<RevenueByPaymentMethodDTO> byPaymentMethod =
-                buildByPaymentMethod(completed, withAdvance, summary.walletFunded());
+        List<RevenueByPaymentMethodDTO> byPaymentMethod = buildByPaymentMethod(completed, summary.walletFunded());
         List<RevenueByTherapistDTO> byTherapist = buildByTherapist(completedIds);
         List<RevenueByCatalogItemDTO> servicesNetRevenue = buildServicesBreakdown(completedIds);
         List<RevenueByCatalogItemDTO> productsNetRevenue = buildProductsBreakdown(completedIds);
-        RevenueTrendDTO trend = buildTrend(dateFrom, dateTo, completed, withAdvance);
+        RevenueTrendDTO trend = buildTrend(dateFrom, dateTo, completed);
 
         // Drill-down table: respects the caller's status choice (null = every status), visibility only —
         // never feeds the aggregation above.
@@ -145,35 +144,26 @@ public class RevenueReportAggregator {
             walletFunded = walletFunded.add(nz(a.getWalletAmountApplied()));
         }
 
-        // A Scheduled appointment's wallet portion isn't reversed (only Cancelled/No-Show trigger that),
-        // so it must still be folded into walletFunded here — otherwise the payment-method breakdown's
-        // Wallet bucket would undercount and no longer reconcile with Collected.
+        // Advance received on non-COMPLETED appointments is shown as its own informational figure (the
+        // "Advance Payments" card) — never folded into netRevenue/collected/walletFunded, which stay
+        // strictly COMPLETED-only per the "revenue recognized at completion" rule (CLAUDE.md): summary
+        // cards/totals only ever count COMPLETED appointments, regardless of the status filter chosen.
         BigDecimal advanceReceived = BigDecimal.ZERO;
         for (Appointment a : withAdvance) {
             advanceReceived = advanceReceived.add(nz(a.getAmountPaid()));
-            walletFunded = walletFunded.add(nz(a.getWalletAmountApplied()));
         }
-        netRevenue = netRevenue.add(advanceReceived);
-        collected = collected.add(advanceReceived);
 
         return new RevenueSummaryDTO(dateFrom, dateTo, completed.size(), grossRevenue, comboDiscount,
                 manualDiscount, netRevenue, collected, outstanding, walletFunded, advanceReceived);
     }
 
-    /** Cash-portion collected grouped by payment method (completed appointments plus advance payments on
-     * Scheduled/Cancelled/No-Show appointments), plus a synthetic "Wallet" row for the wallet-funded portion —
-     * avoids double-counting wallet draws as both "collected via method X" and "wallet". */
+    /** Cash-portion collected grouped by payment method, COMPLETED appointments only (matching the
+     * summary cards this breakdown sits next to), plus a synthetic "Wallet" row for the wallet-funded
+     * portion — avoids double-counting wallet draws as both "collected via method X" and "wallet". */
     private List<RevenueByPaymentMethodDTO> buildByPaymentMethod(List<Appointment> completed,
-                                                                  List<Appointment> withAdvance,
                                                                   BigDecimal walletFunded) {
         Map<String, BigDecimal> byMethod = new LinkedHashMap<>();
         for (Appointment a : completed) {
-            BigDecimal cashPortion = nz(a.getAmountPaid()).subtract(nz(a.getWalletAmountApplied()));
-            if (cashPortion.signum() == 0) continue;
-            String label = a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "Unspecified";
-            byMethod.merge(label, cashPortion, BigDecimal::add);
-        }
-        for (Appointment a : withAdvance) {
             BigDecimal cashPortion = nz(a.getAmountPaid()).subtract(nz(a.getWalletAmountApplied()));
             if (cashPortion.signum() == 0) continue;
             String label = a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "Unspecified";
@@ -192,30 +182,33 @@ public class RevenueReportAggregator {
     private List<RevenueByTherapistDTO> buildByTherapist(List<Long> appointmentIds) {
         if (appointmentIds.isEmpty()) return List.of();
 
-        Map<String, BigDecimal> gross = new LinkedHashMap<>();
-        Map<String, BigDecimal> net = new LinkedHashMap<>();
-        mergeRevenue(gross, serviceLineRepository.sumRawServiceRevenueByTherapistInAppointmentIds(appointmentIds));
-        mergeRevenue(gross, productLineRepository.sumRawProductRevenueByTherapistInAppointmentIds(appointmentIds));
-        mergeRevenue(net, serviceLineRepository.sumEffectiveServiceRevenueByTherapistInAppointmentIds(appointmentIds));
-        mergeRevenue(net, productLineRepository.sumEffectiveProductRevenueByTherapistInAppointmentIds(appointmentIds));
+        Map<Long, BigDecimal> gross = new LinkedHashMap<>();
+        Map<Long, BigDecimal> net = new LinkedHashMap<>();
+        Map<Long, String> namesById = new LinkedHashMap<>();
+        mergeRevenue(gross, namesById, serviceLineRepository.sumRawServiceRevenueByTherapistInAppointmentIds(appointmentIds));
+        mergeRevenue(gross, namesById, productLineRepository.sumRawProductRevenueByTherapistInAppointmentIds(appointmentIds));
+        mergeRevenue(net, namesById, serviceLineRepository.sumEffectiveServiceRevenueByTherapistInAppointmentIds(appointmentIds));
+        mergeRevenue(net, namesById, productLineRepository.sumEffectiveProductRevenueByTherapistInAppointmentIds(appointmentIds));
 
-        Set<String> names = new LinkedHashSet<>();
-        names.addAll(gross.keySet());
-        names.addAll(net.keySet());
+        Set<Long> ids = new LinkedHashSet<>();
+        ids.addAll(gross.keySet());
+        ids.addAll(net.keySet());
 
-        return names.stream()
-                .map(name -> {
-                    BigDecimal g = gross.getOrDefault(name, BigDecimal.ZERO);
-                    BigDecimal n = net.getOrDefault(name, BigDecimal.ZERO);
-                    return new RevenueByTherapistDTO(name, g, g.subtract(n), n);
+        return ids.stream()
+                .map(therapistId -> {
+                    BigDecimal g = gross.getOrDefault(therapistId, BigDecimal.ZERO);
+                    BigDecimal n = net.getOrDefault(therapistId, BigDecimal.ZERO);
+                    return new RevenueByTherapistDTO(therapistId, namesById.get(therapistId), g, g.subtract(n), n);
                 })
                 .sorted(Comparator.comparing(RevenueByTherapistDTO::netRevenue).reversed())
                 .toList();
     }
 
-    private static void mergeRevenue(Map<String, BigDecimal> target, List<TherapistRevenueDTO> source) {
+    private static void mergeRevenue(Map<Long, BigDecimal> target, Map<Long, String> namesById,
+                                      List<TherapistRevenueDTO> source) {
         for (TherapistRevenueDTO r : source) {
-            target.merge(r.therapistName(), r.revenue(), BigDecimal::add);
+            target.merge(r.therapistId(), r.revenue(), BigDecimal::add);
+            namesById.putIfAbsent(r.therapistId(), r.therapistName());
         }
     }
 
@@ -265,22 +258,18 @@ public class RevenueReportAggregator {
                 .toList();
     }
 
-    private RevenueTrendDTO buildTrend(LocalDate dateFrom, LocalDate dateTo, List<Appointment> completed,
-                                        List<Appointment> withAdvance) {
+    private RevenueTrendDTO buildTrend(LocalDate dateFrom, LocalDate dateTo, List<Appointment> completed) {
         Map<LocalDate, BigDecimal> byDay = new HashMap<>();
         for (Appointment a : completed) {
             LocalDate day = a.getAppointmentDateTime().toLocalDate();
             byDay.merge(day, nz(a.getGrandTotal()), BigDecimal::add);
         }
-        for (Appointment a : withAdvance) {
-            LocalDate day = a.getAppointmentDateTime().toLocalDate();
-            byDay.merge(day, nz(a.getAmountPaid()), BigDecimal::add);
-        }
 
         List<String> labels = new ArrayList<>();
         List<BigDecimal> values = new ArrayList<>();
+        DateTimeFormatter trendLabelFormat = DateTimeFormatter.ofPattern(properties.getReports().getTrendLabelFormat());
         for (LocalDate day = dateFrom; !day.isAfter(dateTo); day = day.plusDays(1)) {
-            labels.add(day.format(TREND_LABEL_FORMAT));
+            labels.add(day.format(trendLabelFormat));
             values.add(byDay.getOrDefault(day, BigDecimal.ZERO));
         }
         return new RevenueTrendDTO(labels, values);

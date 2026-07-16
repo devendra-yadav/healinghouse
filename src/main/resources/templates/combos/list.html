@@ -12,9 +12,16 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Combos</h4>
-        <a th:href="@{/combos/new}" class="btn btn-hh btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>New Combo
-        </a>
+        <div class="d-flex gap-2">
+            <a th:href="@{/combos(q=${q},showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+            </a>
+            <a th:href="@{/combos/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Combo
+            </a>
+        </div>
     </div>
 
     <div class="mb-3" style="max-width:400px;">
@@ -69,6 +76,18 @@
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
+                                <form th:if="${!c.active}" th:action="@{/combos/{id}/activate(id=${c.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${!c.active}"
+                                        data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
+                                        th:attr="data-name=${c.name}, data-url=@{/combos/{id}/delete-permanent(id=${c.id})}">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
                                         th:if="${c.active}"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
@@ -87,7 +106,7 @@
                 <select class="form-select form-select-sm" style="width:auto;"
                         onchange="location.href=this.value">
                     <option th:each="s : ${ {10,20,50,100} }"
-                            th:value="@{/combos(q=${q},size=${s},page=0)}"
+                            th:value="@{/combos(q=${q},size=${s},page=0,showInactive=${showInactive})}"
                             th:selected="${s == combos.size}"
                             th:text="${s} + ' / page'">
                     </option>
@@ -98,12 +117,12 @@
                 <div th:if="${combos.totalPages > 1}" class="btn-group btn-group-sm">
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!combos.hasPrevious()} ? 'disabled'"
-                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number - 1})}">
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number - 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-left"></i>
                     </a>
                     <a class="btn btn-outline-secondary"
                        th:classappend="${!combos.hasNext()} ? 'disabled'"
-                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number + 1})}">
+                       th:href="@{/combos(q=${q},size=${combos.size},page=${combos.number + 1},showInactive=${showInactive})}">
                         <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
@@ -131,6 +150,25 @@
     </div>
 </div>
 
+<!-- Permanent Delete Confirmation Modal -->
+<div class="modal fade" id="deletePermanentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Permanently Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deletePermanentModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deletePermanentForm" method="post">
+                    <button type="submit" class="btn btn-danger">Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script>
@@ -139,6 +177,12 @@
         document.getElementById('deleteModalBody').textContent =
             'Deactivate combo "' + btn.dataset.name + '"?';
         document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+    document.getElementById('deletePermanentModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deletePermanentModalBody').textContent =
+            'Permanently delete combo "' + btn.dataset.name + '"? This cannot be undone.';
+        document.getElementById('deletePermanentForm').action = btn.dataset.url;
     });
 </script>
 </body>

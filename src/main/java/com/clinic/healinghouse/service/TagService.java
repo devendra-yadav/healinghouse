@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.TagUsage;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Product;
@@ -27,6 +28,7 @@ public class TagService {
     private final TagRepository tagRepository;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
 
     @Transactional(readOnly = true)
     public List<Tag> findAll() {
@@ -76,6 +78,10 @@ public class TagService {
 
     public Tag rename(Long id, String newName) {
         Tag tag = getById(id);
+        if (!StringUtils.hasText(newName)) {
+            throw new IllegalArgumentException("Tag name cannot be blank.");
+        }
+        assertNotCommissionOrBonus(tag.getName(), "renamed");
         String trimmed = newName.trim();
         tagRepository.findByNameIgnoreCase(trimmed)
                 .filter(existing -> !existing.getId().equals(id))
@@ -94,6 +100,7 @@ public class TagService {
         }
         Tag source = getById(sourceId);
         Tag target = getById(targetId);
+        assertNotCommissionOrBonus(source.getName(), "merged away");
 
         List<ClinicService> services = clinicServiceRepository.findByTagsId(sourceId);
         services.forEach(s -> {
@@ -117,6 +124,7 @@ public class TagService {
     /** Removes the tag from every service/product that has it, then deletes the tag itself. */
     public void delete(Long id) {
         Tag tag = getById(id);
+        assertNotCommissionOrBonus(tag.getName(), "deleted");
 
         List<ClinicService> services = clinicServiceRepository.findByTagsId(id);
         services.forEach(s -> s.getTags().remove(tag));
@@ -129,5 +137,14 @@ public class TagService {
         tagRepository.delete(tag);
         log.info("Deleted tag id={} name='{}' (removed from {} service(s), {} product(s))",
                 id, tag.getName(), services.size(), products.size());
+    }
+
+    /** Blocks renaming/merging away the two tag names commission calculations key off of by exact name. */
+    private void assertNotCommissionOrBonus(String tagName, String action) {
+        if (properties.getCommission().getCommissionTag().equalsIgnoreCase(tagName)
+                || properties.getCommission().getBonusTag().equalsIgnoreCase(tagName)) {
+            throw new IllegalArgumentException(
+                    "The '" + tagName + "' tag drives commission/bonus calculations and cannot be " + action + ".");
+        }
     }
 }

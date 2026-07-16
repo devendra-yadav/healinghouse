@@ -1,12 +1,17 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Combo;
 import com.clinic.healinghouse.entity.DiscountType;
 import com.clinic.healinghouse.entity.Patient;
+import com.clinic.healinghouse.entity.PatientPackage;
+import com.clinic.healinghouse.entity.PatientPackageServiceItem;
+import com.clinic.healinghouse.entity.PatientPackageStatus;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
@@ -37,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +62,7 @@ class AppointmentServiceTests {
     @Mock private AppointmentServiceLineRepository appointmentServiceLineRepository;
     @Mock private AppointmentProductLineRepository appointmentProductLineRepository;
     @Mock private WalletService walletService;
+    @Mock private PackageService packageService;
     @Mock private ComboRepository comboRepository;
 
     private AppointmentService appointmentService;
@@ -67,11 +74,16 @@ class AppointmentServiceTests {
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, patientRepository, therapistRepository,
                 clinicServiceRepository, productRepository, appointmentServiceLineRepository,
-                appointmentProductLineRepository, walletService, comboRepository);
-        when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
-        when(therapistRepository.findById(THERAPIST_ID)).thenReturn(Optional.of(therapist()));
+                appointmentProductLineRepository, walletService, packageService, comboRepository, new HealingHouseProperties());
+        // lenient: markAsCompleted and updateAppointment's stale-baseline guard-throws-before-lookup
+        // tests never reach these patient/therapist lookups.
+        lenient().when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
+        lenient().when(therapistRepository.findById(THERAPIST_ID)).thenReturn(Optional.of(therapist()));
         // lenient: a few tests (guard-throws-before-save cases) never reach the save() call
         lenient().when(appointmentRepository.save(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
+        // saveAndFlush is used by cancelAppointment/markAsNoShow/updateAppointment's conflict-checked
+        // save (AppointmentService.saveWithConflictCheck) — same stub as save() above.
+        lenient().when(appointmentRepository.saveAndFlush(any(Appointment.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     private Combo combo(Long id, DiscountType discountType, BigDecimal discountValue) {
@@ -130,6 +142,19 @@ class AppointmentServiceTests {
         return productLine(productId, qty, null);
     }
 
+    private PatientPackageServiceItem packageServiceItem(Long id, Long serviceId, BigDecimal priceAllocated) {
+        return PatientPackageServiceItem.builder().id(id)
+                .service(clinicService(serviceId, priceAllocated))
+                .patientPackage(PatientPackage.builder().id(200L).status(PatientPackageStatus.ACTIVE).build())
+                .sessionsTotal(10).sessionsUsed(0).priceAllocated(priceAllocated).build();
+    }
+
+    private AppointmentForm.ServiceLineForm packageServiceLine(Long serviceId, Long packageItemId) {
+        AppointmentForm.ServiceLineForm sl = serviceLine(serviceId, 1);
+        sl.setPackageItemId(packageItemId);
+        return sl;
+    }
+
     private AppointmentForm.ProductLineForm productLine(Long productId, int qty, String comboGroupKey) {
         AppointmentForm.ProductLineForm pl = new AppointmentForm.ProductLineForm();
         pl.setProductId(productId);
@@ -184,6 +209,55 @@ class AppointmentServiceTests {
         // Naive proportional rounding would give each of the 3 equal ₹1 lines a 0.33 share (sum 0.99,
         // short by 0.01) — the last-in-list-order line must absorb the remainder to land on 0.34.
         assertThat(saved.getProductLines().get(0).getDiscountedLineTotal()).isEqualByComparingTo("0.66");
+    }
+
+    // ── 2b. Rounding remainder redistribution never creates a negative or over-cap share ──
+    @Test
+    void createAppointment_manyEqualLinesTinyDiscount_noLineShareGoesNegativeOrExceedsRaw() {
+        // Regression test for Bug_Report_v2 #5: independently HALF_UP-rounding each non-last line's
+        // share can over-allocate the running total by up to ~0.005/line; with enough lines and a
+        // discount amount small enough, the old "last line absorbs amount - allocated" logic could
+        // drive that line's absorbed share negative — i.e. a "discount" that raised its price above
+        // its own raw total. 50 equal ₹1 lines with a ₹0.25 flat discount hits exactly that case
+        // (each non-last line's true share is 0.005, which rounds up to 0.01).
+        when(clinicServiceRepository.findById(anyLong()))
+                .thenAnswer(inv -> Optional.of(clinicService(inv.getArgument(0), BigDecimal.ONE)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("FLAT");
+        form.setDiscountValue(BigDecimal.valueOf(0.25));
+        for (long i = 1; i <= 50; i++) {
+            form.getServiceLines().add(serviceLine(i, 1));
+        }
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getDiscountAmount()).isEqualByComparingTo("0.25");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("49.75");
+
+        BigDecimal sumOfShares = BigDecimal.ZERO;
+        for (var sl : saved.getServiceLines()) {
+            BigDecimal share = sl.getLineTotal().subtract(sl.getDiscountedLineTotal());
+            assertThat(share).isGreaterThanOrEqualTo(BigDecimal.ZERO);
+            assertThat(share).isLessThanOrEqualTo(sl.getLineTotal());
+            sumOfShares = sumOfShares.add(share);
+        }
+        assertThat(sumOfShares).isEqualByComparingTo("0.25");
+    }
+
+    // ── 2c. Duration is capped, keeping findConflicts' pre-filter window provably safe ──
+    @Test
+    void createAppointment_durationOver24Hours_throws() {
+        // Regression test for Bug_Report_v2 #12: findConflicts' DB pre-filter only widens ±1 day
+        // around the requested window; an unbounded duration could let a candidate appointment
+        // starting more than a day away still overlap without being caught by that pre-filter.
+        AppointmentForm form = baseForm();
+        form.setDurationMinutes(1441); // 24h + 1min
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.createAppointment(form))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("24 hours");
     }
 
     // ── 3. Percentage discount capped at 100% ─────────────────────────────────
@@ -310,6 +384,131 @@ class AppointmentServiceTests {
         verify(walletService).applyToAppointment(eq(PATIENT_ID), anyLong(), appliedAmount.capture());
         assertThat(appliedAmount.getValue()).isEqualByComparingTo("200");
         verify(walletService, never()).reverseForAppointment(any(), anyLong(), any());
+    }
+
+    // ── 6b. Package-covered lines ─────────────────────────────────────────────
+    @Test
+    void createAppointment_packageCoveredLine_consumesAfterSaveAndSetsPackageAmountApplied() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID))
+                .thenReturn(packageServiceItem(500L, 1L, BigDecimal.valueOf(1000)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("1000");
+        assertThat(saved.getAmountPaid()).isEqualByComparingTo("1000");
+        verify(packageService).consumeServiceItem(eq(500L), any(), eq(BigDecimal.valueOf(1000)));
+    }
+
+    @Test
+    void createAppointment_twoLinesSamePackageItem_consumesTwiceAndSumsIntoPackageAmountApplied() {
+        // Regression coverage for the "click Add twice" case (requirements §2 non-goals) — a single
+        // PatientPackageServiceItem can legitimately back more than one line in one appointment.
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID))
+                .thenReturn(packageServiceItem(500L, 1L, BigDecimal.valueOf(1000)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("2000");
+        verify(packageService, times(2)).consumeServiceItem(eq(500L), any(), eq(BigDecimal.valueOf(1000)));
+    }
+
+    @Test
+    void updateAppointment_resubmitSamePackageItemId_isNoOpForConsumption() {
+        // Acceptance Criteria #7: re-saving an appointment without changing its package-covered
+        // lines must not double-consume or spuriously reverse — the trickiest part per §10.
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID)).thenReturn(pkgItem);
+
+        AppointmentServiceLine existingLine = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(existingLine);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("1000");
+        verify(packageService, never()).consumeServiceItem(any(), any(), any());
+        verify(packageService, never()).reverseServiceItem(any(), any());
+    }
+
+    @Test
+    void updateAppointment_removingPackageLine_reversesConsumption() {
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        AppointmentServiceLine existingLine = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(existingLine);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(clinicServiceRepository.findById(2L)).thenReturn(Optional.of(clinicService(2L, BigDecimal.valueOf(500))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(serviceLine(2L, 1)); // different service, no package — replaces the old line
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        verify(packageService).reverseServiceItem(500L, 10L);
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void cancelAppointment_reversesPackageConsumption() {
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        AppointmentServiceLine line = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(line);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        Appointment saved = appointmentService.cancelAppointment(10L, "test");
+
+        verify(packageService).reverseServiceItem(500L, 10L);
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("0");
+        assertThat(saved.getAmountPaid()).isEqualByComparingTo("0");
     }
 
     // ── 7. amountPaid > grandTotal guard ──────────────────────────────────────
@@ -468,5 +667,162 @@ class AppointmentServiceTests {
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("500");
         assertThat(saved.getServiceLines()).hasSize(1);
         assertThat(saved.getServiceLines().get(0).getAppointmentCombo()).isNull();
+    }
+
+    // ── Bug_Report_v3 #4: markAsCompleted must re-validate stock, not just decrement blindly ──
+    @Test
+    void markAsCompleted_insufficientStock_throwsAndDoesNotDecrement() {
+        Product product = product(1L, BigDecimal.TEN, 2);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> appointmentService.markAsCompleted(10L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Insufficient stock");
+
+        assertThat(product.getStockQuantity()).isEqualTo(2); // untouched
+        assertThat(existing.getStatus()).isEqualTo(AppointmentStatus.SCHEDULED); // untouched
+    }
+
+    @Test
+    void markAsCompleted_sameProductOnTwoLines_validatesAggregateDemandAndDecrementsBoth() {
+        Product product = product(1L, BigDecimal.TEN, 5);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        // Each individual line (qty 3) is within stock (5), but the combined demand (6) isn't.
+        assertThatThrownBy(() -> appointmentService.markAsCompleted(10L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Insufficient stock");
+        assertThat(product.getStockQuantity()).isEqualTo(5);
+    }
+
+    @Test
+    void markAsCompleted_sufficientStock_decrementsAndUsesConflictSafeSave() {
+        Product product = product(1L, BigDecimal.TEN, 5);
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.ZERO).amountPaid(BigDecimal.ZERO)
+                .build();
+        existing.getProductLines().add(com.clinic.healinghouse.entity.AppointmentProductLine.builder()
+                .appointment(existing).product(product).therapist(therapist())
+                .quantity(3).priceAtTime(BigDecimal.TEN).lineTotal(BigDecimal.valueOf(30))
+                .build());
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+
+        Appointment saved = appointmentService.markAsCompleted(10L);
+
+        assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
+        assertThat(product.getStockQuantity()).isEqualTo(2);
+        verify(appointmentRepository).saveAndFlush(existing); // saveWithConflictCheck, not plain save()
+    }
+
+    // ── Bug_Report_v3 #2: a stale page-load baseline must be rejected, not silently trusted ──
+    @Test
+    void updateAppointment_staleAmountPaidBaseline_throws() {
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(1000)) // someone else already paid it off
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingAmountPaidBaseline(BigDecimal.valueOf(500)); // stale: this page loaded before the other payment
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.updateAppointment(10L, form))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("updated by someone else");
+    }
+
+    @Test
+    void updateAppointment_staleWalletAppliedBaseline_throws() {
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(500))
+                .walletAmountApplied(BigDecimal.valueOf(500)) // someone else already changed this
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingWalletAppliedBaseline(BigDecimal.valueOf(200)); // stale
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        assertThatThrownBy(() -> appointmentService.updateAppointment(10L, form))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("updated by someone else");
+    }
+
+    @Test
+    void updateAppointment_matchingBaseline_proceedsNormally() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000)).amountPaid(BigDecimal.valueOf(500))
+                .walletAmountApplied(BigDecimal.valueOf(500))
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setExistingAmountPaidBaseline(BigDecimal.valueOf(500)); // matches — not stale
+        form.setExistingWalletAppliedBaseline(BigDecimal.valueOf(500)); // matches — not stale
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("1000");
+    }
+
+    // ── Bug_Report_v3 #13: a combo selection with no matching line must not persist as an orphan ──
+    @Test
+    void createAppointment_comboSelectionWithNoMatchingLines_isDropped() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(500))));
+        when(comboRepository.findById(1L)).thenReturn(Optional.of(combo(1L, DiscountType.FLAT, BigDecimal.valueOf(50))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getComboSelections().add(comboSelection(1L, "combo-1")); // selected...
+        form.getServiceLines().add(serviceLine(1L, 1)); // ...but no line actually carries "combo-1"
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getCombos()).isEmpty();
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("500");
     }
 }

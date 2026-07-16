@@ -55,6 +55,11 @@ public class AppointmentServiceLine {
     @JoinColumn(name = "appointment_combo_id")
     private AppointmentCombo appointmentCombo;
 
+    /** Non-null when this line was fully covered by a prepaid package session. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_package_service_item_id")
+    private PatientPackageServiceItem packageServiceItem;
+
     @Transient
     public BigDecimal getLineTotal() {
         return priceAtTime.multiply(BigDecimal.valueOf(quantity));
