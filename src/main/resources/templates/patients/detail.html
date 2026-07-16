@@ -356,6 +356,24 @@
                 </div>
             </div>
 
+            <div th:if="${patientPackages.totalPages > 1}"
+                 class="d-flex justify-content-between align-items-center mt-2">
+                <span class="text-muted small"
+                      th:text="'Page ' + (${patientPackages.number} + 1) + ' of ' + ${patientPackages.totalPages}"></span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!patientPackages.hasPrevious()} ? 'disabled'"
+                       th:href="@{/patients/{id}(id=${patient.id},packageListPage=${patientPackages.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!patientPackages.hasNext()} ? 'disabled'"
+                       th:href="@{/patients/{id}(id=${patient.id},packageListPage=${patientPackages.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+
             <div class="table-responsive mt-3">
                 <table class="table table-sm table-hover mb-0">
                     <thead>
@@ -759,10 +777,16 @@ function applyPackageTemplate() {
     updatePkgPreview();
 }
 
+// Searchable "Start From Template" select — same Choices.js pattern as the service/product
+// item-row pickers, with each option's price appended so staff can compare at a glance.
+const pkgTemplateSelectEl = document.getElementById('pkgTemplateSelect');
+pkgTemplateSelectEl.innerHTML = '<option value="">— Custom package —</option>' +
+    ACTIVE_TEMPLATES.map(t => `<option value="${t.id}">${pkgEscHtml(t.name)} — ${pkgFmt(t.suggestedPrice)}</option>`).join('');
+const pkgTemplateChoices = initPkgItemSelect(pkgTemplateSelectEl, '— Custom package —');
+
 document.getElementById('sellPackageModal').addEventListener('show.bs.modal', function () {
-    const select = document.getElementById('pkgTemplateSelect');
-    select.innerHTML = '<option value="">— Custom package —</option>' +
-        ACTIVE_TEMPLATES.map(t => `<option value="${t.id}">${pkgEscHtml(t.name)}</option>`).join('');
+    pkgTemplateChoices.setChoiceByValue('');
+    document.getElementById('pkgSourceTemplateId').value = '';
 });
 
 document.getElementById('sellPackageForm').addEventListener('submit', function (event) {

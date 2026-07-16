@@ -1,6 +1,8 @@
 package com.clinic.healinghouse.repository;
 
 import com.clinic.healinghouse.entity.PatientPackage;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +13,8 @@ import java.util.Optional;
 public interface PatientPackageRepository extends JpaRepository<PatientPackage, Long> {
 
     List<PatientPackage> findByPatientIdOrderByPurchasedAtDesc(Long patientId);
+
+    Page<PatientPackage> findByPatientIdOrderByPurchasedAtDesc(Long patientId, Pageable pageable);
 
     // ── Two separate queries to avoid MultipleBagFetchException (PatientPackage has two
     //    @OneToMany bags — same trap Combo/Appointment already work around) ──────────

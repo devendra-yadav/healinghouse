@@ -388,8 +388,8 @@ public class PackageService {
     }
 
     @Transactional(readOnly = true)
-    public List<PatientPackageSummaryDTO> getAllForPatient(Long patientId) {
-        return patientPackageRepository.findByPatientIdOrderByPurchasedAtDesc(patientId).stream()
+    public Page<PatientPackageSummaryDTO> getAllForPatient(Long patientId, Pageable pageable) {
+        return patientPackageRepository.findByPatientIdOrderByPurchasedAtDesc(patientId, pageable)
                 .map(pkg -> {
                     PatientPackage full = getById(pkg.getId()); // ensure both item collections are loaded
                     List<PatientPackageSummaryDTO.ItemLine> items = new ArrayList<>();
@@ -401,8 +401,7 @@ public class PackageService {
                             ? BigDecimal.ZERO : computeRefundableValue(full);
                     return new PatientPackageSummaryDTO(full.getId(), full.getName(), full.getStatus(),
                             full.getTotalPrice(), full.getExpiryDate(), full.getPurchasedAt(), refundable, items);
-                })
-                .toList();
+                });
     }
 
     @Transactional(readOnly = true)

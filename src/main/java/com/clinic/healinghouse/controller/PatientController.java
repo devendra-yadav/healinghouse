@@ -86,12 +86,14 @@ public class PatientController {
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                          @RequestParam(defaultValue = "0") int walletPage,
                          @RequestParam(defaultValue = "0") int packagePage,
+                         @RequestParam(defaultValue = "0") int packageListPage,
                          @RequestParam(defaultValue = "0") int page,
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
             walletPage = paginationUtil.clampPage(walletPage);
             packagePage = paginationUtil.clampPage(packagePage);
+            packageListPage = paginationUtil.clampPage(packageListPage);
             page = paginationUtil.clampPage(page);
 
             AppointmentStatus statusEnum = null;
@@ -109,7 +111,8 @@ public class PatientController {
             model.addAttribute("walletBalance", walletService.getBalance(id));
             model.addAttribute("walletTransactions", walletService.getTransactionHistory(id,
                     PageRequest.of(walletPage, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
-            model.addAttribute("patientPackages", packageService.getAllForPatient(id));
+            model.addAttribute("patientPackages", packageService.getAllForPatient(id,
+                    PageRequest.of(packageListPage, 10, Sort.by(Sort.Direction.DESC, "purchasedAt"))));
             model.addAttribute("packageTransactions", packageService.getTransactionHistoryForPatient(id,
                     PageRequest.of(packagePage, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
             model.addAttribute("activePackageTemplates", packageTemplateService.findAllActive().stream()

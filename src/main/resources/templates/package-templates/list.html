@@ -41,13 +41,15 @@
                             <th>#</th>
                             <th>Template Name</th>
                             <th>Items</th>
-                            <th class="text-end">Suggested Price (₹)</th>
+                            <th class="text-end">Original Price (₹)</th>
+                            <th class="text-end">Package Price (₹)</th>
+                            <th class="text-center">Savings</th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:if="${templates.empty}">
-                            <td colspan="5" class="text-center text-muted py-4">No package templates found.</td>
+                            <td colspan="7" class="text-center text-muted py-4">No package templates found.</td>
                         </tr>
                         <tr th:each="t, stat : ${templates}">
                             <td class="text-muted" th:text="${stat.count}"></td>
@@ -58,8 +60,17 @@
                                 <span th:unless="${t.active}" class="badge bg-secondary">Inactive</span>
                             </td>
                             <td class="small text-muted" th:text="${packageTemplateService.toSuggestion(t).itemsSummary}"></td>
+                            <td class="text-end"
+                                th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(t), 1, 2)}|"></td>
                             <td class="text-end fw-semibold"
                                 th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeSuggestedPrice(t), 1, 2)}|"></td>
+                            <td class="text-center">
+                                <span th:if="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeOriginalPrice(t)) &lt; 0}"
+                                      class="badge bg-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(t).subtract(packageTemplateService.computeSuggestedPrice(t)), 1, 2)} off|"></span>
+                                <span th:unless="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeOriginalPrice(t)) &lt; 0}"
+                                      class="text-muted">—</span>
+                            </td>
                             <td class="text-center text-nowrap">
                                 <a th:href="@{/package-templates/{id}/edit(id=${t.id})}"
                                    class="btn btn-sm btn-outline-primary me-1">
