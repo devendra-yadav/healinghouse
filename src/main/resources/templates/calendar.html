@@ -8,14 +8,20 @@
         .fc-event { cursor: pointer; }
         .fc-daygrid-day.fc-day-today, .fc-timegrid-col.fc-day-today { background-color: var(--hh-green-pale); }
 
-        #therapistSwitcher { min-width: 160px; }
+        /* Non-SCHEDULED events: color is spent on therapist identity here, so status is conveyed
+           by fading + a diagonal hatch instead of a status color (see §5.3 of the requirements doc). */
+        .fc-event.fc-event-inactive {
+            opacity: .45;
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.5) 0 4px, transparent 4px 8px);
+        }
 
-        /* Mobile (≤576px): FullCalendar's default toolbar/grid text is sized for desktop —
-           shrink it and let the toolbar wrap onto its own centered rows instead of squeezing
-           prev/next/title/view-buttons into one cramped line. */
+        #therapistPanel { max-height: 260px; overflow-y: auto; min-width: 220px; }
+        .therapist-check-row { display: flex; align-items: center; gap: .5rem; padding: .15rem 0; }
+        .therapist-color-swatch {
+            width: .85rem; height: .85rem; border-radius: 50%; flex: 0 0 auto; display: inline-block;
+        }
+
         @media (max-width: 576px) {
-            #therapistSwitcher { flex: 1 1 auto; }
-
             .fc .fc-toolbar { flex-direction: column; align-items: stretch; gap: .5rem; }
             .fc .fc-toolbar-chunk { display: flex; justify-content: center; }
             .fc .fc-toolbar-title { font-size: 1.05rem; }
@@ -40,49 +46,65 @@
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('Calendar')}"></nav>
 
 <main class="container-fluid px-4 py-4 flex-grow-1">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h4 class="section-header mb-0">
-            <i class="bi bi-calendar3 me-1"></i>Calendar — <span th:text="${therapist.fullName}"></span>
+            <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
         </h4>
-        <div class="d-flex flex-wrap align-items-center gap-2">
-            <label for="therapistSwitcher" class="form-label fw-semibold mb-0">Therapist:</label>
-            <select id="therapistSwitcher" class="form-select form-select-sm"
-                    onchange="window.location.href = '/therapists/' + this.value + '/calendar'">
-                <option th:each="t : ${therapists}"
-                        th:value="${t.id}"
-                        th:text="${t.fullName}"
-                        th:selected="${t.id == therapist.id}">
-                </option>
-            </select>
-            <a th:href="@{/therapists/{id}(id=${therapist.id})}" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Back
-            </a>
+        <a href="/" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+        </a>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-3">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="fw-semibold small">Therapists</span>
+                        <div class="d-flex gap-1">
+                            <button type="button" id="selectAllBtn" class="btn btn-sm btn-link p-0">All</button>
+                            <span class="text-muted">/</span>
+                            <button type="button" id="selectNoneBtn" class="btn btn-sm btn-link p-0">None</button>
+                        </div>
+                    </div>
+                    <div id="therapistPanel">
+                        <div class="therapist-check-row" th:each="t : ${therapistOptions}">
+                            <input type="checkbox" class="form-check-input therapist-checkbox mt-0"
+                                   th:id="${'therapist-' + t.id}" th:value="${t.id}">
+                            <span class="therapist-color-swatch" th:style="'background-color:' + ${t.color}"></span>
+                            <label class="form-check-label small" th:for="${'therapist-' + t.id}" th:text="${t.fullName}"></label>
+                        </div>
+                        <p class="text-muted small mb-0" th:if="${#lists.isEmpty(therapistOptions)}">No active therapists.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-9">
+            <div id="calendarAlert" class="alert alert-warning d-none" role="alert">
+                <div id="calendarAlertBody"></div>
+                <div class="mt-2 d-flex gap-2" id="calendarAlertActions"></div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div id="allTherapistsCalendar"></div>
+                </div>
+            </div>
+
+            <p class="text-muted small mt-2">
+                <i class="bi bi-info-circle me-1"></i>
+                Click an appointment to open it, or click an empty slot to start a new booking. Scheduled
+                appointments can be dragged to reschedule, resized to change duration, or removed with the
+                <i class="bi bi-x-circle"></i> icon. Faded/hatched events are completed, cancelled, or no-show.
+            </p>
         </div>
     </div>
-
-    <div id="calendarAlert" class="alert alert-warning d-none" role="alert">
-        <div id="calendarAlertBody"></div>
-        <div class="mt-2 d-flex gap-2" id="calendarAlertActions"></div>
-    </div>
-
-    <div class="card shadow-sm">
-        <div class="card-body">
-            <div id="therapistCalendar"></div>
-        </div>
-    </div>
-
-    <p class="text-muted small mt-2">
-        <i class="bi bi-info-circle me-1"></i>
-        Click an appointment to open it, or click an empty slot to start a new booking for
-        <span th:text="${therapist.fullName}"></span> at that time. Scheduled appointments can be
-        dragged to reschedule, resized to change duration, or removed with the
-        <i class="bi bi-x-circle"></i> icon.
-    </p>
 </main>
 
 <!-- Cancel confirmation modal (calendar delete action) -->
@@ -109,25 +131,54 @@
 
 <script th:inline="javascript">
 /*<![CDATA[*/
-const THERAPIST_ID = /*[[${therapist.id}]]*/ 0;
+const ALL_THERAPIST_IDS = /*[[${therapistOptions.![id]}]]*/ [];
 /*]]>*/
 </script>
 <script>
+const STORAGE_KEY = 'hh.calendar.selectedTherapistIds';
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
-// Local-time "yyyy-MM-ddTHH:mm" matching the appointment form's datetime-local input.
 function toDateTimeParam(date) {
     return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate())
         + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }
 
-// Local-time "yyyy-MM-ddTHH:mm:ss" for the reschedule JSON payload (LocalDateTime on the server).
 function toIsoLocal(date) {
     return toDateTimeParam(date) + ':' + pad(date.getSeconds());
 }
 
 function minutesBetween(start, end) {
     return Math.round((end.getTime() - start.getTime()) / 60000);
+}
+
+function loadSelectedIds() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return ALL_THERAPIST_IDS.slice();
+        const stored = JSON.parse(raw);
+        if (!Array.isArray(stored)) return ALL_THERAPIST_IDS.slice();
+        // Drop ids that no longer exist / are no longer active, per §5.4.
+        return stored.filter(function (id) { return ALL_THERAPIST_IDS.indexOf(id) !== -1; });
+    } catch (e) {
+        return ALL_THERAPIST_IDS.slice();
+    }
+}
+
+function saveSelectedIds(ids) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+}
+
+function getCheckedIds() {
+    return Array.from(document.querySelectorAll('.therapist-checkbox:checked')).map(function (cb) {
+        return Number(cb.value);
+    });
+}
+
+function applyCheckedState(ids) {
+    document.querySelectorAll('.therapist-checkbox').forEach(function (cb) {
+        cb.checked = ids.indexOf(Number(cb.value)) !== -1;
+    });
 }
 
 function hideCalendarAlert() {
@@ -182,13 +233,16 @@ function showConflictAlert(conflicts, onForce, onDecline) {
     actions.appendChild(cancelBtn);
 }
 
+let calendar;
+
 function submitReschedule(info, forceSave) {
     const ev = info.event;
+    const appointmentId = ev.extendedProps.appointmentId;
     const start = ev.start;
     const end = ev.end || new Date(start.getTime() + 60 * 60000);
     const duration = minutesBetween(start, end);
 
-    fetch('/appointments/' + ev.id + '/reschedule', {
+    fetch('/appointments/' + appointmentId + '/reschedule', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -201,6 +255,10 @@ function submitReschedule(info, forceSave) {
         .then(function (result) {
             if (result.success) {
                 hideCalendarAlert();
+                // A second, un-dragged "twin" event for the same appointment (if the appointment
+                // involves another selected therapist) would otherwise go stale — reload the whole
+                // visible range instead of patching just this one FullCalendar event (§5.5).
+                calendar.refetchEvents();
                 return;
             }
             if (result.conflicts && result.conflicts.length > 0) {
@@ -227,9 +285,11 @@ function requestCancel(eventObj) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const calendarEl = document.getElementById('therapistCalendar');
+    applyCheckedState(loadSelectedIds());
 
-    const calendar = new FullCalendar.Calendar(calendarEl, {
+    const calendarEl = document.getElementById('allTherapistsCalendar');
+
+    calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'timeGridDay',
         headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
         footerToolbar: false,
@@ -238,17 +298,20 @@ document.addEventListener('DOMContentLoaded', function () {
         editable: true,
         snapDuration: '00:15:00',
         events: function (fetchInfo, successCallback, failureCallback) {
-            fetch('/appointments/calendar-feed?therapistId=' + THERAPIST_ID
+            const ids = getCheckedIds();
+            if (ids.length === 0) {
+                successCallback([]);
+                return;
+            }
+            fetch('/appointments/calendar-feed-multi?therapistIds=' + ids.join(',')
                     + '&start=' + encodeURIComponent(fetchInfo.startStr)
                     + '&end=' + encodeURIComponent(fetchInfo.endStr))
                 .then(function (res) { return res.json(); })
                 .then(function (events) {
-                    // Only SCHEDULED appointments are draggable/resizable/deletable —
-                    // completed/cancelled/no-show ones render read-only on the calendar.
                     successCallback(events.map(function (ev) {
                         const isScheduled = ev.status === 'SCHEDULED';
                         return {
-                            id: ev.id,
+                            id: ev.id + '-' + ev.therapistId,
                             title: ev.title,
                             start: ev.start,
                             end: ev.end,
@@ -256,18 +319,18 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            extendedProps: { status: ev.status }
+                            classNames: isScheduled ? [] : ['fc-event-inactive'],
+                            extendedProps: { status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId }
                         };
                     }));
                 })
                 .catch(failureCallback);
         },
         eventClick: function (info) {
-            window.location.href = '/appointments/' + info.event.id;
+            window.location.href = '/appointments/' + info.event.extendedProps.appointmentId;
         },
         dateClick: function (info) {
-            window.location.href = '/appointments/new?therapistId=' + THERAPIST_ID
-                    + '&appointmentDateTime=' + encodeURIComponent(toDateTimeParam(info.date));
+            window.location.href = '/appointments/new?appointmentDateTime=' + encodeURIComponent(toDateTimeParam(info.date));
         },
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
@@ -288,14 +351,34 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     calendar.render();
 
+    document.querySelectorAll('.therapist-checkbox').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            saveSelectedIds(getCheckedIds());
+            calendar.refetchEvents();
+        });
+    });
+
+    document.getElementById('selectAllBtn').addEventListener('click', function () {
+        applyCheckedState(ALL_THERAPIST_IDS);
+        saveSelectedIds(getCheckedIds());
+        calendar.refetchEvents();
+    });
+    document.getElementById('selectNoneBtn').addEventListener('click', function () {
+        applyCheckedState([]);
+        saveSelectedIds([]);
+        calendar.refetchEvents();
+    });
+
     document.getElementById('confirmCancelBtn').addEventListener('click', function () {
         if (!pendingCancelEvent) return;
-        const ev = pendingCancelEvent;
-        fetch('/appointments/' + ev.id + '/cancel-from-calendar', { method: 'POST' })
+        const appointmentId = pendingCancelEvent.extendedProps.appointmentId;
+        fetch('/appointments/' + appointmentId + '/cancel-from-calendar', { method: 'POST' })
             .then(function (res) { return res.json(); })
             .then(function (result) {
                 if (result.success) {
-                    ev.remove();
+                    // Remove every visual event tied to this appointment (both twins, if any),
+                    // not just the one that was clicked (§5.5).
+                    calendar.refetchEvents();
                     hideCalendarAlert();
                 } else {
                     showErrorAlert(result.message || 'Could not cancel this appointment.');

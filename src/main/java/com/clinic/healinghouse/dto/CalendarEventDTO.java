@@ -7,6 +7,7 @@ public record CalendarEventDTO(
         String start,
         String end,
         String color,
-        String status
+        String status,
+        Long therapistId
 ) {
 }

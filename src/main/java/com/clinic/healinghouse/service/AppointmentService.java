@@ -8,6 +8,7 @@ import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
 import com.clinic.healinghouse.util.ProportionalAllocator;
+import com.clinic.healinghouse.util.TherapistColorUtil;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -313,11 +314,43 @@ public class AppointmentService {
                 .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
 
         return appointmentRepository.findAll(spec).stream()
-                .map(a -> toCalendarEvent(a, therapistId))
+                .map(a -> toCalendarEvent(a, therapistId, statusColor(a.getStatus())))
                 .toList();
     }
 
-    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId) {
+    /**
+     * Appointments overlaid across every selected therapist, for the all-therapists calendar
+     * (GET /calendar). Unlike the single-therapist feed, an appointment involving more than one
+     * *selected* therapist (main + a reassigned line) renders as one event per involved therapist
+     * — see §5.2 of All_Therapists_Calendar_Requirements_v1.md — colored per therapist rather than
+     * per status, since therapist identity is what the color now conveys.
+     */
+    @Transactional(readOnly = true)
+    public List<CalendarEventDTO> findCalendarEventsForTherapists(List<Long> therapistIds, LocalDateTime start, LocalDateTime end) {
+        Specification<Appointment> spec = Specification
+                .where(AppointmentSpec.withPatientAndTherapist())
+                .and(Specification.anyOf(therapistIds.stream().map(AppointmentSpec::hasTherapistId).toList()))
+                .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
+
+        List<Appointment> appointments = appointmentRepository.findAll(spec);
+
+        return appointments.stream()
+                .flatMap(a -> therapistIds.stream()
+                        .filter(tid -> isTherapistInvolved(a, tid))
+                        .map(tid -> toCalendarEvent(a, tid, TherapistColorUtil.colorFor(tid))))
+                .toList();
+    }
+
+    private boolean isTherapistInvolved(Appointment appointment, Long therapistId) {
+        if (appointment.getTherapist().getId().equals(therapistId)) return true;
+        boolean onServiceLine = appointment.getServiceLines().stream()
+                .anyMatch(sl -> sl.getTherapist().getId().equals(therapistId));
+        if (onServiceLine) return true;
+        return appointment.getProductLines().stream()
+                .anyMatch(pl -> pl.getTherapist().getId().equals(therapistId));
+    }
+
+    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId, String color) {
         String title = appointment.getPatient().getFullName();
         if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
             title = title + " (with " + appointment.getTherapist().getFullName() + ")";
@@ -327,8 +360,9 @@ public class AppointmentService {
                 title,
                 appointment.getAppointmentDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                statusColor(appointment.getStatus()),
-                appointment.getStatus().name());
+                color,
+                appointment.getStatus().name(),
+                viewedTherapistId);
     }
 
     // ── Reschedule (drag/resize on the therapist calendar) ──────────────────
