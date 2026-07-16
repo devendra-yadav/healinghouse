@@ -443,7 +443,7 @@
     <!-- ── Section C: Appointment History ──────────────────────────────── -->
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h5 class="section-header mb-0">Appointment History</h5>
-        <a th:href="@{/appointments/new}" class="btn btn-hh btn-sm">
+        <a th:href="@{/appointments/new(patientId=${patient.id})}" class="btn btn-hh btn-sm">
             <i class="bi bi-plus-lg me-1"></i>New Appointment
         </a>
     </div>
@@ -624,6 +624,8 @@ const templateMap = {};
 ACTIVE_TEMPLATES.forEach(t => { templateMap[t.id] = t; });
 
 let pkgSiIdx = 0, pkgPiIdx = 0;
+// True once staff directly types into Total Price — stops it auto-tracking the item-row sum.
+let pkgTotalPriceManuallyEdited = false;
 
 function pkgFmt(n) {
     return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -756,7 +758,7 @@ function updatePkgPreview() {
     });
     document.getElementById('pkgSuggestedPrice').textContent = pkgFmt(raw);
     const totalPriceInput = document.getElementById('pkgTotalPriceInput');
-    if (!totalPriceInput.value || Number(totalPriceInput.value) === 0) {
+    if (!pkgTotalPriceManuallyEdited) {
         totalPriceInput.value = raw.toFixed(2);
     }
 }
@@ -764,16 +766,31 @@ function updatePkgPreview() {
 function applyPackageTemplate() {
     const id = document.getElementById('pkgTemplateSelect').value;
     document.getElementById('pkgSourceTemplateId').value = id;
-    if (!id) return;
-    const t = templateMap[id];
-    if (!t) return;
 
     document.querySelectorAll('.pkg-service-item-row').forEach(r => r.remove());
     document.querySelectorAll('.pkg-product-item-row').forEach(r => r.remove());
+
+    if (!id) {
+        // "— Custom package —" is not a package, it's "no template selected" — clear
+        // whatever a previously-selected template populated instead of leaving it behind.
+        document.getElementById('pkgNameInput').value = '';
+        document.getElementById('pkgTotalPriceInput').value = '';
+        pkgTotalPriceManuallyEdited = false;
+        togglePkgUI();
+        updatePkgPreview();
+        return;
+    }
+    const t = templateMap[id];
+    if (!t) return;
+
     document.getElementById('pkgNameInput').value = t.name;
     t.serviceItems.forEach(item => addPkgServiceItemRow(item.itemId, item.sessionCount));
     t.productItems.forEach(item => addPkgProductItemRow(item.itemId, item.sessionCount));
     document.getElementById('pkgTotalPriceInput').value = Number(t.suggestedPrice).toFixed(2);
+    // Template price is already discount-resolved — treat it like a manual override so the
+    // updatePkgPreview() call below (which refreshes per-row rate/total displays) doesn't
+    // clobber it with the plain undiscounted row sum.
+    pkgTotalPriceManuallyEdited = true;
     updatePkgPreview();
 }
 
@@ -787,6 +804,11 @@ const pkgTemplateChoices = initPkgItemSelect(pkgTemplateSelectEl, '— Custom pa
 document.getElementById('sellPackageModal').addEventListener('show.bs.modal', function () {
     pkgTemplateChoices.setChoiceByValue('');
     document.getElementById('pkgSourceTemplateId').value = '';
+    pkgTotalPriceManuallyEdited = false;
+});
+
+document.getElementById('pkgTotalPriceInput').addEventListener('input', function () {
+    pkgTotalPriceManuallyEdited = true;
 });
 
 document.getElementById('sellPackageForm').addEventListener('submit', function (event) {

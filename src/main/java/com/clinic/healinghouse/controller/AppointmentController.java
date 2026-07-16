@@ -80,12 +80,14 @@ public class AppointmentController {
     // ── New form ──────────────────────────────────────────────────────────
     @GetMapping("/new")
     public String newForm(@RequestParam(required = false) Long therapistId,
+                          @RequestParam(required = false) Long patientId,
                           @RequestParam(required = false)
                           @DateTimeFormat(pattern = "yyyy-MM-dd'T'HH:mm") LocalDateTime appointmentDateTime,
                           Model model) {
         populateFormModel(model);
         AppointmentForm form = new AppointmentForm();
         if (therapistId != null) form.setTherapistId(therapistId);
+        if (patientId != null) form.setPatientId(patientId);
         if (appointmentDateTime != null) form.setAppointmentDateTime(appointmentDateTime);
         model.addAttribute("form", form);
         model.addAttribute("editMode",   false);
