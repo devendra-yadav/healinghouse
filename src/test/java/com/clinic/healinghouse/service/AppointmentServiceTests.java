@@ -3,11 +3,15 @@ package com.clinic.healinghouse.service;
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Combo;
 import com.clinic.healinghouse.entity.DiscountType;
 import com.clinic.healinghouse.entity.Patient;
+import com.clinic.healinghouse.entity.PatientPackage;
+import com.clinic.healinghouse.entity.PatientPackageServiceItem;
+import com.clinic.healinghouse.entity.PatientPackageStatus;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
@@ -38,6 +42,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -57,6 +62,7 @@ class AppointmentServiceTests {
     @Mock private AppointmentServiceLineRepository appointmentServiceLineRepository;
     @Mock private AppointmentProductLineRepository appointmentProductLineRepository;
     @Mock private WalletService walletService;
+    @Mock private PackageService packageService;
     @Mock private ComboRepository comboRepository;
 
     private AppointmentService appointmentService;
@@ -68,7 +74,7 @@ class AppointmentServiceTests {
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, patientRepository, therapistRepository,
                 clinicServiceRepository, productRepository, appointmentServiceLineRepository,
-                appointmentProductLineRepository, walletService, comboRepository, new HealingHouseProperties());
+                appointmentProductLineRepository, walletService, packageService, comboRepository, new HealingHouseProperties());
         // lenient: markAsCompleted and updateAppointment's stale-baseline guard-throws-before-lookup
         // tests never reach these patient/therapist lookups.
         lenient().when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
@@ -134,6 +140,19 @@ class AppointmentServiceTests {
 
     private AppointmentForm.ProductLineForm productLine(Long productId, int qty) {
         return productLine(productId, qty, null);
+    }
+
+    private PatientPackageServiceItem packageServiceItem(Long id, Long serviceId, BigDecimal priceAllocated) {
+        return PatientPackageServiceItem.builder().id(id)
+                .service(clinicService(serviceId, priceAllocated))
+                .patientPackage(PatientPackage.builder().id(200L).status(PatientPackageStatus.ACTIVE).build())
+                .sessionsTotal(10).sessionsUsed(0).priceAllocated(priceAllocated).build();
+    }
+
+    private AppointmentForm.ServiceLineForm packageServiceLine(Long serviceId, Long packageItemId) {
+        AppointmentForm.ServiceLineForm sl = serviceLine(serviceId, 1);
+        sl.setPackageItemId(packageItemId);
+        return sl;
     }
 
     private AppointmentForm.ProductLineForm productLine(Long productId, int qty, String comboGroupKey) {
@@ -365,6 +384,131 @@ class AppointmentServiceTests {
         verify(walletService).applyToAppointment(eq(PATIENT_ID), anyLong(), appliedAmount.capture());
         assertThat(appliedAmount.getValue()).isEqualByComparingTo("200");
         verify(walletService, never()).reverseForAppointment(any(), anyLong(), any());
+    }
+
+    // ── 6b. Package-covered lines ─────────────────────────────────────────────
+    @Test
+    void createAppointment_packageCoveredLine_consumesAfterSaveAndSetsPackageAmountApplied() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID))
+                .thenReturn(packageServiceItem(500L, 1L, BigDecimal.valueOf(1000)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("1000");
+        assertThat(saved.getAmountPaid()).isEqualByComparingTo("1000");
+        verify(packageService).consumeServiceItem(eq(500L), any(), eq(BigDecimal.valueOf(1000)));
+    }
+
+    @Test
+    void createAppointment_twoLinesSamePackageItem_consumesTwiceAndSumsIntoPackageAmountApplied() {
+        // Regression coverage for the "click Add twice" case (requirements §2 non-goals) — a single
+        // PatientPackageServiceItem can legitimately back more than one line in one appointment.
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID))
+                .thenReturn(packageServiceItem(500L, 1L, BigDecimal.valueOf(1000)));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("2000");
+        verify(packageService, times(2)).consumeServiceItem(eq(500L), any(), eq(BigDecimal.valueOf(1000)));
+    }
+
+    @Test
+    void updateAppointment_resubmitSamePackageItemId_isNoOpForConsumption() {
+        // Acceptance Criteria #7: re-saving an appointment without changing its package-covered
+        // lines must not double-consume or spuriously reverse — the trickiest part per §10.
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        when(packageService.resolveServiceItemForConsumption(500L, PATIENT_ID)).thenReturn(pkgItem);
+
+        AppointmentServiceLine existingLine = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(existingLine);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(packageServiceLine(1L, 500L));
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("1000");
+        verify(packageService, never()).consumeServiceItem(any(), any(), any());
+        verify(packageService, never()).reverseServiceItem(any(), any());
+    }
+
+    @Test
+    void updateAppointment_removingPackageLine_reversesConsumption() {
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        AppointmentServiceLine existingLine = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(existingLine);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(clinicServiceRepository.findById(2L)).thenReturn(Optional.of(clinicService(2L, BigDecimal.valueOf(500))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(serviceLine(2L, 1)); // different service, no package — replaces the old line
+
+        Appointment saved = appointmentService.updateAppointment(10L, form);
+
+        verify(packageService).reverseServiceItem(500L, 10L);
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void cancelAppointment_reversesPackageConsumption() {
+        PatientPackageServiceItem pkgItem = packageServiceItem(500L, 1L, BigDecimal.valueOf(1000));
+        AppointmentServiceLine line = AppointmentServiceLine.builder()
+                .id(60L).service(clinicService(1L, BigDecimal.valueOf(1000))).therapist(therapist())
+                .priceAtTime(BigDecimal.valueOf(1000)).quantity(1)
+                .packageServiceItem(pkgItem).build();
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .packageAmountApplied(BigDecimal.valueOf(1000))
+                .build();
+        existing.getServiceLines().add(line);
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        Appointment saved = appointmentService.cancelAppointment(10L, "test");
+
+        verify(packageService).reverseServiceItem(500L, 10L);
+        assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("0");
+        assertThat(saved.getAmountPaid()).isEqualByComparingTo("0");
     }
 
     // ── 7. amountPaid > grandTotal guard ──────────────────────────────────────

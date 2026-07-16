@@ -5,7 +5,11 @@ import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
 import com.clinic.healinghouse.entity.Patient;
+import com.clinic.healinghouse.repository.ClinicServiceRepository;
+import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.service.AppointmentService;
+import com.clinic.healinghouse.service.PackageService;
+import com.clinic.healinghouse.service.PackageTemplateService;
 import com.clinic.healinghouse.service.PatientHistoryService;
 import com.clinic.healinghouse.service.PatientService;
 import com.clinic.healinghouse.service.TherapistService;
@@ -36,6 +40,10 @@ public class PatientController {
     private final TherapistService      therapistService;
     private final PatientHistoryService patientHistoryService;
     private final WalletService         walletService;
+    private final PackageService        packageService;
+    private final PackageTemplateService packageTemplateService;
+    private final ClinicServiceRepository clinicServiceRepository;
+    private final ProductRepository     productRepository;
     private final HealingHouseProperties properties;
     private final PaginationUtil        paginationUtil;
 
@@ -77,11 +85,13 @@ public class PatientController {
                          @RequestParam(required = false)
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                          @RequestParam(defaultValue = "0") int walletPage,
+                         @RequestParam(defaultValue = "0") int packagePage,
                          @RequestParam(defaultValue = "0") int page,
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
             walletPage = paginationUtil.clampPage(walletPage);
+            packagePage = paginationUtil.clampPage(packagePage);
             page = paginationUtil.clampPage(page);
 
             AppointmentStatus statusEnum = null;
@@ -99,6 +109,13 @@ public class PatientController {
             model.addAttribute("walletBalance", walletService.getBalance(id));
             model.addAttribute("walletTransactions", walletService.getTransactionHistory(id,
                     PageRequest.of(walletPage, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
+            model.addAttribute("patientPackages", packageService.getAllForPatient(id));
+            model.addAttribute("packageTransactions", packageService.getTransactionHistoryForPatient(id,
+                    PageRequest.of(packagePage, 10, Sort.by(Sort.Direction.DESC, "createdAt"))));
+            model.addAttribute("activePackageTemplates", packageTemplateService.findAllActive().stream()
+                    .map(packageTemplateService::toDetailDTO).toList());
+            model.addAttribute("allActiveServices", clinicServiceRepository.findByActiveTrueOrderByNameAsc());
+            model.addAttribute("allActiveProducts", productRepository.findByActiveTrueOrderByNameAsc());
             model.addAttribute("therapists",      therapistService.findAll());
             model.addAttribute("statuses",        AppointmentStatus.values());
             model.addAttribute("selectedStatus",  status);

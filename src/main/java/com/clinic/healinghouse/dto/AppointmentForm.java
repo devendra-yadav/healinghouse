@@ -106,6 +106,9 @@ public class AppointmentForm {
             if (sl.getAppointmentCombo() != null) {
                 s.setComboGroupKey(groupKeyByComboId.get(sl.getAppointmentCombo().getId()));
             }
+            if (sl.getPackageServiceItem() != null) {
+                s.setPackageItemId(sl.getPackageServiceItem().getId());
+            }
             f.getServiceLines().add(s);
         });
         appt.getProductLines().forEach(pl -> {
@@ -115,6 +118,9 @@ public class AppointmentForm {
             p.setTherapistId(pl.getTherapist().getId());
             if (pl.getAppointmentCombo() != null) {
                 p.setComboGroupKey(groupKeyByComboId.get(pl.getAppointmentCombo().getId()));
+            }
+            if (pl.getPackageProductItem() != null) {
+                p.setPackageItemId(pl.getPackageProductItem().getId());
             }
             f.getProductLines().add(p);
         });
@@ -129,6 +135,12 @@ public class AppointmentForm {
         private Long therapistId;
         /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
         private String comboGroupKey;
+        /**
+         * Null for a normally-paid line; the specific PatientPackageServiceItem id this line draws
+         * a session from, resolved by PackageService.getPooledAvailability and re-validated
+         * server-side at save time (never trusted blindly) — see AppointmentService.
+         */
+        private Long packageItemId;
     }
 
     @Data
@@ -139,6 +151,8 @@ public class AppointmentForm {
         private Long therapistId;
         /** Null for a standalone line; matches a ComboSelectionForm.groupKey when part of a combo. */
         private String comboGroupKey;
+        /** Product-item mirror of ServiceLineForm.packageItemId. */
+        private Long packageItemId;
     }
 
     @Data

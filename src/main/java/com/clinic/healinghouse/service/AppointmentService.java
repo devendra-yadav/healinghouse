@@ -7,6 +7,7 @@ import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import com.clinic.healinghouse.util.ProportionalAllocator;
 import jakarta.annotation.PostConstruct;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -49,6 +49,7 @@ public class AppointmentService {
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
     private final WalletService                    walletService;
+    private final PackageService                   packageService;
     private final ComboRepository                  comboRepository;
     private final HealingHouseProperties           properties;
 
@@ -426,6 +427,7 @@ public class AppointmentService {
         Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(appointment, form.getComboSelections());
 
         // 4. Service lines — snapshot price at booking time
+        List<PendingPackageConsumption> pendingPackageConsumptions = new ArrayList<>();
         BigDecimal totalServiceAmount = BigDecimal.ZERO;
         for (AppointmentForm.ServiceLineForm slf : rawServices) {
             ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
@@ -435,6 +437,12 @@ public class AppointmentService {
             BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
+            PatientPackageServiceItem packageItem = null;
+            if (slf.getPackageItemId() != null) {
+                packageItem = packageService.resolveServiceItemForConsumption(slf.getPackageItemId(), patient.getId());
+                pendingPackageConsumptions.add(new PendingPackageConsumption(packageItem.getId(), null, lineTotal));
+            }
+
             appointment.getServiceLines().add(
                     AppointmentServiceLine.builder()
                             .appointment(appointment)
@@ -443,6 +451,7 @@ public class AppointmentService {
                             .priceAtTime(cs.getPrice())
                             .quantity(qty)
                             .appointmentCombo(lineCombo)
+                            .packageServiceItem(packageItem)
                             .build());
 
             totalServiceAmount = totalServiceAmount.add(lineTotal);
@@ -463,6 +472,12 @@ public class AppointmentService {
             BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
 
+            PatientPackageProductItem packageItem = null;
+            if (plf.getPackageItemId() != null) {
+                packageItem = packageService.resolveProductItemForConsumption(plf.getPackageItemId(), patient.getId());
+                pendingPackageConsumptions.add(new PendingPackageConsumption(null, packageItem.getId(), lineTotal));
+            }
+
             appointment.getProductLines().add(
                     AppointmentProductLine.builder()
                             .appointment(appointment)
@@ -472,6 +487,7 @@ public class AppointmentService {
                             .priceAtTime(product.getPrice())
                             .lineTotal(lineTotal)
                             .appointmentCombo(lineCombo)
+                            .packageProductItem(packageItem)
                             .build());
 
             // Stock is only decremented when the appointment is later marked COMPLETED (see
@@ -488,6 +504,16 @@ public class AppointmentService {
             applyComboDiscount(appointment, ac);
         }
         applyDiscount(appointment, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
+
+        // 6a. Package-covered lines — a payment source alongside cash/UPI/card/wallet, never a
+        // discount; always exactly the sum of covered lines' own (undiscounted) values, since a
+        // package session covers a line's full value (no partial coverage). Actual consumption
+        // (sessionsUsed++, ledger write) is deferred until after save (see below), mirroring the
+        // wallet debit-last ordering so a mid-transaction failure rolls back cleanly.
+        BigDecimal packageAmountApplied = pendingPackageConsumptions.stream()
+                .map(PendingPackageConsumption::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        appointment.setPackageAmountApplied(packageAmountApplied);
+        appointment.setAmountPaid(appointment.getAmountPaid().add(packageAmountApplied));
 
         // 6b. Wallet balance applied — a payment source alongside cash/UPI/card, never a discount.
         // Silently capped at grandTotal (mirrors applyDiscount's resolved.min(subtotal)) rather than
@@ -510,9 +536,16 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
-        // Debited last so it's the only step that can still fail after every other validation
-        // passed — @Transactional rolls the whole method back on an insufficient-balance failure,
-        // no manual compensation needed.
+        // Debited/consumed last so they're the only steps that can still fail after every other
+        // validation passed — @Transactional rolls the whole method back on an insufficient-balance
+        // or insufficient-sessions failure, no manual compensation needed.
+        for (PendingPackageConsumption pc : pendingPackageConsumptions) {
+            if (pc.serviceItemId() != null) {
+                packageService.consumeServiceItem(pc.serviceItemId(), saved.getId(), pc.amount());
+            } else {
+                packageService.consumeProductItem(pc.productItemId(), saved.getId(), pc.amount());
+            }
+        }
         if (walletRequested.signum() > 0) {
             walletService.applyToAppointment(patient.getId(), saved.getId(), walletRequested);
         }
@@ -581,6 +614,7 @@ public class AppointmentService {
         appt.setStatus(AppointmentStatus.CANCELLED);
         appt.setCancelReason(reason);
         reverseFullWalletIfAny(appt);
+        reverseAllPackageConsumption(appt);
         Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked CANCELLED reason='{}'", saved.getId(), reason);
         return saved;
@@ -595,9 +629,34 @@ public class AppointmentService {
         }
         appt.setStatus(AppointmentStatus.NO_SHOW);
         reverseFullWalletIfAny(appt);
+        reverseAllPackageConsumption(appt);
         Appointment saved = saveWithConflictCheck(appt);
         log.info("Appointment id={} marked NO_SHOW", saved.getId());
         return saved;
+    }
+
+    /**
+     * Credits back every package-covered line on an appointment being cancelled/no-showed —
+     * mirrors reverseFullWalletIfAny. Unlike the update-flow reconciliation, every currently-
+     * attached line is being reversed (not diffed against a resubmission), so no multiset math
+     * is needed — one reverse call per line.
+     */
+    private void reverseAllPackageConsumption(Appointment appt) {
+        for (AppointmentServiceLine sl : appt.getServiceLines()) {
+            if (sl.getPackageServiceItem() != null) {
+                packageService.reverseServiceItem(sl.getPackageServiceItem().getId(), appt.getId());
+            }
+        }
+        for (AppointmentProductLine pl : appt.getProductLines()) {
+            if (pl.getPackageProductItem() != null) {
+                packageService.reverseProductItem(pl.getPackageProductItem().getId(), appt.getId());
+            }
+        }
+        BigDecimal applied = appt.getPackageAmountApplied();
+        if (applied != null && applied.signum() > 0) {
+            appt.setAmountPaid(appt.getAmountPaid().subtract(applied).max(BigDecimal.ZERO));
+            appt.setPackageAmountApplied(BigDecimal.ZERO);
+        }
     }
 
     /**
@@ -680,6 +739,21 @@ public class AppointmentService {
         }
         existing.setAmountPaid(prepaidBase.add(newPayment));
 
+        // Package-covered-line reconciliation state for the clear-and-rebuild below — see
+        // reconcilePackageDelta's javadoc for why this must be a multiset (occurrence-count) diff
+        // rather than a set diff: the same PatientPackageServiceItem/ProductItem can legitimately
+        // back more than one line in this appointment (staff clicking "Add" twice for a service
+        // with 2+ pooled sessions). Populated only when editable; both empty otherwise, which is a
+        // correct no-op (a non-editable appointment's package lines are untouched here — they were
+        // already reversed by reverseAllPackageConsumption if this appointment was just cancelled/
+        // no-showed, or should simply stay consumed if it's COMPLETED).
+        Map<Long, Integer> oldServiceItemCounts = Map.of();
+        Map<Long, Integer> oldProductItemCounts = Map.of();
+        Map<Long, Integer> newServiceItemCounts = Map.of();
+        Map<Long, Integer> newProductItemCounts = Map.of();
+        Map<Long, BigDecimal> serviceItemUnitAmounts = Map.of();
+        Map<Long, BigDecimal> productItemUnitAmounts = Map.of();
+
         if (editable) {
             List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
                     .filter(s -> s != null && s.getServiceId() != null)
@@ -688,19 +762,34 @@ public class AppointmentService {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
 
+            oldServiceItemCounts = tallyServicePackageItemCounts(existing.getServiceLines());
+            oldProductItemCounts = tallyProductPackageItemCounts(existing.getProductLines());
+
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
             existing.getCombos().clear();
 
             Map<String, AppointmentCombo> comboByGroupKey = buildComboSelections(existing, form.getComboSelections());
 
+            Map<Long, Integer> newSvcCounts = new LinkedHashMap<>();
+            Map<Long, BigDecimal> svcUnitAmounts = new LinkedHashMap<>();
             BigDecimal totalServiceAmount = BigDecimal.ZERO;
+            BigDecimal packageTotal = BigDecimal.ZERO;
             for (AppointmentForm.ServiceLineForm slf : rawServices) {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = Math.max(1, slf.getQuantity());
                 BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+
+                PatientPackageServiceItem packageItem = null;
+                if (slf.getPackageItemId() != null) {
+                    packageItem = packageService.resolveServiceItemForConsumption(slf.getPackageItemId(), patient.getId());
+                    newSvcCounts.merge(packageItem.getId(), 1, Integer::sum);
+                    svcUnitAmounts.put(packageItem.getId(), lineTotal);
+                    packageTotal = packageTotal.add(lineTotal);
+                }
+
                 existing.getServiceLines().add(
                         AppointmentServiceLine.builder()
                                 .appointment(existing)
@@ -709,11 +798,16 @@ public class AppointmentService {
                                 .priceAtTime(cs.getPrice())
                                 .quantity(qty)
                                 .appointmentCombo(lineCombo)
+                                .packageServiceItem(packageItem)
                                 .build());
                 totalServiceAmount = totalServiceAmount.add(lineTotal);
             }
+            newServiceItemCounts = newSvcCounts;
+            serviceItemUnitAmounts = svcUnitAmounts;
 
             validateAggregateStockDemand(form.getProductLines());
+            Map<Long, Integer> newPrdCounts = new LinkedHashMap<>();
+            Map<Long, BigDecimal> prdUnitAmounts = new LinkedHashMap<>();
             BigDecimal totalProductAmount = BigDecimal.ZERO;
             for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
                 if (plf == null || plf.getProductId() == null) continue;
@@ -722,6 +816,15 @@ public class AppointmentService {
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+
+                PatientPackageProductItem packageItem = null;
+                if (plf.getPackageItemId() != null) {
+                    packageItem = packageService.resolveProductItemForConsumption(plf.getPackageItemId(), patient.getId());
+                    newPrdCounts.merge(packageItem.getId(), 1, Integer::sum);
+                    prdUnitAmounts.put(packageItem.getId(), lineTotal);
+                    packageTotal = packageTotal.add(lineTotal);
+                }
+
                 existing.getProductLines().add(
                         AppointmentProductLine.builder()
                                 .appointment(existing)
@@ -731,9 +834,12 @@ public class AppointmentService {
                                 .priceAtTime(product.getPrice())
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
+                                .packageProductItem(packageItem)
                                 .build());
                 totalProductAmount = totalProductAmount.add(lineTotal);
             }
+            newProductItemCounts = newPrdCounts;
+            productItemUnitAmounts = prdUnitAmounts;
 
             existing.setTotalServiceAmount(totalServiceAmount);
             existing.setTotalProductAmount(totalProductAmount);
@@ -742,6 +848,13 @@ public class AppointmentService {
                 applyComboDiscount(existing, ac);
             }
             applyDiscount(existing, resolveDiscountType(form.getDiscountType()), form.getDiscountValue());
+
+            // Package-covered lines — always exactly the sum of covered lines' own values, recomputed
+            // fresh on every rebuild (no user-entered target, unlike wallet's walletAmountApplied).
+            BigDecimal previousPackageApplied = existing.getPackageAmountApplied() != null
+                    ? existing.getPackageAmountApplied() : BigDecimal.ZERO;
+            existing.setAmountPaid(existing.getAmountPaid().subtract(previousPackageApplied).add(packageTotal));
+            existing.setPackageAmountApplied(packageTotal);
         }
 
         // Wallet balance applied — a target, not a delta: it's the total wallet-sourced amount this
@@ -782,9 +895,62 @@ public class AppointmentService {
             walletService.reverseForAppointment(existing.getPatient().getId(), saved.getId(), walletDelta.abs());
         }
 
+        // Package consumption reconciliation — run after save so an insufficient-sessions failure
+        // (another appointment consumed the last session concurrently) rolls back the whole update.
+        reconcilePackageDelta(oldServiceItemCounts, newServiceItemCounts, serviceItemUnitAmounts, true, saved.getId());
+        reconcilePackageDelta(oldProductItemCounts, newProductItemCounts, productItemUnitAmounts, false, saved.getId());
+
         log.info("Updated appointment id={}", saved.getId());
         return saved;
     }
+
+    /**
+     * Reconciles package-covered-line consumption after a full clear-and-rebuild, by occurrence
+     * count per item id rather than by line identity (lines don't round-trip their own db id, and
+     * the same item can legitimately back more than one line — see the caller's comment). For each
+     * item id in the union of old/new keys: delta==0 is a no-op (covers both "unchanged, resubmitted
+     * with the same id" and "never referenced" — never reverse-then-reapply per requirements §5.5),
+     * delta&gt;0 consumes that many additional sessions, delta&lt;0 reverses that many.
+     */
+    private void reconcilePackageDelta(Map<Long, Integer> oldCounts, Map<Long, Integer> newCounts,
+                                        Map<Long, BigDecimal> unitAmounts, boolean isService, Long appointmentId) {
+        Set<Long> allItemIds = new LinkedHashSet<>();
+        allItemIds.addAll(oldCounts.keySet());
+        allItemIds.addAll(newCounts.keySet());
+        for (Long itemId : allItemIds) {
+            int delta = newCounts.getOrDefault(itemId, 0) - oldCounts.getOrDefault(itemId, 0);
+            if (delta > 0) {
+                BigDecimal amount = unitAmounts.get(itemId);
+                for (int i = 0; i < delta; i++) {
+                    if (isService) packageService.consumeServiceItem(itemId, appointmentId, amount);
+                    else packageService.consumeProductItem(itemId, appointmentId, amount);
+                }
+            } else if (delta < 0) {
+                for (int i = 0; i < -delta; i++) {
+                    if (isService) packageService.reverseServiceItem(itemId, appointmentId);
+                    else packageService.reverseProductItem(itemId, appointmentId);
+                }
+            }
+        }
+    }
+
+    private Map<Long, Integer> tallyServicePackageItemCounts(List<AppointmentServiceLine> lines) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (AppointmentServiceLine sl : lines) {
+            if (sl.getPackageServiceItem() != null) counts.merge(sl.getPackageServiceItem().getId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private Map<Long, Integer> tallyProductPackageItemCounts(List<AppointmentProductLine> lines) {
+        Map<Long, Integer> counts = new LinkedHashMap<>();
+        for (AppointmentProductLine pl : lines) {
+            if (pl.getPackageProductItem() != null) counts.merge(pl.getPackageProductItem().getId(), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    private record PendingPackageConsumption(Long serviceItemId, Long productItemId, BigDecimal amount) {}
 
     // ── Per-line therapist reassignment ──────────────────────────────────────
     // Allowed regardless of appointment status: only the line's therapist changes,
@@ -900,16 +1066,16 @@ public class AppointmentService {
      * outside any combo are untouched here (see distributeDiscount for the whole-appointment phase).
      */
     private void applyComboDiscount(Appointment appointment, AppointmentCombo ac) {
-        List<DiscountableLine> lines = new ArrayList<>();
+        List<ProportionalAllocator.AllocationLine> lines = new ArrayList<>();
         appointment.getServiceLines().stream()
                 .filter(sl -> sl.getAppointmentCombo() == ac)
-                .forEach(sl -> lines.add(new DiscountableLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
+                .forEach(sl -> lines.add(new ProportionalAllocator.AllocationLine(sl.getLineTotal(), sl::setDiscountedLineTotal)));
         appointment.getProductLines().stream()
                 .filter(pl -> pl.getAppointmentCombo() == ac)
-                .forEach(pl -> lines.add(new DiscountableLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
+                .forEach(pl -> lines.add(new ProportionalAllocator.AllocationLine(pl.getLineTotal(), pl::setDiscountedLineTotal)));
 
         BigDecimal comboSubtotal = lines.stream()
-                .map(DiscountableLine::lineRaw).reduce(BigDecimal.ZERO, BigDecimal::add);
+                .map(ProportionalAllocator.AllocationLine::rawAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
         ac.setOriginalSubtotalSnapshot(comboSubtotal);
 
         DiscountType type = ac.getDiscountType();
@@ -926,7 +1092,7 @@ public class AppointmentService {
                 : rawValue.setScale(2, RoundingMode.HALF_UP);
         resolved = resolved.min(comboSubtotal);
         ac.setDiscountAmount(resolved);
-        distributeAmount(lines, comboSubtotal, resolved);
+        ProportionalAllocator.distribute(lines, comboSubtotal, resolved);
     }
 
     // ── Discount ──────────────────────────────────────────────────────────────
@@ -979,73 +1145,13 @@ public class AppointmentService {
 
     /** Phase 2's line collector — basis is each line's current effective total, not its raw total. */
     private void distributeDiscount(Appointment appointment, BigDecimal subtotal, BigDecimal discountAmount) {
-        List<DiscountableLine> lines = new ArrayList<>();
+        List<ProportionalAllocator.AllocationLine> lines = new ArrayList<>();
         appointment.getServiceLines().forEach(sl ->
-                lines.add(new DiscountableLine(sl.getEffectiveLineTotal(), sl::setDiscountedLineTotal)));
+                lines.add(new ProportionalAllocator.AllocationLine(sl.getEffectiveLineTotal(), sl::setDiscountedLineTotal)));
         appointment.getProductLines().forEach(pl ->
-                lines.add(new DiscountableLine(pl.getEffectiveLineTotal(), pl::setDiscountedLineTotal)));
-        distributeAmount(lines, subtotal, discountAmount);
+                lines.add(new ProportionalAllocator.AllocationLine(pl.getEffectiveLineTotal(), pl::setDiscountedLineTotal)));
+        ProportionalAllocator.distribute(lines, subtotal, discountAmount);
     }
-
-    /**
-     * Splits amount proportionally across the given lines, by each line's share of basisSubtotal.
-     * Lines are processed smallest-basis first; the last (largest) line absorbs whatever rounding
-     * remainder is left, so the per-line shares always sum exactly to amount. Shared by both discount
-     * phases — only which lines and which basis value get passed in differs between them.
-     */
-    private void distributeAmount(List<DiscountableLine> lines, BigDecimal basisSubtotal, BigDecimal amount) {
-        if (lines.isEmpty()) return;
-        if (basisSubtotal.signum() <= 0) {
-            // Nothing to proportion a discount against (e.g. every line in the basis is ₹0) —
-            // leave every line at its raw total rather than dividing by zero.
-            lines.forEach(l -> l.setter().accept(l.lineRaw()));
-            return;
-        }
-        lines.sort(Comparator.comparing(DiscountableLine::lineRaw));
-
-        BigDecimal[] shares = new BigDecimal[lines.size()];
-        BigDecimal allocated = BigDecimal.ZERO;
-        for (int i = 0; i < lines.size() - 1; i++) {
-            BigDecimal lineRaw = lines.get(i).lineRaw();
-            BigDecimal share = amount.multiply(lineRaw)
-                    .divide(basisSubtotal, 10, RoundingMode.HALF_UP)
-                    .setScale(2, RoundingMode.HALF_UP)
-                    .min(lineRaw); // a line's own share can never rationally exceed its own raw total
-            shares[i] = share;
-            allocated = allocated.add(share);
-        }
-
-        // The last (largest) line absorbs whatever remainder is left so the total always sums exactly
-        // to `amount` — but independently HALF_UP-rounding every earlier share can over-allocate by up
-        // to ~0.005 each, so with enough lines and a small `amount` that remainder can go negative
-        // (a "discount" that raises this line's price) or, in principle, exceed the line's own raw
-        // total. Clamp it to [0, lineRaw] like every other line, then walk the leftover from clamping
-        // backward through the earlier lines (nudging their shares up or down within their own [0,
-        // lineRaw] bounds) until it's fully absorbed, so the exact-sum invariant still holds.
-        int lastIdx = lines.size() - 1;
-        BigDecimal lastRaw = lines.get(lastIdx).lineRaw();
-        BigDecimal lastShare = amount.subtract(allocated);
-        BigDecimal clampedLastShare = lastShare.max(BigDecimal.ZERO).min(lastRaw);
-        shares[lastIdx] = clampedLastShare;
-        BigDecimal leftover = lastShare.subtract(clampedLastShare);
-
-        for (int i = lastIdx - 1; i >= 0 && leftover.signum() != 0; i--) {
-            BigDecimal room = leftover.signum() > 0
-                    ? lines.get(i).lineRaw().subtract(shares[i]) // room to raise this line's share
-                    : shares[i];                                 // room to lower this line's share
-            BigDecimal adjust = leftover.abs().min(room);
-            if (adjust.signum() <= 0) continue;
-            shares[i] = leftover.signum() > 0 ? shares[i].add(adjust) : shares[i].subtract(adjust);
-            leftover = leftover.signum() > 0 ? leftover.subtract(adjust) : leftover.add(adjust);
-        }
-
-        for (int i = 0; i < lines.size(); i++) {
-            DiscountableLine line = lines.get(i);
-            line.setter().accept(line.lineRaw().subtract(shares[i]));
-        }
-    }
-
-    private record DiscountableLine(BigDecimal lineRaw, Consumer<BigDecimal> setter) {}
 
     private void validateDuration(Integer durationMinutes) {
         int maxDurationMinutes = properties.getAppointment().getMaxDurationMinutes();

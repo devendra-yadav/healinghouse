@@ -364,7 +364,13 @@
                         </td>
                     </tr>
                     <tr th:each="sl : ${appointment.standaloneServiceLines}">
-                        <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
+                        <td class="ps-3 fw-semibold">
+                            <span th:text="${sl.service.name}"></span>
+                            <span th:if="${sl.packageServiceItem != null}"
+                                  class="badge bg-success-subtle text-success border ms-1"
+                                  th:text="'Paid via ' + ${sl.packageServiceItem.patientPackage.name}">
+                            </span>
+                        </td>
                         <td>
                             <form method="post"
                                   th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
@@ -438,7 +444,13 @@
                 </thead>
                 <tbody>
                     <tr th:each="pl : ${appointment.standaloneProductLines}">
-                        <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
+                        <td class="ps-3 fw-semibold">
+                            <span th:text="${pl.product.name}"></span>
+                            <span th:if="${pl.packageProductItem != null}"
+                                  class="badge bg-success-subtle text-success border ms-1"
+                                  th:text="'Paid via ' + ${pl.packageProductItem.patientPackage.name}">
+                            </span>
+                        </td>
                         <td>
                             <form method="post"
                                   th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
@@ -595,6 +607,14 @@
                                 </td>
                                 <td class="pe-3 text-end fw-semibold"
                                     th:text="|₹ ${#numbers.formatDecimal(appointment.walletAmountApplied, 1, 2)}|">
+                                </td>
+                            </tr>
+                            <tr th:if="${appointment.packageAmountApplied != null and appointment.packageAmountApplied.signum() > 0}">
+                                <td class="ps-3 text-muted">
+                                    <i class="bi bi-collection me-1"></i>Paid from Package
+                                </td>
+                                <td class="pe-3 text-end fw-semibold"
+                                    th:text="|₹ ${#numbers.formatDecimal(appointment.packageAmountApplied, 1, 2)}|">
                                 </td>
                             </tr>
                             <tr class="border-top">

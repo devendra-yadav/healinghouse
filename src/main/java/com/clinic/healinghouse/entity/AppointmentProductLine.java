@@ -58,6 +58,11 @@ public class AppointmentProductLine {
     @JoinColumn(name = "appointment_combo_id")
     private AppointmentCombo appointmentCombo;
 
+    /** Non-null when this line was fully covered by a prepaid package session. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "patient_package_product_item_id")
+    private PatientPackageProductItem packageProductItem;
+
     /** Discounted total if a discount has been distributed to this line, else the raw line total. */
     @Transient
     public BigDecimal getEffectiveLineTotal() {

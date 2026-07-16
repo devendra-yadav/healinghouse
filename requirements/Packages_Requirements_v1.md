@@ -15,14 +15,14 @@ A patient can currently only pay for services/products at the appointment where 
 
 This is distinct from the existing **Wallet** (an open ₹ balance, drawn down by any amount toward any appointment) and the existing **Combo** (a bundle consumed entirely within one appointment). A **Package** is a bundle of specific services/products, prepaid once, whose individual session counts are drawn down **one unit at a time, across many future appointments**, until exhausted.
 
-This document defines **Packages**: an admin-manageable catalog of reusable package templates (optional convenience), a per-patient purchase record with per-item remaining-session counts, and a new "Already Paid" section on the appointment form that lets staff add an already-paid session to any appointment with one click.
+This document defines **Packages**: a staff-manageable catalog of reusable package templates (optional convenience), a per-patient purchase record with per-item remaining-session counts, and a new "Already Paid" section on the appointment form that lets staff add an already-paid session to any appointment with one click.
 
 ---
 
 ## 2. Goals
 
 - Staff can sell a patient a package: a named bundle of services/products, each with a session count (e.g. "10x Back Massage, 7x Acupuncture, 5x Cupping"), for one total ₹ price.
-- Packages can be sold either from an admin-predefined **template** (one-click, pre-filled) or built **custom** on the spot for a one-off request — both produce the same kind of record (Decided, §11).
+- Packages can be sold either from a staff-predefined **template** (one-click, pre-filled) or built **custom** on the spot for a one-off request — both produce the same kind of record (Decided, §11).
 - Every purchased package is recorded per-patient with remaining session counts per item, visible on the patient detail page.
 - When booking or editing *any* appointment for that patient, a dedicated section shows every service/product the patient still has paid-for sessions remaining for (pooled across all their active, unexpired packages), each addable to the appointment with one click. Adding one reduces the pooled remaining count by exactly one unit.
 - If a patient has the same service across multiple package purchases, the counts pool into a single number, and consumption always draws from the **oldest unexpired purchase first (FIFO)** (Decided, §11).
@@ -47,7 +47,7 @@ This document defines **Packages**: an admin-manageable catalog of reusable pack
 
 ### 3.1 New entities: `PackageTemplate` / `PackageTemplateServiceItem` / `PackageTemplateProductItem`
 
-Optional, admin-managed catalog — mirrors `Combo`/`ComboServiceItem`/`ComboProductItem` exactly, including the "no stored final price, computed live" philosophy for the *suggested* price:
+Optional, staff-managed catalog — mirrors `Combo`/`ComboServiceItem`/`ComboProductItem` exactly, including the "no stored final price, computed live" philosophy for the *suggested* price:
 
 ```java
 @Entity
@@ -426,7 +426,7 @@ Mirrors how `comboGroupKey` marks a combo-sourced line (`Combos_Requirements_v1.
 ### 6.1 `PackageTemplateService` (new)
 
 - `create(PackageTemplateForm)`, `update(id, form)`, `deactivate(id)`, `findAllActive()`, `findById(id)`
-- `computeSuggestedPrice(PackageTemplate)` — shared by the templates admin page and the sell-package modal's pre-fill
+- `computeSuggestedPrice(PackageTemplate)` — shared by the templates management page and the sell-package modal's pre-fill
 
 ### 6.2 `PackageTemplateController` (new)
 
@@ -523,7 +523,7 @@ All confirmed by clinic owner, July 15, 2026:
 
 - **Composition:** A package is a bundle of any mix of services/products, each with its own session count (§2, §3.2).
 - **Pooling:** Same service/product across multiple package purchases pools into one number on the appointment form; consumption always draws from the oldest unexpired purchase first, FIFO (§5.3).
-- **Source:** Both admin-predefined templates (one-click, pre-filled) and fully custom on-the-spot packages are supported (§5.1, §5.2).
+- **Source:** Both staff-predefined templates (one-click, pre-filled) and fully custom on-the-spot packages are supported (§5.1, §5.2).
 - **Commission:** A package-covered session earns commission exactly like a normally-paid one — commission is computed off the line's full catalog price regardless of payment source (§5.8).
 - **Revenue timing:** Package sale is a liability, not revenue; revenue is recognized only when a package-covered line's appointment completes (§5.9).
 - **Expiry:** Optional, configurable per package at sale time; no auto-forfeiture — unused value requires a manual staff refund (§5.6, §5.7).

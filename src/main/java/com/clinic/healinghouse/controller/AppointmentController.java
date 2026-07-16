@@ -209,6 +209,7 @@ public class AppointmentController {
                         m.put("quantity",    sl.getQuantity());
                         m.put("therapistId", sl.getTherapist().getId());
                         m.put("comboGroupKey", sl.getAppointmentCombo() != null ? "combo-" + sl.getAppointmentCombo().getId() : null);
+                        m.put("packageItemId", sl.getPackageServiceItem() != null ? sl.getPackageServiceItem().getId() : null);
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
@@ -218,6 +219,7 @@ public class AppointmentController {
                         m.put("quantity",    pl.getQuantity());
                         m.put("therapistId", pl.getTherapist().getId());
                         m.put("comboGroupKey", pl.getAppointmentCombo() != null ? "combo-" + pl.getAppointmentCombo().getId() : null);
+                        m.put("packageItemId", pl.getPackageProductItem() != null ? pl.getPackageProductItem().getId() : null);
                         return m;
                     }).toList();
 

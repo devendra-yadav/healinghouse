@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: sellPackageModal
+     Usage: <th:block th:replace="~{fragments/package-modals :: sellPackageModal(${patientId})}"/>
+     Markup only — all item-row/template-picker/price-preview JS lives in the consuming page
+     (patients/detail.html), same "fragment is just markup, page owns the JS" convention the
+     combo-picker-modal fragment already uses.
+     ═══════════════════════════════════════════ -->
+<div th:fragment="sellPackageModal(patientId)" class="modal fade" id="sellPackageModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-bag-check text-success me-2"></i>Sell Package</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="sellPackageForm" th:action="@{/patients/{patientId}/packages(patientId=${patientId})}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Start From Template <span class="text-muted fw-normal">(optional)</span></label>
+                        <select id="pkgTemplateSelect" class="form-select" onchange="applyPackageTemplate()">
+                            <option value="">— Custom package —</option>
+                        </select>
+                    </div>
+                    <input type="hidden" name="sourceTemplateId" id="pkgSourceTemplateId">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Package Name <span class="text-danger">*</span></label>
+                        <input type="text" name="name" id="pkgNameInput" class="form-control" required
+                               placeholder="e.g. 10 Session Back Massage Pack">
+                    </div>
+
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <span class="fw-semibold"><i class="bi bi-scissors me-1"></i>Services</span>
+                            <button type="button" class="btn btn-sm btn-hh" onclick="addPkgServiceItemRow()">
+                                <i class="bi bi-plus-lg me-1"></i>Add Service
+                            </button>
+                        </div>
+                        <div class="card-body pb-1">
+                            <div id="pkgServiceItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                <div class="col-5">Service</div>
+                                <div class="col-2 text-center">Sessions</div>
+                                <div class="col-2 text-end">Rate</div>
+                                <div class="col-2 text-end">Total</div>
+                                <div class="col-1"></div>
+                            </div>
+                            <div id="pkgServiceItemsContainer"></div>
+                            <div id="pkgServiceItemsEmpty" class="text-muted small text-center py-3">
+                                <i class="bi bi-info-circle me-1"></i>No services added.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <span class="fw-semibold"><i class="bi bi-box-seam me-1"></i>Products</span>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addPkgProductItemRow()">
+                                <i class="bi bi-plus-lg me-1"></i>Add Product
+                            </button>
+                        </div>
+                        <div class="card-body pb-1">
+                            <div id="pkgProductItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                <div class="col-5">Product</div>
+                                <div class="col-2 text-center">Sessions</div>
+                                <div class="col-2 text-end">Rate</div>
+                                <div class="col-2 text-end">Total</div>
+                                <div class="col-1"></div>
+                            </div>
+                            <div id="pkgProductItemsContainer"></div>
+                            <div id="pkgProductItemsEmpty" class="text-muted small text-center py-3">
+                                <i class="bi bi-info-circle me-1"></i>No products added.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Total Price (₹) <span class="text-danger">*</span></label>
+                            <input type="number" name="totalPrice" id="pkgTotalPriceInput" class="form-control"
+                                   min="0.01" step="0.01" required>
+                            <div class="form-text">Suggested: <span id="pkgSuggestedPrice">₹0.00</span></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Expiry Date <span class="text-muted fw-normal">(optional)</span></label>
+                            <input type="date" name="expiryDate" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Payment Method</label>
+                            <select name="paymentMethod" class="form-select" required>
+                                <option value="CASH">Cash</option>
+                                <option value="UPI">UPI</option>
+                                <option value="BANK_TRANSFER">Bank Transfer</option>
+                                <option value="CARD">Card</option>
+                                <option value="OTHER">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea name="note" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-hh">
+                        <i class="bi bi-check-lg me-1"></i>Sell Package
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     FRAGMENT: packageRefundModal
+     Usage: <th:block th:replace="~{fragments/package-modals :: packageRefundModal(${patientId})}"/>
+     Single reusable modal — the triggering "Refund" button on each package row carries
+     data-url/data-refundable/data-name attributes, filled into the form on show.bs.modal
+     (same reuse-one-modal pattern as combos/list.html's deactivate confirmation modal).
+     ═══════════════════════════════════════════ -->
+<div th:fragment="packageRefundModal(patientId)" class="modal fade" id="packageRefundModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-arrow-return-left text-warning me-2"></i>Refund Package</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="packageRefundForm" method="post">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3" id="packageRefundModalBody">Are you sure?</p>
+                    <label class="form-label fw-semibold">Amount (₹)</label>
+                    <div class="input-group mb-3">
+                        <span class="input-group-text">₹</span>
+                        <input type="number" name="amount" id="packageRefundAmountInput" class="form-control"
+                               min="0.01" step="0.01" required>
+                    </div>
+                    <label class="form-label fw-semibold">Refunded Via</label>
+                    <select name="paymentMethod" class="form-select mb-3" required>
+                        <option value="CASH">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="BANK_TRANSFER">Bank Transfer</option>
+                        <option value="CARD">Card</option>
+                        <option value="OTHER">Other</option>
+                    </select>
+                    <label class="form-label fw-semibold">Note <span class="text-muted fw-normal">(optional)</span></label>
+                    <textarea name="note" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-arrow-return-left me-1"></i>Refund
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+</html>

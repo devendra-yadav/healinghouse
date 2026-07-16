@@ -97,6 +97,11 @@ public class Appointment {
     @Builder.Default
     private BigDecimal walletAmountApplied = BigDecimal.ZERO;
 
+    /** Sum of priceAtTime across every line covered by a prepaid package session — mirrors walletAmountApplied. */
+    @Column(name = "package_amount_applied", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal packageAmountApplied = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "appointment", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<AppointmentServiceLine> serviceLines = new ArrayList<>();
