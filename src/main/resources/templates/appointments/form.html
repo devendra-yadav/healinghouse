@@ -1398,17 +1398,30 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ── Combo picker modal: search + add ────────────────────────────────────────
 let comboSearchDebounce = null;
+let comboPickerQuery = '';
+let comboPickerPage = 0;
 
-function renderComboResults(results) {
+function renderComboResults(data) {
     const container = document.getElementById('comboPickerResults');
     const empty = document.getElementById('comboPickerEmpty');
+    const pager = document.getElementById('comboPickerPager');
+    const results = data.combos || [];
     if (!results.length) {
         container.innerHTML = '';
         empty.classList.remove('d-none');
-        empty.textContent = 'No matching active combos.';
+        empty.textContent = comboPickerQuery ? 'No matching active combos.' : 'No active combos.';
+        pager.classList.add('d-none');
         return;
     }
     empty.classList.add('d-none');
+    if (data.totalPages > 1) {
+        pager.classList.remove('d-none');
+        document.getElementById('comboPickerPageLabel').textContent = 'Page ' + (data.page + 1) + ' of ' + data.totalPages;
+        document.getElementById('comboPickerPrevBtn').disabled = !data.hasPrevious;
+        document.getElementById('comboPickerNextBtn').disabled = !data.hasNext;
+    } else {
+        pager.classList.add('d-none');
+    }
     container.innerHTML = results.map(c => {
         const savingsBadge = c.savings > 0 ? `<span class="badge bg-success ms-2">Save ${fmt(c.savings)}</span>` : '';
         return `<div class="list-group-item d-flex justify-content-between align-items-center">
@@ -1449,25 +1462,32 @@ function pickCombo(comboId, btn) {
         .catch(() => { btn.disabled = false; });
 }
 
+function fetchComboResults(q, page) {
+    comboPickerQuery = q;
+    comboPickerPage = page;
+    fetch('/combos/search?q=' + encodeURIComponent(q) + '&page=' + page)
+        .then(r => r.json())
+        .then(renderComboResults)
+        .catch(() => renderComboResults({combos: []}));
+}
+
+function changeComboPage(delta) {
+    fetchComboResults(comboPickerQuery, comboPickerPage + delta);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('comboPickerSearchInput');
-    if (!input) return;
+    const modal = document.getElementById('comboPickerModal');
+    if (!input || !modal) return;
     input.addEventListener('input', function () {
         const q = this.value.trim();
         clearTimeout(comboSearchDebounce);
-        const empty = document.getElementById('comboPickerEmpty');
-        if (!q) {
-            document.getElementById('comboPickerResults').innerHTML = '';
-            empty.classList.remove('d-none');
-            empty.textContent = 'Type to search active combos.';
-            return;
-        }
-        comboSearchDebounce = setTimeout(() => {
-            fetch('/combos/search?q=' + encodeURIComponent(q))
-                .then(r => r.json())
-                .then(renderComboResults)
-                .catch(() => renderComboResults([]));
-        }, 250);
+        comboSearchDebounce = setTimeout(() => fetchComboResults(q, 0), 250);
+    });
+    // Browse the full active combo list on open, same as clearing the search box back to empty.
+    modal.addEventListener('show.bs.modal', function () {
+        input.value = '';
+        fetchComboResults('', 0);
     });
 });
 </script>

@@ -3,13 +3,14 @@ package com.clinic.healinghouse.controller;
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.ComboDetailDTO;
 import com.clinic.healinghouse.dto.ComboForm;
-import com.clinic.healinghouse.dto.ComboSuggestionDTO;
+import com.clinic.healinghouse.dto.ComboSearchResultDTO;
 import com.clinic.healinghouse.entity.Combo;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.service.ComboService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -119,15 +120,21 @@ public class ComboController {
         return "redirect:/combos?showInactive=true";
     }
 
-    /** JSON autocomplete endpoint backing the combo picker on the appointment form. */
+    /**
+     * Paginated JSON endpoint backing the combo picker on the appointment form: a blank {@code q}
+     * browses the full active/selectable combo list (browse-on-open), a non-blank one filters by
+     * name — both paged the same way, page size defaulting to {@code comboMaxSuggestions}.
+     */
     @GetMapping("/search")
     @ResponseBody
-    public List<ComboSuggestionDTO> search(@RequestParam(required = false) String q) {
-        if (q == null || q.isBlank()) return List.of();
-        return comboService.search(q).stream()
-                .limit(properties.getAutocomplete().getComboMaxSuggestions())
-                .map(comboService::toSuggestion)
-                .toList();
+    public ComboSearchResultDTO search(@RequestParam(required = false) String q,
+                                       @RequestParam(defaultValue = "0") int page,
+                                       @RequestParam(required = false) Integer size) {
+        int pageSize = paginationUtil.clampPageSize(size != null ? size : properties.getAutocomplete().getComboMaxSuggestions());
+        Page<Combo> result = comboService.searchSelectable(q, PageRequest.of(paginationUtil.clampPage(page), pageSize));
+        return new ComboSearchResultDTO(
+                result.getContent().stream().map(comboService::toSuggestion).toList(),
+                result.getNumber(), result.getTotalPages(), result.hasPrevious(), result.hasNext());
     }
 
     /** Full combo contents, fetched by the appointment-form picker when staff click "Add". */

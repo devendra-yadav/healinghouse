@@ -63,17 +63,33 @@ public class ComboService {
     }
 
     /**
-     * Unpaginated, for the appointment-form combo picker's autocomplete — caller caps result size.
-     * Only offers combos that are still fully selectable (see isSelectable) — a combo whose
-     * service/product was deactivated after the combo itself was created shouldn't keep being
-     * offered live, even though the combo row itself is still "active".
+     * Unpaginated, for the appointment-form combo picker — a blank query returns every active
+     * combo (the picker's initial "browse all" list on open), a non-blank one filters by name
+     * (caller caps the filtered result size). Only offers combos that are still fully selectable
+     * (see isSelectable) — a combo whose service/product was deactivated after the combo itself
+     * was created shouldn't keep being offered live, even though the combo row itself is still "active".
      */
     @Transactional(readOnly = true)
     public List<Combo> search(String query) {
-        if (!StringUtils.hasText(query)) return List.of();
-        return comboRepository.findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(query.trim()).stream()
-                .filter(this::isSelectable)
-                .toList();
+        List<Combo> candidates = StringUtils.hasText(query)
+                ? comboRepository.findByNameContainingIgnoreCaseAndActiveTrueOrderByNameAsc(query.trim())
+                : comboRepository.findByActiveTrueOrderByNameAsc();
+        return candidates.stream().filter(this::isSelectable).toList();
+    }
+
+    /**
+     * Paged variant of {@link #search(String)} for the combo picker — the isSelectable filter can't
+     * be pushed into the DB query, so this slices the already-filtered in-memory list rather than
+     * paginating at the repository level (fine for a clinic's combo catalog size). Named distinctly
+     * from the {@link #search(String, Pageable)} list-page overload above, which has different
+     * active/inactive semantics.
+     */
+    @Transactional(readOnly = true)
+    public Page<Combo> searchSelectable(String query, Pageable pageable) {
+        List<Combo> all = search(query);
+        int start = Math.min((int) pageable.getOffset(), all.size());
+        int end = Math.min(start + pageable.getPageSize(), all.size());
+        return new org.springframework.data.domain.PageImpl<>(all.subList(start, end), pageable, all.size());
     }
 
     /** True if every service/product item the combo bundles is still active — false once any one of them is deactivated. */
