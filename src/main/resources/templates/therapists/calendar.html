@@ -128,6 +128,9 @@ const THERAPIST_ID = /*[[${therapist.id}]]*/ 0;
 /*]]>*/
 </script>
 <script>
+const CSRF_TOKEN = document.querySelector('meta[name="_csrf"]').content;
+const CSRF_HEADER = document.querySelector('meta[name="_csrf_header"]').content;
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
 // Local-time "yyyy-MM-ddTHH:mm" matching the appointment form's datetime-local input.
@@ -211,7 +214,7 @@ function submitReschedule(info, forceSave) {
 
     fetch('/appointments/' + ev.id + '/reschedule', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
         body: JSON.stringify({
             appointmentDateTime: toIsoLocal(start),
             durationMinutes: duration,
@@ -300,7 +303,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 flag.className = 'fc-event-paid-flag' + (isScheduled ? ' fc-event-paid-flag--with-delete' : '');
                 flag.title = 'Paid: ' + fmt(amountPaid);
                 flag.innerHTML = '<i class="bi bi-flag-fill"></i>' + fmt(amountPaid);
-                info.el.style.position = 'relative';
                 info.el.appendChild(flag);
             }
 
@@ -314,7 +316,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
                 requestCancel(info.event);
             });
-            info.el.style.position = 'relative';
             info.el.appendChild(btn);
         }
     });
@@ -323,7 +324,10 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('confirmCancelBtn').addEventListener('click', function () {
         if (!pendingCancelEvent) return;
         const ev = pendingCancelEvent;
-        fetch('/appointments/' + ev.id + '/cancel-from-calendar', { method: 'POST' })
+        fetch('/appointments/' + ev.id + '/cancel-from-calendar', {
+            method: 'POST',
+            headers: { [CSRF_HEADER]: CSRF_TOKEN }
+        })
             .then(function (res) { return res.json(); })
             .then(function (result) {
                 if (result.success) {
