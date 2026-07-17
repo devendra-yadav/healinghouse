@@ -1,5 +1,7 @@
 package com.clinic.healinghouse.dto;
 
+import java.math.BigDecimal;
+
 /** One appointment rendered as a FullCalendar event on a therapist's calendar page. */
 public record CalendarEventDTO(
         Long id,
@@ -8,6 +10,7 @@ public record CalendarEventDTO(
         String end,
         String color,
         String status,
-        Long therapistId
+        Long therapistId,
+        BigDecimal amountPaid
 ) {
 }

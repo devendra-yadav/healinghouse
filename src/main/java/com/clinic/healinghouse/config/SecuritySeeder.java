@@ -7,6 +7,7 @@ import com.clinic.healinghouse.entity.RolePermission;
 import com.clinic.healinghouse.entity.User;
 import com.clinic.healinghouse.repository.RolePermissionRepository;
 import com.clinic.healinghouse.repository.UserRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -40,12 +41,19 @@ public class SecuritySeeder implements CommandLineRunner {
     private final RolePermissionRepository rolePermissionRepository;
     private final PasswordEncoder passwordEncoder;
     private final HealingHouseProperties properties;
+    private final PermissionService permissionService;
 
     @Override
     @Transactional
     public void run(String... args) {
         seedOwnerAccount();
         seedRolePermissions();
+        // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
+        // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
+        // before invoking any CommandLineRunner, regardless of runner order. Without this, a
+        // first-ever boot against an empty DB seeds the rows correctly but denies every permission
+        // check (including the OWNER's own login landing on "/") until something else calls reload().
+        permissionService.reload();
     }
 
     private void seedOwnerAccount() {

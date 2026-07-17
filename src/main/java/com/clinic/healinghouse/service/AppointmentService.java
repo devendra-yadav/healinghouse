@@ -395,7 +395,8 @@ public class AppointmentService {
                 appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 color,
                 appointment.getStatus().name(),
-                viewedTherapistId);
+                viewedTherapistId,
+                appointment.getAmountPaid());
     }
 
     // ── Reschedule (drag/resize on the therapist calendar) ──────────────────

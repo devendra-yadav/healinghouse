@@ -36,6 +36,17 @@
             background: rgba(255,255,255,.85); color: #b02a37; cursor: pointer;
         }
         .fc-event-delete-btn:hover { background: #fff; }
+
+        /* Green "paid" flag: shown only on events that carry a prepaid/paid amount > 0. */
+        .fc-event-paid-flag {
+            position: absolute; top: 1px; left: 2px; z-index: 5;
+            display: inline-flex; align-items: center; gap: 2px;
+            max-width: calc(100% - 20px); padding: 0 4px; height: 15px; line-height: 15px;
+            font-size: .62rem; font-weight: 700; border-radius: 3px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+            background: #198754; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+        .fc-event-paid-flag i { font-size: .62rem; flex: 0 0 auto; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -128,6 +139,12 @@ function toIsoLocal(date) {
 
 function minutesBetween(start, end) {
     return Math.round((end.getTime() - start.getTime()) / 60000);
+}
+
+function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
 }
 
 function hideCalendarAlert() {
@@ -256,7 +273,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            extendedProps: { status: ev.status }
+                            extendedProps: { status: ev.status, amountPaid: ev.amountPaid }
                         };
                     }));
                 })
@@ -272,6 +289,16 @@ document.addEventListener('DOMContentLoaded', function () {
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
         eventDidMount: function (info) {
+            const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
+            if (amountPaid > 0) {
+                const flag = document.createElement('span');
+                flag.className = 'fc-event-paid-flag';
+                flag.title = 'Paid: ' + fmt(amountPaid);
+                flag.innerHTML = '<i class="bi bi-flag-fill"></i>' + fmt(amountPaid);
+                info.el.style.position = 'relative';
+                info.el.appendChild(flag);
+            }
+
             if (info.event.extendedProps.status !== 'SCHEDULED') return;
             const btn = document.createElement('span');
             btn.className = 'fc-event-delete-btn';
