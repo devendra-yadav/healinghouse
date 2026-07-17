@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="en">
 
 <!-- ═══════════════════════════════════════════
      FRAGMENT: head
@@ -46,68 +46,87 @@
                         <i class="bi bi-speedometer2 me-1"></i>Dashboard
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('PATIENTS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Patients'} ? 'active'"
                        th:href="@{/patients}">
                         <i class="bi bi-people me-1"></i>Patients
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('THERAPISTS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Therapists'} ? 'active'"
                        th:href="@{/therapists}">
                         <i class="bi bi-person-badge me-1"></i>Therapists
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('SERVICES','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Services'} ? 'active'"
                        th:href="@{/services}">
                         <i class="bi bi-clipboard2-heart me-1"></i>Services
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('PRODUCTS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Products'} ? 'active'"
                        th:href="@{/products}">
                         <i class="bi bi-bag-heart me-1"></i>Products
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('TAGS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Tags'} ? 'active'"
                        th:href="@{/tags}">
                         <i class="bi bi-tags me-1"></i>Tags
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('COMBOS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Combos'} ? 'active'"
                        th:href="@{/combos}">
                         <i class="bi bi-boxes me-1"></i>Combos
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('PACKAGE_TEMPLATES','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'PackageTemplates'} ? 'active'"
                        th:href="@{/package-templates}">
                         <i class="bi bi-collection me-1"></i>Packages
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('APPOINTMENTS','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Appointments'} ? 'active'"
                        th:href="@{/appointments}">
                         <i class="bi bi-calendar2-check me-1"></i>Appointments
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" th:if="${@perm.has('REPORTS_STANDARD','VIEW')}">
                     <a class="nav-link"
                        th:classappend="${activePage == 'Reports'} ? 'active'"
                        th:href="@{/reports}">
                         <i class="bi bi-bar-chart-line me-1"></i>Reports
                     </a>
+                </li>
+                <li class="nav-item dropdown" th:if="${@perm.has('USER_MANAGEMENT','VIEW') or @perm.has('ACCESS_MATRIX','VIEW')}">
+                    <a class="nav-link dropdown-toggle"
+                       th:classappend="${activePage == 'UserManagement' or activePage == 'AccessMatrix'} ? 'active'"
+                       href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-shield-lock me-1"></i>Admin
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li th:if="${@perm.has('USER_MANAGEMENT','VIEW')}">
+                            <a class="dropdown-item" th:href="@{/admin/users}">
+                                <i class="bi bi-people me-1"></i>User Management
+                            </a>
+                        </li>
+                        <li th:if="${@perm.has('ACCESS_MATRIX','VIEW')}">
+                            <a class="dropdown-item" th:href="@{/admin/access-matrix}">
+                                <i class="bi bi-grid-3x3 me-1"></i>Access Matrix
+                            </a>
+                        </li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link"
@@ -115,6 +134,14 @@
                        th:href="@{/help}">
                         <i class="bi bi-question-circle me-1"></i>Help
                     </a>
+                </li>
+                <li class="nav-item d-flex align-items-center ms-lg-3">
+                    <span class="navbar-text text-white-50 me-2 small" sec:authentication="name">user</span>
+                    <form th:action="@{/logout}" method="post" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-light">
+                            <i class="bi bi-box-arrow-right me-1"></i>Logout
+                        </button>
+                    </form>
                 </li>
             </ul>
         </div>

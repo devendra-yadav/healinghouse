@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head th:replace="~{fragments/layout :: head(${pageTitle})}"></head>
+<body class="d-flex flex-column min-vh-100 bg-light">
+
+<main class="flex-grow-1 d-flex align-items-center justify-content-center py-5">
+    <div class="card shadow-sm" style="width: 100%; max-width: 380px;">
+        <div class="card-body p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-heart-pulse-fill text-primary" style="font-size: 2.5rem;"></i>
+                <h4 class="mt-2 mb-0">Healing House Clinic</h4>
+                <small class="text-muted">Sign in to continue</small>
+            </div>
+
+            <th:block th:replace="~{fragments/layout :: alerts}"></th:block>
+
+            <form th:action="@{/login}" method="post">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required autofocus/>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required/>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>Sign In
+                </button>
+            </form>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"></th:block>
+</body>
+</html>

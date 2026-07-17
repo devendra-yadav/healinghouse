@@ -4,9 +4,13 @@ import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.PackageService;
 import com.clinic.healinghouse.service.PackageTemplateService;
@@ -21,6 +25,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -46,13 +51,20 @@ public class PatientController {
     private final ProductRepository     productRepository;
     private final HealingHouseProperties properties;
     private final PaginationUtil        paginationUtil;
+    private final PermissionService     permissionService;
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
+        // THERAPIST role: no standalone Patients list — a therapist reaches a patient only via
+        // one of their own appointments (requirements/Security_RBAC_Requirements_v1.md §7).
+        if (permissionService.currentTherapistId() != null) {
+            throw new AccessDeniedException("The patients list isn't available for your role.");
+        }
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
         model.addAttribute("patients", showInactive
@@ -65,9 +77,13 @@ public class PatientController {
     }
 
     /** JSON autocomplete endpoint backing the name/phone search box on the patients list. */
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping("/search")
     @ResponseBody
     public List<PatientSuggestionDTO> search(@RequestParam(required = false) String q) {
+        if (permissionService.currentTherapistId() != null) {
+            throw new AccessDeniedException("Patient search isn't available for your role.");
+        }
         if (q == null || q.isBlank()) return List.of();
         return patientService.search(q).stream()
                 .limit(properties.getAutocomplete().getPatientMaxSuggestions())
@@ -76,6 +92,7 @@ public class PatientController {
     }
 
     // ── Detail (profile + summary stats + filterable appointment history) ──
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id,
                          @RequestParam(required = false) String status,
@@ -91,6 +108,14 @@ public class PatientController {
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
+            // THERAPIST role: reachable only via a patient tied to one of the therapist's own
+            // appointments — treated as "not found" rather than a distinct denial message so a
+            // direct-URL guess at another patient's id can't be used to confirm it exists
+            // (requirements/Security_RBAC_Requirements_v1.md §7).
+            Long ownTherapistId = permissionService.currentTherapistId();
+            if (ownTherapistId != null && !appointmentService.hasAnyAppointmentForPatientAndTherapist(id, ownTherapistId)) {
+                throw new IllegalArgumentException("Patient not found");
+            }
             walletPage = paginationUtil.clampPage(walletPage);
             packagePage = paginationUtil.clampPage(packagePage);
             packageListPage = paginationUtil.clampPage(packageListPage);
@@ -134,6 +159,7 @@ public class PatientController {
         }
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("patient", Patient.builder().build());
@@ -142,6 +168,7 @@ public class PatientController {
         return "patients/form";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         model.addAttribute("patient", patientService.getById(id));
@@ -150,11 +177,14 @@ public class PatientController {
         return "patients/form";
     }
 
+    // Shared create+edit handler — can't express "CREATE if new, EDIT if existing" with one
+    // @RequiresPermission, so the check is inline based on whether an id was submitted.
     @PostMapping("/save")
     public String save(@Valid @ModelAttribute("patient") Patient patient,
                        BindingResult result,
                        Model model,
                        RedirectAttributes ra) {
+        permissionService.require(Module.PATIENTS, patient.getId() == null ? PermissionAction.CREATE : PermissionAction.EDIT);
         if (result.hasErrors()) {
             model.addAttribute("genders", Gender.values());
             model.addAttribute("pageTitle", patient.getId() == null ? "New Patient" : "Edit Patient");
@@ -172,6 +202,7 @@ public class PatientController {
         return "redirect:/patients";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         patientService.deactivate(id);
@@ -179,6 +210,7 @@ public class PatientController {
         return "redirect:/patients";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         patientService.activate(id);

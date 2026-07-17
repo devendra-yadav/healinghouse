@@ -31,6 +31,7 @@ import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -71,25 +72,40 @@ public class ReportService {
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
     private final HealingHouseProperties properties;
+    private final PermissionService permissionService;
 
     public DailyReportDTO getDailyReport(LocalDate date) {
         PeriodSummaryDTO summary = reportAggregator.getPeriodSummary(date, date);
-        List<TherapistEarningsDTO> therapistEarnings = reportAggregator.getTherapistEarnings(date, date);
+        List<TherapistEarningsDTO> therapistEarnings = scopeToOwnTherapist(reportAggregator.getTherapistEarnings(date, date));
         return new DailyReportDTO(date, summary, therapistEarnings);
     }
 
     public PeriodReportDTO getPeriodReport(LocalDate dateFrom, LocalDate dateTo) {
         PeriodSummaryDTO summary = reportAggregator.getPeriodSummary(dateFrom, dateTo);
-        List<TherapistEarningsDTO> therapistEarnings = reportAggregator.getTherapistEarnings(dateFrom, dateTo);
+        List<TherapistEarningsDTO> therapistEarnings = scopeToOwnTherapist(reportAggregator.getTherapistEarnings(dateFrom, dateTo));
         List<TagRevenueDTO> tagRevenue = dashboardService.getTagRevenueBreakdown(dateFrom, dateTo);
         List<ProductPerformanceDTO> productPerformance = buildProductPerformance(dateFrom, dateTo);
         return new PeriodReportDTO(dateFrom, dateTo, summary, therapistEarnings, tagRevenue, productPerformance);
     }
 
     public ComparisonReportDTO getTherapistComparison(List<Long> therapistIds, LocalDate dateFrom, LocalDate dateTo) {
-        List<Therapist> therapists = therapistRepository.findAllById(therapistIds);
+        // Defense in depth: a THERAPIST can never compare against another therapist's row, even if
+        // the controller's own size>=2 pre-check were bypassed (requirements/Security_RBAC_Requirements_v1.md §7).
+        Long ownTherapistId = permissionService.currentTherapistId();
+        List<Long> effectiveIds = ownTherapistId != null ? List.of(ownTherapistId) : therapistIds;
+        List<Therapist> therapists = therapistRepository.findAllById(effectiveIds);
         List<TherapistEarningsDTO> earnings = reportAggregator.getTherapistEarnings(therapists, dateFrom, dateTo);
         return new ComparisonReportDTO(dateFrom, dateTo, earnings);
+    }
+
+    /** THERAPIST role: reports never show another therapist's earnings row, even under a tampered
+     *  client request (requirements/Security_RBAC_Requirements_v1.md §7). */
+    private List<TherapistEarningsDTO> scopeToOwnTherapist(List<TherapistEarningsDTO> earnings) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId == null) return earnings;
+        return earnings.stream()
+                .filter(e -> ownTherapistId.equals(e.therapist().getId()))
+                .toList();
     }
 
     public RevenueReportDTO getRevenueReport(RevenueReportFilter filter, Pageable pageable) {
@@ -97,10 +113,13 @@ public class ReportService {
     }
 
     public PerformanceReportDTO getProductPerformanceReport(LocalDate dateFrom, LocalDate dateTo) {
-        List<ServicePerformanceDTO> services = buildServicePerformance(dateFrom, dateTo);
+        Long ownTherapistId = permissionService.currentTherapistId();
+        List<ServicePerformanceDTO> services = buildServicePerformance(dateFrom, dateTo, ownTherapistId);
         List<ProductPerformanceDTO> products = buildProductPerformance(dateFrom, dateTo);
         List<TagRevenueDTO> tagRevenue = dashboardService.getTagRevenueBreakdown(dateFrom, dateTo);
-        List<TagTherapistRevenueDTO> tagTherapistRevenue = buildTagTherapistRevenue(dateFrom, dateTo);
+        List<TagTherapistRevenueDTO> tagTherapistRevenue = buildTagTherapistRevenue(dateFrom, dateTo).stream()
+                .filter(r -> ownTherapistId == null || ownTherapistId.equals(r.therapistId()))
+                .toList();
         return new PerformanceReportDTO(dateFrom, dateTo, services, products, tagRevenue, tagTherapistRevenue);
     }
 
@@ -134,7 +153,9 @@ public class ReportService {
         }
 
         List<Therapist> therapists = therapistRepository.findByActiveTrueOrderByFullNameAsc();
+        Long ownTherapistId = permissionService.currentTherapistId();
         List<TherapistPatientMetricsDTO> therapistMetrics = therapists.stream()
+                .filter(t -> ownTherapistId == null || ownTherapistId.equals(t.getId()))
                 .map(t -> {
                     long newCount = newPatientIdsByTherapistId.getOrDefault(t.getId(), Set.of()).size();
                     long repeatCount = repeatPatientIdsByTherapistId.getOrDefault(t.getId(), Set.of()).size();
@@ -190,7 +211,7 @@ public class ReportService {
         return total == 0 ? 0.0 : (repeatCount * 100.0) / total;
     }
 
-    private List<ServicePerformanceDTO> buildServicePerformance(LocalDate dateFrom, LocalDate dateTo) {
+    private List<ServicePerformanceDTO> buildServicePerformance(LocalDate dateFrom, LocalDate dateTo, Long ownTherapistId) {
         LocalDateTime start = dateFrom.atStartOfDay();
         LocalDateTime end = dateTo.atTime(LocalTime.MAX);
 
@@ -220,8 +241,12 @@ public class ReportService {
                     BigDecimal averagePrice = s.bookingsCount() == 0
                             ? BigDecimal.ZERO
                             : s.revenue().divide(BigDecimal.valueOf(s.bookingsCount()), 2, RoundingMode.HALF_UP);
+                    // A THERAPIST role never sees which named colleague tops a service — that's
+                    // another therapist's performance data, not "own row"
+                    // (requirements/Security_RBAC_Requirements_v1.md §7).
+                    String topTherapistName = ownTherapistId == null ? topTherapistByService.get(s.serviceName()) : null;
                     return new ServicePerformanceDTO(s.serviceName(), tags, s.bookingsCount(), s.revenue(),
-                            averagePrice, topTherapistByService.get(s.serviceName()));
+                            averagePrice, topTherapistName);
                 })
                 .sorted(Comparator.comparing(ServicePerformanceDTO::revenue).reversed())
                 .toList();

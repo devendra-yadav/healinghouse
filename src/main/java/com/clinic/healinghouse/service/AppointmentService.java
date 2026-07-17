@@ -14,6 +14,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -99,6 +100,38 @@ public class AppointmentService {
         appointmentRepository.findWithProductLinesById(id); // initialises productLines in L1 cache
         appointmentRepository.findWithCombosById(id);       // initialises combos in L1 cache
         return appt;
+    }
+
+    /**
+     * True if {@code therapistId} is the main therapist OR performed/sold any service/product line
+     * on this appointment — the same "busy"/"own" definition {@link AppointmentSpec#hasTherapistId}
+     * uses for list queries, but evaluated in-memory against an already-loaded entity for the
+     * detail/action endpoints that only have one appointment in hand, not a query root
+     * (requirements/Security_RBAC_Requirements_v1.md §7, §12 Phase C).
+     */
+    public boolean involvesTherapist(Appointment appt, Long therapistId) {
+        if (therapistId == null) return false;
+        if (appt.getTherapist() != null && therapistId.equals(appt.getTherapist().getId())) return true;
+        boolean onServiceLine = appt.getServiceLines().stream()
+                .anyMatch(sl -> sl.getTherapist() != null && therapistId.equals(sl.getTherapist().getId()));
+        if (onServiceLine) return true;
+        return appt.getProductLines().stream()
+                .anyMatch(pl -> pl.getTherapist() != null && therapistId.equals(pl.getTherapist().getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean involvesTherapist(Long appointmentId, Long therapistId) {
+        return involvesTherapist(getById(appointmentId), therapistId);
+    }
+
+    /** Used to scope a THERAPIST-role user's visibility of a patient to only those tied to one of
+     *  their own appointments (main or reassigned line) — no dedicated query needed, this reuses
+     *  the same patient+therapist filtered lookup already backing the Patient/Therapist detail
+     *  history tables. */
+    @Transactional(readOnly = true)
+    public boolean hasAnyAppointmentForPatientAndTherapist(Long patientId, Long therapistId) {
+        if (therapistId == null) return false;
+        return findByFilters(null, therapistId, null, null, null, patientId, PageRequest.of(0, 1)).hasContent();
     }
 
     /**

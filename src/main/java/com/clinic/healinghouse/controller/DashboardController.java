@@ -1,6 +1,9 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.DashboardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -16,6 +19,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
     private final HealingHouseProperties properties;
 
+    @RequiresPermission(module = Module.DASHBOARD, action = PermissionAction.VIEW)
     @GetMapping("/")
     public String dashboard(Model model) {
         LocalDate today = LocalDate.now();

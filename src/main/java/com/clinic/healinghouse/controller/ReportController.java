@@ -4,7 +4,10 @@ import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.RevenueReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportFilter;
 import com.clinic.healinghouse.entity.AppointmentStatus;
+import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
+import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ProductService;
 import com.clinic.healinghouse.service.ReportService;
 import com.clinic.healinghouse.service.TagService;
@@ -44,12 +47,14 @@ public class ReportController {
     private final ProductService productService;
     private final TagService tagService;
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping
     public String index(Model model) {
         model.addAttribute("pageTitle", "Reports");
         return "reports/index";
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping("/daily")
     public String daily(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                          Model model) {
@@ -61,6 +66,7 @@ public class ReportController {
         return "reports/daily";
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping("/period")
     public String period(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -76,6 +82,7 @@ public class ReportController {
         return "reports/period";
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping("/comparison")
     public String comparison(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -98,6 +105,7 @@ public class ReportController {
         return "reports/comparison";
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping("/patients")
     public String patients(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -113,6 +121,7 @@ public class ReportController {
         return "reports/patients";
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping("/performance")
     public String performance(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -128,6 +137,7 @@ public class ReportController {
         return "reports/performance";
     }
 
+    @RequiresPermission(module = Module.REPORTS_REVENUE, action = PermissionAction.VIEW)
     @GetMapping("/revenue")
     public String revenue(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
@@ -180,6 +190,7 @@ public class ReportController {
         return AppointmentStatus.valueOf(status.trim());
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/daily/export-csv")
     public ResponseEntity<byte[]> exportDailyReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws IOException {
@@ -194,6 +205,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/daily/export-pdf")
     public ResponseEntity<byte[]> exportDailyReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws Exception {
@@ -208,6 +220,7 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/period/export-csv")
     public ResponseEntity<byte[]> exportPeriodReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -226,6 +239,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/period/export-pdf")
     public ResponseEntity<byte[]> exportPeriodReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -244,6 +258,7 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/comparison/export-csv")
     public ResponseEntity<byte[]> exportComparisonReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -268,6 +283,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/comparison/export-pdf")
     public ResponseEntity<byte[]> exportComparisonReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -292,6 +308,7 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/patients/export-csv")
     public ResponseEntity<byte[]> exportPatientReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -310,6 +327,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/patients/export-pdf")
     public ResponseEntity<byte[]> exportPatientReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -328,6 +346,7 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/performance/export-csv")
     public ResponseEntity<byte[]> exportPerformanceReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -346,6 +365,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/performance/export-pdf")
     public ResponseEntity<byte[]> exportPerformanceReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -364,6 +384,7 @@ public class ReportController {
                 .body(pdf);
     }
 
+    @RequiresPermission(module = Module.REPORTS_REVENUE, action = PermissionAction.EXPORT)
     @GetMapping("/revenue/export-csv")
     public ResponseEntity<byte[]> exportRevenueReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
@@ -392,6 +413,7 @@ public class ReportController {
                 .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
+    @RequiresPermission(module = Module.REPORTS_REVENUE, action = PermissionAction.EXPORT)
     @GetMapping("/revenue/export-pdf")
     public ResponseEntity<byte[]> exportRevenueReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,

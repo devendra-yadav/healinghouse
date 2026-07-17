@@ -5,8 +5,11 @@ import com.clinic.healinghouse.dto.ComboDetailDTO;
 import com.clinic.healinghouse.dto.ComboForm;
 import com.clinic.healinghouse.dto.ComboSearchResultDTO;
 import com.clinic.healinghouse.entity.Combo;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ComboService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
@@ -34,6 +37,7 @@ public class ComboController {
     private final HealingHouseProperties properties;
     private final PaginationUtil paginationUtil;
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(defaultValue = "false") boolean showInactive,
@@ -53,6 +57,7 @@ public class ComboController {
         return "combos/list";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("comboForm", new ComboForm());
@@ -61,6 +66,7 @@ public class ComboController {
         return "combos/form";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         Combo combo = comboService.getById(id);
@@ -70,11 +76,13 @@ public class ComboController {
         return "combos/form";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.CREATE)
     @PostMapping
     public String create(@ModelAttribute("comboForm") ComboForm form, Model model, RedirectAttributes ra) {
         return saveAndRedirect(form, model, ra);
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.EDIT)
     @PostMapping("/{id}")
     public String update(@PathVariable Long id, @ModelAttribute("comboForm") ComboForm form,
                          Model model, RedirectAttributes ra) {
@@ -95,6 +103,7 @@ public class ComboController {
         return "redirect:/combos";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/deactivate")
     public String deactivate(@PathVariable Long id, RedirectAttributes ra) {
         comboService.deactivate(id);
@@ -102,6 +111,7 @@ public class ComboController {
         return "redirect:/combos";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         comboService.activate(id);
@@ -109,6 +119,7 @@ public class ComboController {
         return "redirect:/combos";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/delete-permanent")
     public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
         try {
@@ -125,6 +136,7 @@ public class ComboController {
      * browses the full active/selectable combo list (browse-on-open), a non-blank one filters by
      * name — both paged the same way, page size defaulting to {@code comboMaxSuggestions}.
      */
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
     @GetMapping("/search")
     @ResponseBody
     public ComboSearchResultDTO search(@RequestParam(required = false) String q,
@@ -138,6 +150,7 @@ public class ComboController {
     }
 
     /** Full combo contents, fetched by the appointment-form picker when staff click "Add". */
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
     @GetMapping("/{id}/detail")
     @ResponseBody
     public ResponseEntity<?> detail(@PathVariable Long id) {
