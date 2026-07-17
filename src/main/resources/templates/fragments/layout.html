@@ -109,6 +109,13 @@
                         <i class="bi bi-bar-chart-line me-1"></i>Reports
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link"
+                       th:classappend="${activePage == 'Help'} ? 'active'"
+                       th:href="@{/help}">
+                        <i class="bi bi-question-circle me-1"></i>Help
+                    </a>
+                </li>
             </ul>
         </div>
     </div>

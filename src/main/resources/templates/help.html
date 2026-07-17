@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <style>
+        #helpToc { position: sticky; top: 1rem; }
+        #helpToc .nav-link { color: #2c3e50; padding: .4rem .7rem; border-radius: 6px; font-size: .92rem; }
+        #helpToc .nav-link:hover { background: var(--hh-green-pale); color: var(--hh-green-dark); }
+        #helpToc .nav-link.active { background: var(--hh-green-mid); color: #fff; }
+        .help-section { scroll-margin-top: 1rem; }
+        .help-shot { border: 2px dashed var(--hh-green-light); border-radius: 12px; background: #f0faf4;
+                     color: #667; text-align: center; padding: 1.4rem 1rem; margin: 1rem 0; }
+        .help-shot .cap { font-size: .85rem; font-style: italic; margin-top: .4rem; }
+        ol.help-steps { counter-reset: helpstep; list-style: none; padding-left: 0; margin: 0 0 1rem; }
+        ol.help-steps li { counter-increment: helpstep; position: relative; padding-left: 2.4rem; margin: .55rem 0; }
+        ol.help-steps li::before {
+            content: counter(helpstep); position: absolute; left: 0; top: -.05rem;
+            width: 1.7rem; height: 1.7rem; border-radius: 50%; background: var(--hh-green-pale);
+            color: var(--hh-green-dark); font-weight: 700; font-size: .85rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Help')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0"><i class="bi bi-question-circle me-2"></i>Staff Help Guide</h4>
+        <small class="text-muted">A friendly, step-by-step guide — no computer expertise needed!</small>
+    </div>
+
+    <div class="row g-4">
+        <!-- ── Table of contents ─────────────────────────────────────────── -->
+        <div class="col-lg-3">
+            <div id="helpToc" class="card shadow-sm">
+                <div class="card-body py-2">
+                    <div class="text-uppercase text-muted small fw-semibold mb-1 px-2">In this guide</div>
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="#welcome">Welcome</a>
+                        <a class="nav-link" href="#around">Finding Your Way Around</a>
+                        <a class="nav-link" href="#dashboard">The Dashboard</a>
+                        <a class="nav-link" href="#patients">Patients</a>
+                        <a class="nav-link" href="#therapists">Therapists</a>
+                        <a class="nav-link" href="#services-products">Services &amp; Products</a>
+                        <a class="nav-link" href="#tags">Tags</a>
+                        <a class="nav-link" href="#combos">Combos</a>
+                        <a class="nav-link" href="#packages">Packages</a>
+                        <a class="nav-link" href="#booking">Booking an Appointment</a>
+                        <a class="nav-link" href="#managing">Managing an Appointment</a>
+                        <a class="nav-link" href="#wallet">Prepaid Balance (Wallet)</a>
+                        <a class="nav-link" href="#reports">Reports</a>
+                        <a class="nav-link" href="#tips">Tips &amp; Common Questions</a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Content ────────────────────────────────────────────────────── -->
+        <div class="col-lg-9 d-flex flex-column gap-3">
+
+            <!-- Welcome -->
+            <div id="welcome" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-heart-pulse-fill me-1"></i>Welcome!</div>
+                <div class="card-body">
+                    <p>This guide will help you use the Healing House Clinic system like a pro. Think of this system as your digital notebook — it keeps track of patients, appointments, payments, and everything else, so you don't have to remember it all yourself.</p>
+                    <p class="mb-0">You don't need any computer knowledge to use it. Everything is done by clicking buttons and filling simple forms, just like filling a paper form — except this one saves itself and never gets lost!</p>
+                    <div class="alert alert-warning mt-3 mb-0">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Good to know:</strong> There is no login needed right now — anyone on the clinic computer can open the system and start working straightaway.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Getting around -->
+            <div id="around" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-compass me-1"></i>Finding Your Way Around</div>
+                <div class="card-body">
+                    <p>Every page has the same menu bar at the top. This is your map to the whole system — just click any word to jump straight there.</p>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <span class="badge bg-success-subtle text-success border">Dashboard</span>
+                        <span class="badge bg-success-subtle text-success border">Patients</span>
+                        <span class="badge bg-success-subtle text-success border">Therapists</span>
+                        <span class="badge bg-success-subtle text-success border">Services</span>
+                        <span class="badge bg-success-subtle text-success border">Products</span>
+                        <span class="badge bg-success-subtle text-success border">Tags</span>
+                        <span class="badge bg-success-subtle text-success border">Combos</span>
+                        <span class="badge bg-success-subtle text-success border">Packages</span>
+                        <span class="badge bg-success-subtle text-success border">Appointments</span>
+                        <span class="badge bg-success-subtle text-success border">Reports</span>
+                    </div>
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: Top menu bar showing all the tabs]</div>
+                    </div>
+                    <p class="mb-0">This system also works nicely on mobile phones and tablets — so if reception has a tablet at the front desk, everything will still look neat and be easy to tap.</p>
+                </div>
+            </div>
+
+            <!-- Dashboard -->
+            <div id="dashboard" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-speedometer2 me-1"></i>The Dashboard</div>
+                <div class="card-body">
+                    <p>This is the very first screen you see. It gives you a quick snapshot of how the clinic is doing today.</p>
+                    <h6 class="fw-semibold">What you'll see here</h6>
+                    <ul>
+                        <li><strong>Today's Appointments</strong> — how many visits are booked for today.</li>
+                        <li><strong>Today's Revenue</strong> — how much money has come in today.</li>
+                        <li><strong>Low Stock Items</strong> — products that are running out and need reordering.</li>
+                        <li><strong>Active Therapists</strong> — how many therapists are currently working with you.</li>
+                        <li>A list of <strong>Today's Appointments</strong>, so you can see who's coming in and when.</li>
+                        <li>A <strong>Low Stock Alerts</strong> box that tells you exactly which products need restocking.</li>
+                        <li>Two simple charts — revenue over the last 7 days, and which tags (categories) earned the most over the last 30 days.</li>
+                    </ul>
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: Dashboard with the four summary cards, today's appointments table, and the two charts]</div>
+                    </div>
+                    <h6 class="fw-semibold">Quick Actions</h6>
+                    <p class="mb-0">Right below the summary cards, you'll find shortcut buttons — <strong>New Appointment</strong>, <strong>New Patient</strong>, and <strong>View Reports</strong> — so you don't have to hunt through menus for the things you do most often.</p>
+                </div>
+            </div>
+
+            <!-- Patients -->
+            <div id="patients" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-people me-1"></i>Patients</div>
+                <div class="card-body">
+                    <p>This is where every patient's record lives — their contact details, medical notes, visit history, and payments.</p>
+
+                    <h6 class="fw-semibold">Adding a new patient</h6>
+                    <ol class="help-steps">
+                        <li>Click <strong>Patients</strong> in the top menu.</li>
+                        <li>Click the <strong>Add Patient</strong> button.</li>
+                        <li>Fill in the patient's <strong>Full Name</strong> and <strong>Phone</strong> number — these are the only required fields.</li>
+                        <li>If you have them, add <strong>Email</strong>, <strong>Gender</strong>, and <strong>Date of Birth</strong> (this lets the system calculate their age automatically).</li>
+                        <li>Add <strong>Address</strong>, <strong>Medical History</strong>, and any known <strong>Allergies</strong> — optional, but very useful for the therapist to know before treatment.</li>
+                        <li>Add any general <strong>Notes</strong> if needed.</li>
+                        <li>Click <strong>Save Patient</strong>. That's it — the patient is now in the system!</li>
+                    </ol>
+
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: New Patient form with Full Name, Phone, Email, Gender, DOB, Address, Medical History, Allergies]</div>
+                    </div>
+
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Always write down allergies.</strong> If a patient has any allergy — to oils, creams, or anything else — please write it in the Allergies box. It shows up in red on their profile so nobody misses it.
+                    </div>
+
+                    <h6 class="fw-semibold">Finding a patient</h6>
+                    <p>On the Patients page, just start typing the patient's <strong>name or phone number</strong> in the search box. Matching names pop up as you type — no need to press any button.</p>
+
+                    <h6 class="fw-semibold">The Patient Profile page</h6>
+                    <p>Click on any patient's name (or the "view" icon) to open their full profile. Here you'll find:</p>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block">Patient Profile</strong>
+                                <span class="small text-muted">Contact details, medical history, and allergies, all in one place.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block">Summary cards</strong>
+                                <span class="small text-muted">Total visits, lifetime money spent, last visit date, favourite therapist, top service/product.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block">Prepaid Balance (Wallet)</strong>
+                                <span class="small text-muted">Advance money the patient has kept with the clinic — see <a href="#wallet">Wallet</a>.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block">Packages</strong>
+                                <span class="small text-muted">Session bundles the patient has bought, and how many are left — see <a href="#packages">Packages</a>.</span></div>
+                        </div>
+                    </div>
+                    <p class="mb-0">There's also a full <strong>Appointment History</strong> table with filters for therapist, status, and date range.</p>
+
+                    <h6 class="fw-semibold mt-3">Editing a patient</h6>
+                    <p class="mb-0">Open the patient's profile and click <strong>Edit Patient</strong> at the top. Make your changes and click <strong>Save Patient</strong> again.</p>
+                </div>
+            </div>
+
+            <!-- Therapists -->
+            <div id="therapists" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-person-badge me-1"></i>Therapists</div>
+                <div class="card-body">
+                    <p>Keep track of your therapists, their specialities, and how they are paid.</p>
+
+                    <h6 class="fw-semibold">Adding a therapist</h6>
+                    <ol class="help-steps">
+                        <li>Click <strong>Therapists</strong> in the top menu, then <strong>Add Therapist</strong>.</li>
+                        <li>Enter their <strong>Name</strong>, <strong>Phone</strong>, <strong>Email</strong>, and <strong>Specialization</strong> (e.g. "Deep Tissue, Ayurveda").</li>
+                        <li>If this therapist gets a fixed pay, enter their <strong>Monthly Salary</strong>.</li>
+                        <li>If they earn a percentage of what they bring in, enter their <strong>Commission Rate</strong>.</li>
+                        <li>If they get an extra bonus for hitting a target, fill in the <strong>Bonus Threshold</strong> (number of services) and <strong>Bonus Amount</strong>.</li>
+                        <li>If this therapist is the <strong>clinic owner</strong>, tick "This therapist is the owner" — owners don't get commission/bonus calculated.</li>
+                        <li>Click <strong>Save</strong>.</li>
+                    </ol>
+
+                    <h6 class="fw-semibold">The Therapist Profile page</h6>
+                    <p>Open any therapist's profile to see their details plus an <strong>Earnings Summary</strong> for a date range you choose (defaults to the current month): appointments handled, total revenue, <strong>Total Commission</strong>, any <strong>Bonus</strong> earned, and <strong>Total Variable Pay</strong>.</p>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Commission only counts tagged items.</strong> A service or product only counts towards a therapist's commission if it's tagged <strong>"Commission"</strong>, and only counts towards their bonus target if tagged <strong>"Bonus"</strong>. See <a href="#tags">Tags</a> below — this is important, otherwise a therapist's pay may come out lower than expected!
+                    </div>
+
+                    <h6 class="fw-semibold">Therapist Calendar</h6>
+                    <p class="mb-2">Click the <strong>Calendar</strong> button on a therapist's profile to see a day/week/month view of all their appointments — handy for checking who's free before booking a new visit.</p>
+                    <div class="help-shot mb-0">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: Therapist calendar showing a week of booked appointment slots]</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Services & Products -->
+            <div id="services-products" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-clipboard2-heart me-1"></i>Services &amp; Products</div>
+                <div class="card-body">
+                    <p><strong>Services</strong> are the treatments you offer (like "Deep Tissue Massage" or "Facial"). <strong>Products</strong> are physical items you sell (like oils or creams) and have a stock count.</p>
+
+                    <h6 class="fw-semibold">Adding a service or product</h6>
+                    <ol class="help-steps">
+                        <li>Click <strong>Services</strong> or <strong>Products</strong> in the top menu.</li>
+                        <li>Click <strong>Add Service</strong> / <strong>Add Product</strong>.</li>
+                        <li>Enter the <strong>Name</strong>, <strong>Price</strong>, and a short <strong>Description</strong> if you like.</li>
+                        <li>For products, also enter the current <strong>Stock Quantity</strong> and the <strong>Reorder Level</strong> (when the Dashboard should warn you it's running low).</li>
+                        <li>Add one or more <strong>Tags</strong> to help organise and report on it.</li>
+                        <li>Click <strong>Save</strong>.</li>
+                    </ol>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Stock goes down automatically.</strong> When an appointment using a product is marked <strong>Completed</strong>, the stock count reduces by itself. You never need to update stock by hand for a sale.
+                    </div>
+
+                    <h6 class="fw-semibold">Removing something from the catalogue</h6>
+                    <p>You'll almost never need to permanently delete a service or product. Instead, click the trash icon to <strong>Deactivate</strong> it — this hides it from new bookings but keeps every past appointment record exactly as it was. Bring it back any time using the <strong>Show Inactive</strong> toggle and the restore button.</p>
+                    <p class="mb-0">Only if a service/product was <em>never used</em> in any appointment and is already deactivated will you see an option to permanently delete it — this removes it forever, so use it carefully.</p>
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div id="tags" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-tags me-1"></i>Tags</div>
+                <div class="card-body">
+                    <p>Tags are simple labels you attach to services and products, like "Facial," "Ayurveda," "Commission," or "Bonus." They help you group things for reports and for calculating therapist pay.</p>
+                    <ol class="help-steps">
+                        <li>Click <strong>Tags</strong> in the top menu to see all existing tags.</li>
+                        <li>You can <strong>rename</strong>, <strong>merge</strong> two similar tags into one, or <strong>delete</strong> a tag you no longer need.</li>
+                        <li>To add a tag to a service or product, open its Edit page and type into the Tags box — it will suggest existing tags as you type, or let you create a new one.</li>
+                    </ol>
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Two tags matter for therapist pay.</strong> Tag a service or product <strong>"Commission"</strong> if it should count towards a therapist's commission. Tag a service <strong>"Bonus"</strong> if it should count towards their monthly bonus target. Miss the tag, and it silently earns the therapist ₹0 towards pay — even though the sale itself is recorded correctly.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Combos -->
+            <div id="combos" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-boxes me-1"></i>Combos</div>
+                <div class="card-body">
+                    <p>A Combo is a bundle of services and/or products sold together at a discount — for example, "Massage + Facial Combo" for a special price instead of paying for each separately.</p>
+
+                    <h6 class="fw-semibold">Creating a combo</h6>
+                    <ol class="help-steps">
+                        <li>Click <strong>Combos</strong> in the top menu, then <strong>New Combo</strong>.</li>
+                        <li>Give it a <strong>Name</strong> and, if you like, a short <strong>Description</strong>.</li>
+                        <li>Add the services and/or products that make up the combo, with the quantity of each.</li>
+                        <li>Choose how the combo is discounted — a <strong>Percentage</strong> off, or a <strong>Flat ₹ amount</strong> off.</li>
+                        <li>Click <strong>Save</strong>.</li>
+                    </ol>
+                    <p>You never need to type the combo's price by hand — the system always works it out live from the current prices of the items inside it, so it's always accurate even if you change a service's price later.</p>
+
+                    <h6 class="fw-semibold">Selling a combo during booking</h6>
+                    <p>When creating an appointment, click <strong>Choose Combo</strong> (next to "Add Service") to open the combo picker, search for the combo, and add it. All its items are added together as a locked group, with a savings badge shown on the appointment.</p>
+
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Combos are all-or-nothing.</strong> Once a combo is added to an appointment, you can't remove just one item from it — only the whole combo via "Remove Combo." You can still change which therapist did each item though.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Packages -->
+            <div id="packages" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-collection me-1"></i>Packages</div>
+                <div class="card-body">
+                    <p>A Package is when a patient pays upfront for several sessions to use over multiple future visits — like "10 Back Massages" bought all at once. This is different from a Combo (used up in a single visit) and different from Wallet money (a general ₹ balance, not tied to a specific service).</p>
+
+                    <h6 class="fw-semibold">Setting up a Package Template (optional shortcut)</h6>
+                    <p>A template just makes selling common packages faster — it's completely optional.</p>
+                    <ol class="help-steps">
+                        <li>Click <strong>Packages</strong> in the top menu, then <strong>New Template</strong>.</li>
+                        <li>Give it a <strong>Name</strong> (e.g. "10x Back Massage").</li>
+                        <li>Add the service(s)/product(s) included, and how many sessions of each.</li>
+                        <li>Click <strong>Save</strong>. The suggested price is calculated automatically from current prices — you can still adjust it when actually selling.</li>
+                    </ol>
+
+                    <h6 class="fw-semibold">Selling a package to a patient</h6>
+                    <ol class="help-steps">
+                        <li>Open the patient's profile page.</li>
+                        <li>In the <strong>Packages</strong> card, click <strong>Sell Package</strong>.</li>
+                        <li>Pick a template to start from (or choose "— Custom package —" to build one from scratch).</li>
+                        <li>Check or adjust the sessions and the <strong>Total Price</strong> you're charging.</li>
+                        <li>Click <strong>Sell</strong>.</li>
+                    </ol>
+
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: Sell Package modal on the patient page, with template picker and item rows]</div>
+                    </div>
+
+                    <h6 class="fw-semibold">Using up package sessions during a booking</h6>
+                    <p>When you book an appointment for that patient, look for <strong>Already Paid</strong> on the booking form. It automatically shows any prepaid sessions the patient still has remaining. Just click to add — no extra payment needed for that item, since it's already been paid for through the package.</p>
+
+                    <h6 class="fw-semibold">Refunding an unused package</h6>
+                    <p>On the patient's profile, click <strong>Refund</strong> next to the package. The system automatically works out the fair refund value based on how many sessions are left unused.</p>
+
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Packages can expire.</strong> If you set an expiry date when selling, an unused package automatically shows as "Expired" once that date passes. It can still be refunded — nothing is ever silently lost, but staff must action a refund manually.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking -->
+            <div id="booking" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-calendar2-check me-1"></i>Booking an Appointment</div>
+                <div class="card-body">
+                    <p>This is what you'll do most often — booking a visit for a patient with a therapist.</p>
+                    <ol class="help-steps">
+                        <li>Click <strong>Appointments</strong> in the top menu, then <strong>New Appointment</strong> (or use the shortcut on the Dashboard).</li>
+                        <li>Choose the <strong>Patient</strong> and <strong>Therapist</strong> from the dropdowns. You can type to search.</li>
+                        <li>Pick the <strong>Date &amp; Time</strong> and how long the visit will take (<strong>Duration</strong>).</li>
+                        <li>Click <strong>Add Service</strong> to add each treatment being done. Pick the service, how many, and (if different from the main therapist) who's actually doing it.</li>
+                        <li>If any products are being used or sold, click <strong>Add Product</strong> the same way.</li>
+                        <li>If this booking should use a combo, click <strong>Choose Combo</strong> instead — see <a href="#combos">Combos</a>.</li>
+                        <li>If the patient has prepaid package sessions available, they'll appear under <strong>Already Paid</strong> — click to apply them.</li>
+                        <li>Enter a <strong>Discount</strong> if you're giving one (percentage or flat ₹) — it splits automatically and fairly across every item.</li>
+                        <li>Choose the <strong>Payment Method</strong> and type how much the patient is paying right now under <strong>Amount Paid</strong>.</li>
+                        <li>If the patient wants to use their Prepaid Balance (Wallet), enter that amount too — see <a href="#wallet">Wallet</a>.</li>
+                        <li>Check the <strong>Summary</strong> box on the right — it shows the Grand Total and Balance Due, updating live as you type.</li>
+                        <li>Click <strong>Save Appointment</strong>.</li>
+                    </ol>
+
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: New Appointment form — Patient/Therapist selectors, Services table, Payment section, running Summary box]</div>
+                    </div>
+
+                    <h6 class="fw-semibold">If two appointments clash</h6>
+                    <p>If the therapist you picked is already busy at that time, the system warns you with an orange banner — but it <strong>will not stop you</strong> from saving. If the double-booking is intentional (or acceptable), tick <strong>"Save anyway"</strong> and save again.</p>
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Nothing you typed gets lost.</strong> If a scheduling clash pops up, all your entries stay exactly as you typed them — you don't need to fill the form again.
+                    </div>
+
+                    <h6 class="fw-semibold">About the amount paid</h6>
+                    <p class="mb-0">The system will never let the amount paid go above the Grand Total — if you type too much, you'll see a red warning telling you to fix it before saving.</p>
+                </div>
+            </div>
+
+            <!-- Managing -->
+            <div id="managing" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-arrow-repeat me-1"></i>Managing an Appointment</div>
+                <div class="card-body">
+                    <p>Open any appointment (from the Appointments list, Dashboard, or a patient's history) to see its full details and take action.</p>
+
+                    <h6 class="fw-semibold">What you can do while it's still "Scheduled"</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block"><i class="bi bi-pencil me-1"></i>Edit</strong>
+                                <span class="small text-muted">Change services, products, time, discount, or payment before the visit happens.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block"><i class="bi bi-check-circle me-1"></i>Complete</strong>
+                                <span class="small text-muted">Mark the visit as finished once treatment is done. Clear any balance due first.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block"><i class="bi bi-person-x me-1"></i>No-Show</strong>
+                                <span class="small text-muted">Mark it if the patient simply didn't turn up.</span></div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="border rounded p-2 h-100"><strong class="small d-block"><i class="bi bi-x-circle me-1"></i>Cancel</strong>
+                                <span class="small text-muted">Cancel and type a short reason — shown on the appointment afterwards.</span></div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Cancelling or No-Show reverses money automatically.</strong> If the patient had used Wallet or Package sessions for this visit, cancelling or marking No-Show automatically gives those back to the patient — you don't need to fix it by hand.
+                    </div>
+
+                    <h6 class="fw-semibold">Status colours, at a glance</h6>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td><span class="badge bg-primary">SCHEDULED</span></td><td class="text-muted small">Booked, upcoming or in progress. Can still be edited.</td></tr>
+                                <tr><td><span class="badge bg-success">COMPLETED</span></td><td class="text-muted small">Visit finished. Locked from further edits.</td></tr>
+                                <tr><td><span class="badge bg-warning text-dark">NO_SHOW</span></td><td class="text-muted small">Patient did not come in.</td></tr>
+                                <tr><td><span class="badge bg-danger">CANCELLED</span></td><td class="text-muted small">Appointment was called off.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr><td><span class="badge bg-success">Paid</span></td><td class="text-muted small">Fully paid — nothing owing.</td></tr>
+                                <tr><td><span class="badge bg-warning text-dark">Partial</span></td><td class="text-muted small">Some money is still due.</td></tr>
+                                <tr><td><span class="badge bg-danger">Unpaid</span></td><td class="text-muted small">No payment made yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="fw-semibold">Reassigning who did a service or product</h6>
+                    <p class="mb-0">If a different therapist actually performed one item (say, they covered for a colleague), open the appointment and change the therapist on that specific line — this keeps commission reporting accurate for whoever really did the work.</p>
+                </div>
+            </div>
+
+            <!-- Wallet -->
+            <div id="wallet" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-wallet2 me-1"></i>Prepaid Balance (Wallet)</div>
+                <div class="card-body">
+                    <p>Think of this as money the patient keeps "on account" with the clinic — like a gift card balance — that they can use towards any future visit, for any service.</p>
+
+                    <h6 class="fw-semibold">Topping up a patient's balance</h6>
+                    <ol class="help-steps">
+                        <li>Open the patient's profile, or open any of their appointments.</li>
+                        <li>Click <strong>Top Up</strong>.</li>
+                        <li>Enter the amount and how they paid (Cash, UPI, Card, etc.).</li>
+                        <li>Click <strong>Confirm</strong>. The balance updates instantly.</li>
+                    </ol>
+
+                    <h6 class="fw-semibold">Using the balance during a booking</h6>
+                    <p>On the appointment form, type the amount to draw from the wallet in the <strong>Apply from Wallet</strong> box. It shows the patient's available balance right there, and warns you in red if you try to use more than they have, or more than the bill actually needs.</p>
+
+                    <h6 class="fw-semibold">Refunding balance</h6>
+                    <p>On the patient's profile, click <strong>Refund</strong> next to the Prepaid Balance card, enter the amount, and confirm.</p>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>Every rupee is tracked.</strong> Every top-up, use, refund, or reversal is recorded in a running history table on the patient's page, so you can always see exactly where the money went.
+                    </div>
+
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>While editing an appointment:</strong> the wallet box on an existing appointment shows how much is <em>already applied</em>. Type only the <strong>extra</strong> amount you want to add now — don't retype the full total, or you may accidentally overwrite what was already recorded. Use the small pencil icon only if you need to correct a mistaken entry.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reports -->
+            <div id="reports" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-bar-chart-line me-1"></i>Reports</div>
+                <div class="card-body">
+                    <p>Click <strong>Reports</strong> in the top menu to see six report types. Each can be viewed on-screen, and downloaded as a <strong>CSV</strong> (for Excel) or a nicely formatted <strong>PDF</strong>, using the export buttons at the top of the report.</p>
+
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Report</th><th>What it tells you</th></tr></thead>
+                            <tbody>
+                                <tr><td class="fw-semibold">Daily Report</td><td class="text-muted small">Revenue and each therapist's earnings for one specific day.</td></tr>
+                                <tr><td class="fw-semibold">Period Report</td><td class="text-muted small">Earnings, tag revenue, and product performance over a date range you choose.</td></tr>
+                                <tr><td class="fw-semibold">Therapist Comparison</td><td class="text-muted small">Compare two or more therapists side by side.</td></tr>
+                                <tr><td class="fw-semibold">Patient Acquisition</td><td class="text-muted small">New vs. repeat patients, and how well you retain them.</td></tr>
+                                <tr><td class="fw-semibold">Product/Service Performance</td><td class="text-muted small">Your top-selling services, products, and tag categories.</td></tr>
+                                <tr><td class="fw-semibold">Actual Revenue</td><td class="text-muted small">The real money billed and collected, after discounts — the truest picture of clinic income.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="help-shot">
+                        <i class="bi bi-image fs-3"></i>
+                        <div class="cap">[Screenshot: Reports home page showing all six report cards]</div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-lightbulb-fill me-1"></i>
+                        <strong>"Revenue" on most reports is before discounts.</strong> Five of the six reports show figures labelled <strong>"(Pre-Discount)"</strong> — intentional, because commission is always calculated on the full price, even if you gave the patient a discount. If you want the <em>actual</em> money collected after every discount, always check the <strong>Actual Revenue</strong> report instead.
+                    </div>
+
+                    <h6 class="fw-semibold">Downloading a report</h6>
+                    <ol class="help-steps mb-0">
+                        <li>Open the report you need and set your filters (date range, therapist, etc.).</li>
+                        <li>Click <strong>Export CSV</strong> for a spreadsheet, or <strong>Export PDF</strong> for a printable, letterhead-branded document.</li>
+                        <li>The file downloads straight to your computer — open it from your Downloads folder.</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Tips -->
+            <div id="tips" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-patch-question me-1"></i>Tips &amp; Common Questions</div>
+                <div class="card-body">
+                    <h6 class="fw-semibold">"I made a mistake — can I fix it?"</h6>
+                    <p>Yes! As long as the appointment is still <strong>Scheduled</strong>, click <strong>Edit</strong> and correct anything — patient, therapist, items, discount, or payment. Once it's marked <strong>Completed</strong>, it's locked to keep the financial record accurate, so double-check before completing.</p>
+
+                    <h6 class="fw-semibold">"Can I delete a patient, service, or product by mistake?"</h6>
+                    <p>Not easily — the system protects you here. You can only <strong>Deactivate</strong> things by default, which safely hides them without touching any history. A true permanent delete is only allowed for items that have never been used anywhere, so old records are always safe.</p>
+
+                    <h6 class="fw-semibold">"Where do I see how much a therapist should be paid?"</h6>
+                    <p>Open their <a href="#therapists">Therapist Profile</a> page and check the Earnings Summary — remember, only items tagged <strong>"Commission"</strong> and <strong>"Bonus"</strong> count towards their pay.</p>
+
+                    <h6 class="fw-semibold">"What's the difference between a Combo, a Package, and the Wallet?"</h6>
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Feature</th><th>How it works</th></tr></thead>
+                            <tbody>
+                                <tr><td class="fw-semibold">Combo</td><td class="text-muted small">A bundle used up entirely in one single visit, at a bundled price.</td></tr>
+                                <tr><td class="fw-semibold">Package</td><td class="text-muted small">A set number of sessions bought in advance, used one at a time over several future visits.</td></tr>
+                                <tr><td class="fw-semibold">Wallet</td><td class="text-muted small">A general ₹ balance the patient keeps on account, usable towards anything, any time.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="fw-semibold">"The page looks a little different on my phone — is that normal?"</h6>
+                    <p>Yes, completely normal! Every page automatically rearranges itself to fit smaller screens, so it stays easy to use on a tablet or phone at the front desk.</p>
+
+                    <div class="alert alert-warning mb-0">
+                        <i class="bi bi-life-preserver me-1"></i>
+                        <strong>Still stuck?</strong> If something looks unfamiliar or a page shows an error, just note down what you were doing and ask your manager or the person who set up the system for help.
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+
+<script>
+    // Highlight the currently visible section in the sidebar TOC
+    const helpLinks = document.querySelectorAll('#helpToc .nav-link');
+    const helpSections = Array.from(helpLinks).map(a => document.getElementById(a.getAttribute('href').slice(1)));
+    function updateActiveTocLink() {
+        let currentId = helpSections[0] ? helpSections[0].id : null;
+        helpSections.forEach(sec => {
+            if (sec && sec.getBoundingClientRect().top - 90 <= 0) currentId = sec.id;
+        });
+        helpLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#' + currentId));
+    }
+    window.addEventListener('scroll', updateActiveTocLink, { passive: true });
+    updateActiveTocLink();
+</script>
+</body>
+</html>

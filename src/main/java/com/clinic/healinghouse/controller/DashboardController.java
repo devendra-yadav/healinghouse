@@ -32,4 +32,10 @@ public class DashboardController {
 
         return "dashboard";
     }
+
+    @GetMapping("/help")
+    public String help(Model model) {
+        model.addAttribute("pageTitle", "Help");
+        return "help";
+    }
 }
