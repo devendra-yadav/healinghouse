@@ -106,6 +106,16 @@ public class AppointmentController {
         return appointmentService.findCalendarEvents(therapistId, parseCalendarBound(start), parseCalendarBound(end));
     }
 
+    // ── Calendar feed, overlaid across selected therapists (JSON, consumed by calendar.html) ──
+    @GetMapping("/calendar-feed-multi")
+    @ResponseBody
+    public List<CalendarEventDTO> calendarFeedMulti(@RequestParam List<Long> therapistIds,
+                                                    @RequestParam String start,
+                                                    @RequestParam String end) {
+        return appointmentService.findCalendarEventsForTherapists(
+                therapistIds, parseCalendarBound(start), parseCalendarBound(end));
+    }
+
     /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date. */
     private LocalDateTime parseCalendarBound(String raw) {
         try {
