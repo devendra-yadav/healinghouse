@@ -341,6 +341,10 @@ document.addEventListener('DOMContentLoaded', function () {
         nowIndicator: true,
         editable: true,
         snapDuration: '00:15:00',
+        // Default true renders same-time events as a cascade, each one covering most of the
+        // previous — hides details like the paid flag. False lays them out in full, non-overlapping
+        // side-by-side columns instead.
+        slotEventOverlap: false,
         windowResize: function () {
             const mobile = isMobileCalendar();
             calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());

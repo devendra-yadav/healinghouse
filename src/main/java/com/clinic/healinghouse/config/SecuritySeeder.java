@@ -48,6 +48,7 @@ public class SecuritySeeder implements CommandLineRunner {
     public void run(String... args) {
         seedOwnerAccount();
         seedRolePermissions();
+        backfillPackageTemplateApprovePermission();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
         // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
         // before invoking any CommandLineRunner, regardless of runner order. Without this, a
@@ -106,7 +107,7 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, OWNER, SERVICES, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, OWNER, PRODUCTS, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, OWNER, COMBOS, VIEW, CREATE, EDIT, DELETE, APPROVE);
-        grant(defaults, OWNER, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, OWNER, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, OWNER, TAGS, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, OWNER, WALLET, VIEW, CREATE, APPROVE);
@@ -125,7 +126,7 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, ADMIN, SERVICES, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, ADMIN, PRODUCTS, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, ADMIN, COMBOS, VIEW, CREATE, EDIT, DELETE, APPROVE);
-        grant(defaults, ADMIN, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, ADMIN, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE, APPROVE);
         grant(defaults, ADMIN, TAGS, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, ADMIN, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, ADMIN, WALLET, VIEW, CREATE, APPROVE);
@@ -165,6 +166,26 @@ public class SecuritySeeder implements CommandLineRunner {
 
         rolePermissionRepository.saveAll(defaults);
         log.info("Seeded {} default role-permission rows.", defaults.size());
+    }
+
+    /**
+     * One-time idempotent fix-up (mirrors OwnerFlagBackfill's pattern) for databases that already
+     * had RolePermission rows seeded before package-template permanent-delete existed — since
+     * seedRolePermissions() short-circuits on a non-empty table, those installs would otherwise
+     * never get the new PACKAGE_TEMPLATES/APPROVE row and the permanent-delete button would 403
+     * even for OWNER/ADMIN. Grants it exactly where COMBOS/APPROVE is already granted above.
+     */
+    private void backfillPackageTemplateApprovePermission() {
+        List<RolePermission> toAdd = new ArrayList<>();
+        for (AppRole role : new AppRole[]{OWNER, ADMIN}) {
+            if (!rolePermissionRepository.existsByRoleAndModuleAndAction(role, PACKAGE_TEMPLATES, APPROVE)) {
+                toAdd.add(RolePermission.builder().role(role).module(PACKAGE_TEMPLATES).action(APPROVE).granted(true).build());
+            }
+        }
+        if (!toAdd.isEmpty()) {
+            rolePermissionRepository.saveAll(toAdd);
+            log.info("Backfilled {} PACKAGE_TEMPLATES/APPROVE role-permission row(s).", toAdd.size());
+        }
     }
 
     private void grant(List<RolePermission> list, AppRole role, Module module, PermissionAction... actions) {

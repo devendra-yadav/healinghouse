@@ -110,6 +110,18 @@ public class PackageTemplateController {
         return "redirect:/package-templates";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.APPROVE)
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            packageTemplateService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Package template permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/package-templates?showInactive=true";
+    }
+
     private void populateCatalogModel(Model model) {
         model.addAttribute("allServices", clinicServiceRepository.findByActiveTrueOrderByNameAsc());
         model.addAttribute("allProducts", productRepository.findByActiveTrueOrderByNameAsc());
