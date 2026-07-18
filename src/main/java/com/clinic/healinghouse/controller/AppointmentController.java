@@ -12,6 +12,7 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.*;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.SafeRedirectUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -225,7 +226,7 @@ public class AppointmentController {
             model.addAttribute("appointment", appt);
             model.addAttribute("therapists", therapistService.findAll());
             model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
-            model.addAttribute("returnUrl", returnUrl);
+            model.addAttribute("returnUrl", SafeRedirectUtil.sanitize(returnUrl, null));
             model.addAttribute("pageTitle", "Appointment Details");
             return "appointments/detail";
         } catch (AccessDeniedException e) {
@@ -244,6 +245,7 @@ public class AppointmentController {
                            @RequestParam(required = false) String returnUrl,
                            Model model, RedirectAttributes ra) {
         denyFullEditForTherapist();
+        returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         try {
             Appointment appt = appointmentService.getById(id);
             populateFormModel(model);
@@ -298,6 +300,7 @@ public class AppointmentController {
                          Model model,
                          RedirectAttributes ra) {
         denyFullEditForTherapist();
+        returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
@@ -337,7 +340,7 @@ public class AppointmentController {
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
@@ -353,7 +356,7 @@ public class AppointmentController {
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
@@ -368,7 +371,7 @@ public class AppointmentController {
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
     // ── Per-line therapist reassignment (allowed on any status) ──────────────
@@ -433,8 +436,9 @@ public class AppointmentController {
     }
 
     private String returnUrlSuffix(String returnUrl) {
-        return (returnUrl != null && !returnUrl.isBlank())
-                ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
+        String safe = SafeRedirectUtil.sanitize(returnUrl, null);
+        return safe != null
+                ? "?returnUrl=" + java.net.URLEncoder.encode(safe, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
     }
 

@@ -232,3 +232,220 @@
 2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
 2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
 2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 23:17:31.259 INFO  File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 212 class path changes (0 additions, 212 deletions, 0 modifications)
+2026-07-18 23:17:31.992 INFO  Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-18 23:17:32.259 INFO  tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-18 23:17:32.276 ERROR http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-18 23:17:32.784 INFO  Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:17:36.764 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:17:36.764 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:17:36.764 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:17:36.764 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:17:36.765 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:17:36.765 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:17:38.245 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 23:17:38.289 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 13 ms. Found 0 JPA repository interfaces.
+2026-07-18 23:17:39.362 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 23:17:39.369 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 23:17:39.370 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 23:17:40.078 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3305 ms
+2026-07-18 23:17:41.526 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 23:17:41.902 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:17:42.050 WARN  restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-18 23:17:42.669 WARN  restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 22364825-5439-42dd-ba0c-48c8acf28845
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-18 23:17:42.748 INFO  restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-18 23:17:43.121 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-18 23:17:43.135 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 7.077 seconds (process running for 4442.977)
+2026-07-18 23:17:43.135 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 7.077 seconds (process running for 4442.977)
+2026-07-18 23:17:43.146 INFO  restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-18 23:17:55.607 INFO  File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 1 class path change (1 addition, 0 deletions, 0 modifications)
+2026-07-18 23:17:55.614 INFO  Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-18 23:17:55.731 ERROR http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-18 23:17:55.739 INFO  tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-18 23:17:55.754 INFO  Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:17:56.297 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:17:56.297 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:17:56.311 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:17:56.311 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:17:56.311 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:17:56.311 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:17:58.091 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 23:17:58.557 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 449 ms. Found 5 JPA repository interfaces.
+2026-07-18 23:18:01.591 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 23:18:01.598 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 23:18:01.599 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 23:18:02.055 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5614 ms
+2026-07-18 23:18:15.225 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 23:18:18.800 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:18:20.737 WARN  restartedMain o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dataSeeder' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\config\DataSeeder.class]: Unsatisfied dependency expressed through constructor parameter 4: No qualifying bean of type 'com.clinic.healinghouse.service.TagService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-18 23:18:20.738 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:18:21.028 INFO  restartedMain o.a.catalina.core.StandardService : Stopping service [Tomcat]
+2026-07-18 23:18:21.080 INFO  restartedMain o.s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-18 23:18:21.532 ERROR restartedMain o.s.b.d.LoggingFailureAnalysisReporter : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 4 of constructor in com.clinic.healinghouse.config.DataSeeder required a bean of type 'com.clinic.healinghouse.service.TagService' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'com.clinic.healinghouse.service.TagService' in your configuration.
+
+2026-07-18 23:18:24.215 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:18:24.215 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:18:24.216 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:18:24.216 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:18:24.216 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:18:24.216 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:18:27.300 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 23:18:27.656 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 347 ms. Found 19 JPA repository interfaces.
+2026-07-18 23:18:28.898 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 23:18:28.912 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 23:18:28.912 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 23:18:29.106 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4882 ms
+2026-07-18 23:18:29.362 DEBUG restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-18 23:18:29.362 DEBUG restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-18 23:18:31.095 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 23:18:36.713 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:18:37.900 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 23:18:37.900 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 23:18:41.014 WARN  restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-18 23:18:41.098 INFO  restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-18 23:18:43.697 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-18 23:18:43.709 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 19.761 seconds (process running for 4503.55)
+2026-07-18 23:18:43.709 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 19.761 seconds (process running for 4503.55)
+2026-07-18 23:18:43.831 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 23:18:43.831 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 23:18:44.457 INFO  restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-18 23:24:42.223 INFO  SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-18 23:24:42.242 INFO  tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-18 23:24:42.250 INFO  SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 23:25:03.828 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 21684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:25:03.828 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 21684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 23:25:03.833 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:25:03.833 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 23:25:03.835 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:25:03.835 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 23:25:03.945 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-18 23:25:03.945 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-18 23:25:06.637 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 23:25:06.857 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 199 ms. Found 19 JPA repository interfaces.

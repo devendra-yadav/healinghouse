@@ -122,6 +122,24 @@ public class UserService {
         return saved;
     }
 
+    /** Cascades a Therapist deactivation to its linked login, if any (Bug_Report_v5.md #1) — mirrors
+     *  disable()'s active flag + session invalidation, but skips the self-disable/requireCanManage
+     *  guards since this is a system-triggered cascade off a different entity, not a direct admin
+     *  action on the user account itself. A no-op if the therapist has no linked user, or that
+     *  user is already inactive. */
+    public void disableLinkedToTherapist(Long therapistId) {
+        userRepository.findByTherapistId(therapistId).ifPresent(user -> {
+            if (!user.isActive()) {
+                return;
+            }
+            user.setActive(false);
+            userRepository.save(user);
+            invalidateSessionsForUser(user.getId());
+            log.info("Disabled user id={} username='{}' (linked therapist id={} deactivated)",
+                    user.getId(), user.getUsername(), therapistId);
+        });
+    }
+
     public void disable(Long id) {
         User user = getById(id);
         requireCanManage(user.getRole());

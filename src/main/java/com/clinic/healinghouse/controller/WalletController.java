@@ -9,6 +9,7 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.WalletService;
+import com.clinic.healinghouse.util.SafeRedirectUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
@@ -77,6 +78,6 @@ public class WalletController {
     }
 
     private String returnUrlOrDefault(String returnUrl, Long patientId) {
-        return (returnUrl == null || returnUrl.isBlank()) ? "/patients/" + patientId : returnUrl;
+        return SafeRedirectUtil.sanitize(returnUrl, "/patients/" + patientId);
     }
 }

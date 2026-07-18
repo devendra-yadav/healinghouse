@@ -103,5 +103,10 @@ public class HealingHouseProperties {
         private String ownerPassword;
         private int maxFailedLoginAttempts = 5;
         private int lockoutMinutes = 15;
+        /** Per-IP throttle on POST /login, independent of account lockout (Bug_Report_v5.md #3) —
+         *  counts every attempt regardless of which username is targeted or whether it succeeds,
+         *  so it also covers an attacker spreading guesses across many usernames from one IP. */
+        private int maxLoginAttemptsPerIp = 10;
+        private int loginRateLimitWindowMinutes = 15;
     }
 }

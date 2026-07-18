@@ -13,7 +13,9 @@ public class AuthController {
                          @RequestParam(required = false) String logout,
                          Model model) {
         model.addAttribute("pageTitle", "Login");
-        if (error != null) {
+        if ("rate-limit".equals(error)) {
+            model.addAttribute("errorMessage", "Too many login attempts from this network. Please wait a few minutes and try again.");
+        } else if (error != null) {
             model.addAttribute("errorMessage", "Invalid username or password, or the account is locked/disabled.");
         }
         if (logout != null) {

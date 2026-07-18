@@ -20,6 +20,7 @@ import java.util.List;
 public class TherapistService {
 
     private final TherapistRepository therapistRepository;
+    private final UserService userService;
 
     @Transactional(readOnly = true)
     public List<Therapist> findAll() {
@@ -61,6 +62,9 @@ public class TherapistService {
         Therapist therapist = getById(id);
         therapist.setActive(false);
         therapistRepository.save(therapist);
+        // Bug_Report_v5.md #1: a former therapist must lose system access along with their roster
+        // slot, not just disappear from pickers while their login keeps working.
+        userService.disableLinkedToTherapist(id);
         log.info("Deactivated therapist id={} name='{}'", therapist.getId(), therapist.getFullName());
     }
 

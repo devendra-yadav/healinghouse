@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.config;
 
+import com.clinic.healinghouse.security.LoginRateLimitFilter;
 import com.clinic.healinghouse.security.MustChangePasswordFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,7 +52,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public LoginRateLimitFilter loginRateLimitFilter(HealingHouseProperties properties) {
+        return new LoginRateLimitFilter(properties);
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, LoginRateLimitFilter loginRateLimitFilter) throws Exception {
         http
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
@@ -79,7 +85,10 @@ public class SecurityConfig {
             )
             // Runs once a request is authenticated — redirects to /account/change-password while
             // User.mustChangePassword is still true (see MustChangePasswordFilter's javadoc).
-            .addFilterAfter(new MustChangePasswordFilter(), UsernamePasswordAuthenticationFilter.class);
+            .addFilterAfter(new MustChangePasswordFilter(), UsernamePasswordAuthenticationFilter.class)
+            // Per-IP throttle ahead of the actual authentication attempt — see LoginRateLimitFilter's
+            // javadoc for why this is needed alongside (not instead of) the account-level lockout.
+            .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
