@@ -14,6 +14,8 @@ public interface TagRepository extends JpaRepository<Tag, Long> {
 
     List<Tag> findByNameContainingIgnoreCaseOrderByNameAsc(String partial);
 
+    List<Tag> findByNameContainingIgnoreCaseOrderByNameAsc(String partial, org.springframework.data.domain.Pageable pageable);
+
     List<Tag> findAllByOrderByNameAsc();
 
     Page<Tag> findAllByOrderByNameAsc(Pageable pageable);

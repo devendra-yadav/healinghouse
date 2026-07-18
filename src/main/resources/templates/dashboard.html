@@ -33,7 +33,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3">
+        <div class="col-12 col-sm-6 col-lg-3" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-primary"><i class="bi bi-currency-rupee"></i></span>
@@ -178,7 +178,7 @@
         </div>
 
         <!-- Revenue trend -->
-        <div class="col-12 col-lg-6">
+        <div class="col-12 col-lg-6" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <h6 class="section-header mb-3">Revenue Trend (Last 7 Days)</h6>
             <div class="card shadow-sm p-3">
                 <canvas id="revenueTrendChart" height="220"></canvas>
@@ -186,7 +186,7 @@
         </div>
 
         <!-- Tag revenue breakdown -->
-        <div class="col-12 col-lg-6">
+        <div class="col-12 col-lg-6" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <h6 class="section-header mb-3">Revenue by Tag (Last 30 Days)</h6>
             <div th:if="${tagRevenueBreakdown.empty}" class="coming-soon-card">
                 <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
@@ -223,8 +223,8 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
 <th:block th:replace="~{fragments/layout :: scripts}"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script th:inline="javascript">
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" th:inline="javascript">
     const trendLabels = /*[[${revenueTrend.labels}]]*/ [];
     const trendValues = /*[[${revenueTrend.values}]]*/ [];
 

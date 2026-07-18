@@ -43,9 +43,8 @@ public class TagController {
     @GetMapping("/search")
     @ResponseBody
     public List<String> search(@RequestParam(required = false) String q) {
-        return tagService.search(q).stream()
+        return tagService.search(q, properties.getAutocomplete().getTagMaxSuggestions()).stream()
                 .map(Tag::getName)
-                .limit(properties.getAutocomplete().getTagMaxSuggestions())
                 .toList();
     }
 

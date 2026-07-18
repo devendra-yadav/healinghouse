@@ -479,6 +479,14 @@ public class AppointmentService {
         }
 
         validateDuration(form.getDurationMinutes());
+        // Mirrors the same signum() < 0 guard in updateAppointment (prepaidBase/newPayment) — without
+        // it, a negative amountPaid here overstates getBalanceDue(), falls through getPaymentStatus()
+        // to "PARTIAL" instead of "UNPAID", and silently corrupts the Actual Revenue report's
+        // Collected figure (Bug_Report_v4.md #14).
+        BigDecimal newPaymentAmount = form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO;
+        if (newPaymentAmount.signum() < 0) {
+            throw new IllegalArgumentException("Amount paid cannot be negative.");
+        }
         Appointment appointment = Appointment.builder()
                 .patient(patient)
                 .therapist(therapist)
@@ -487,7 +495,7 @@ public class AppointmentService {
                         ? form.getDurationMinutes() : 60)
                 .notes(form.getNotes())
                 .paymentMethod(paymentMethod)
-                .amountPaid(form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO)
+                .amountPaid(newPaymentAmount)
                 .build();
 
         // 3b. Combo groups — one unsaved AppointmentCombo per selection, re-resolved from the live
@@ -501,7 +509,11 @@ public class AppointmentService {
             ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Service not found: " + slf.getServiceId()));
-            int qty = Math.max(1, slf.getQuantity());
+            // A package session covers exactly 1 unit of the line regardless of what the client
+            // sends — consumeServiceItem always decrements sessionsUsed by 1, so an unclamped
+            // quantity here would credit packageAmountApplied with N× the line's value while only
+            // 1 session is actually deducted from the patient's package.
+            int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
             BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
@@ -531,7 +543,7 @@ public class AppointmentService {
         BigDecimal totalProductAmount = BigDecimal.ZERO;
         for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
             if (plf == null || plf.getProductId() == null) continue;
-            int qty = Math.max(1, plf.getQuantity());
+            int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
 
             Product product = productRepository.findById(plf.getProductId())
                     .orElseThrow(() -> new EntityNotFoundException(
@@ -659,11 +671,21 @@ public class AppointmentService {
             }
         }
 
+        // Decrement via an atomic conditional UPDATE (stockQuantity >= qty checked and applied in
+        // the same DB statement), not a read-modify-write on the Java-side value above — that read
+        // is just a fast-fail for the common case; this loop is what's actually race-safe against a
+        // second markAsCompleted racing the same product to zero. A 0-row result means availability
+        // changed since the check above (lost the race), so the whole completion rolls back.
         for (AppointmentProductLine pl : appt.getProductLines()) {
             Product product = pl.getProduct();
-            product.setStockQuantity(product.getStockQuantity() - pl.getQuantity());
-            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                    product.getId(), product.getName(), pl.getQuantity(), product.getStockQuantity());
+            int updated = productRepository.decrementStockIfAvailable(product.getId(), pl.getQuantity());
+            if (updated == 0) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Availability changed — please retry.");
+            }
+            log.info("Stock decremented for product id={} name='{}' by {}",
+                    product.getId(), product.getName(), pl.getQuantity());
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
@@ -846,7 +868,7 @@ public class AppointmentService {
             for (AppointmentForm.ServiceLineForm slf : rawServices) {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
-                int qty = Math.max(1, slf.getQuantity());
+                int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
                 BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
@@ -879,7 +901,7 @@ public class AppointmentService {
             BigDecimal totalProductAmount = BigDecimal.ZERO;
             for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
                 if (plf == null || plf.getProductId() == null) continue;
-                int qty = Math.max(1, plf.getQuantity());
+                int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));

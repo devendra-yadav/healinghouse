@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
@@ -31,12 +32,13 @@ class UserServiceTests {
     @Mock private TherapistRepository therapistRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private PermissionService permissionService;
+    @Mock private SessionRegistry sessionRegistry;
 
     private UserService userService;
 
     @BeforeEach
     void setUp() {
-        userService = new UserService(userRepository, therapistRepository, passwordEncoder, permissionService);
+        userService = new UserService(userRepository, therapistRepository, passwordEncoder, permissionService, sessionRegistry);
         lenient().when(passwordEncoder.encode(any())).thenReturn("hashed");
     }
 

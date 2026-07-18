@@ -142,6 +142,9 @@
                 </li>
                 <li class="nav-item d-flex align-items-center ms-lg-3">
                     <span class="navbar-text text-white-50 me-2 small" sec:authentication="name">user</span>
+                    <a class="btn btn-sm btn-outline-light me-2" th:href="@{/account/change-password}" title="Change Password">
+                        <i class="bi bi-key"></i>
+                    </a>
                     <form th:action="@{/logout}" method="post" class="d-inline">
                         <button type="submit" class="btn btn-sm btn-outline-light">
                             <i class="bi bi-box-arrow-right me-1"></i>Logout

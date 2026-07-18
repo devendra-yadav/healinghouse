@@ -7,11 +7,14 @@ import com.clinic.healinghouse.entity.User;
 import com.clinic.healinghouse.repository.TherapistRepository;
 import com.clinic.healinghouse.repository.UserRepository;
 import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.UserPrincipal;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.session.SessionInformation;
+import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +40,7 @@ public class UserService {
     private final TherapistRepository therapistRepository;
     private final PasswordEncoder passwordEncoder;
     private final PermissionService permissionService;
+    private final SessionRegistry sessionRegistry;
 
     @Transactional(readOnly = true)
     public Page<User> findAll(boolean showInactive, Pageable pageable) {
@@ -94,6 +98,7 @@ public class UserService {
 
     public User update(UserForm form) {
         User existing = getById(form.getId());
+        AppRole previousRole = existing.getRole();
         AppRole newRole = parseRole(form.getRole());
         // Both the account being edited and the role it's being moved to are checked — an ADMIN
         // can't edit an existing OWNER account, and can't promote someone else's account to OWNER either.
@@ -108,6 +113,12 @@ public class UserService {
         existing.setTherapist(resolveTherapist(form.getTherapistId()));
         User saved = userRepository.save(existing);
         log.info("Updated user id={} username='{}'", saved.getId(), saved.getUsername());
+        // A role change mid-session would otherwise leave the user's open browser tab running
+        // under their OLD authorities until the session naturally times out — force it closed
+        // so the new role (or the loss of the old one) takes effect immediately.
+        if (previousRole != newRole) {
+            invalidateSessionsForUser(saved.getId());
+        }
         return saved;
     }
 
@@ -119,6 +130,7 @@ public class UserService {
         }
         user.setActive(false);
         userRepository.save(user);
+        invalidateSessionsForUser(user.getId());
         log.info("Disabled user id={} username='{}'", user.getId(), user.getUsername());
     }
 
@@ -141,7 +153,47 @@ public class UserService {
         user.setFailedLoginAttempts(0);
         user.setLockedUntil(null);
         userRepository.save(user);
+        invalidateSessionsForUser(user.getId());
         log.info("Password reset for user id={} username='{}'", user.getId(), user.getUsername());
+    }
+
+    /** Self-service change-password (finding #9 in Bug_Report_v4.md): the only way {@code
+     *  mustChangePassword} can ever be cleared without an admin resetting it again. Requires the
+     *  caller's current password (not gated by an admin permission — any authenticated user may
+     *  change their own password), and always clears {@code mustChangePassword} on success so a
+     *  cooperative user who complies with a forced reset isn't redirected back to this page forever. */
+    public void changeOwnPassword(Long userId, String currentPassword, String newPassword, String confirmNewPassword) {
+        if (userId == null) {
+            throw new IllegalArgumentException("Not authenticated.");
+        }
+        User user = getById(userId);
+        if (currentPassword == null || !passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect.");
+        }
+        if (newPassword == null || newPassword.length() < 8) {
+            throw new IllegalArgumentException("New password must be at least 8 characters.");
+        }
+        if (!newPassword.equals(confirmNewPassword)) {
+            throw new IllegalArgumentException("New password and confirmation do not match.");
+        }
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setMustChangePassword(false);
+        userRepository.save(user);
+        log.info("User id={} username='{}' changed their own password", user.getId(), user.getUsername());
+    }
+
+    /** Force-expires every live session belonging to {@code userId} — see {@code SecurityConfig}'s
+     *  {@code SessionRegistry} bean for why this is needed (UserDetails is otherwise only re-checked
+     *  at login, not per-request). A no-op for a user with no open session. */
+    private void invalidateSessionsForUser(Long userId) {
+        for (Object principal : sessionRegistry.getAllPrincipals()) {
+            if (!(principal instanceof UserPrincipal up) || !up.getId().equals(userId)) {
+                continue;
+            }
+            for (SessionInformation info : sessionRegistry.getAllSessions(principal, false)) {
+                info.expireNow();
+            }
+        }
     }
 
     // ── Validation helpers ────────────────────────────────────────────────

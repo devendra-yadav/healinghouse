@@ -71,6 +71,12 @@ public class PackageTemplateService {
     }
 
     public PackageTemplate save(PackageTemplateForm form) {
+        // PackageTemplate.name is @NotBlank — checked here (not left to JPA's flush-time validation)
+        // so saveAndRedirect's IllegalArgumentException catch handles it with a friendly re-render
+        // instead of a ConstraintViolationException reaching the generic error page (Bug_Report_v4.md #10).
+        if (!StringUtils.hasText(form.getName())) {
+            throw new IllegalArgumentException("Name is required.");
+        }
         PackageTemplate template = form.getId() != null ? getById(form.getId()) : PackageTemplate.builder().build();
         boolean isNew = template.getId() == null;
 
@@ -115,6 +121,14 @@ public class PackageTemplateService {
         }
 
         DiscountType type = resolveDiscountType(form.getDiscountType());
+        if (type != DiscountType.NONE) {
+            if (form.getDiscountValue() == null) {
+                throw new IllegalArgumentException("A discount value is required when a discount type is selected.");
+            }
+            if (form.getDiscountValue().signum() < 0) {
+                throw new IllegalArgumentException("Discount value cannot be negative.");
+            }
+        }
         if (type == DiscountType.PERCENTAGE && form.getDiscountValue() != null
                 && form.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new IllegalArgumentException("Percentage discount cannot exceed 100%.");

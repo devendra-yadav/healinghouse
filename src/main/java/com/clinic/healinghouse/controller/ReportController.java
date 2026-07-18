@@ -7,6 +7,7 @@ import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ProductService;
 import com.clinic.healinghouse.service.ReportService;
@@ -22,6 +23,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -46,6 +48,19 @@ public class ReportController {
     private final PdfExportUtil pdfExportUtil;
     private final ProductService productService;
     private final TagService tagService;
+    private final PermissionService permissionService;
+
+    /** Daily/period/comparison/patients/performance are clinic-wide aggregates — every therapist's
+     *  revenue and commission, not just the caller's own (SecuritySeeder's THERAPIST comment: "own
+     *  schedule/earnings only ... no revenue report"). A THERAPIST's own earnings are already served
+     *  by {@code GET /therapists/{id}} via CommissionCalculator; REPORTS_STANDARD stays granted to
+     *  that role only for whatever narrower use these endpoints gain in future, so the block lives
+     *  here rather than in the Access Matrix. */
+    private void denyClinicWideReportsForTherapist() {
+        if (permissionService.currentTherapistId() != null) {
+            throw new AccessDeniedException("This report isn't available for your role.");
+        }
+    }
 
     @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.VIEW)
     @GetMapping
@@ -58,6 +73,7 @@ public class ReportController {
     @GetMapping("/daily")
     public String daily(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
                          Model model) {
+        denyClinicWideReportsForTherapist();
         LocalDate selectedDate = date != null ? date : LocalDate.now();
 
         model.addAttribute("pageTitle", "Daily Report");
@@ -71,6 +87,7 @@ public class ReportController {
     public String period(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                           @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                           Model model) {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -88,6 +105,7 @@ public class ReportController {
                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                               @RequestParam(required = false) List<Long> therapistIds,
                               Model model) {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -110,6 +128,7 @@ public class ReportController {
     public String patients(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                             Model model) {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -126,6 +145,7 @@ public class ReportController {
     public String performance(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                                @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                                Model model) {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -187,13 +207,18 @@ public class ReportController {
     private static AppointmentStatus resolveDrilldownStatus(String status) {
         if (status == null || status.isBlank()) return AppointmentStatus.COMPLETED;
         if ("ALL".equalsIgnoreCase(status.trim())) return null;
-        return AppointmentStatus.valueOf(status.trim());
+        try {
+            return AppointmentStatus.valueOf(status.trim());
+        } catch (IllegalArgumentException ignored) {
+            return AppointmentStatus.COMPLETED;
+        }
     }
 
     @RequiresPermission(module = Module.REPORTS_STANDARD, action = PermissionAction.EXPORT)
     @GetMapping("/daily/export-csv")
     public ResponseEntity<byte[]> exportDailyReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws IOException {
+        denyClinicWideReportsForTherapist();
         LocalDate selectedDate = date != null ? date : LocalDate.now();
         var report = reportService.getDailyReport(selectedDate);
         String csv = csvExportUtil.generateDailyReportCsv(report);
@@ -209,6 +234,7 @@ public class ReportController {
     @GetMapping("/daily/export-pdf")
     public ResponseEntity<byte[]> exportDailyReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) throws Exception {
+        denyClinicWideReportsForTherapist();
         LocalDate selectedDate = date != null ? date : LocalDate.now();
         var report = reportService.getDailyReport(selectedDate);
         byte[] pdf = pdfExportUtil.generateDailyReportPdf(report);
@@ -225,6 +251,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPeriodReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -244,6 +271,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPeriodReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -264,6 +292,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) List<Long> therapistIds) throws IOException {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -289,6 +318,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) List<Long> therapistIds) throws Exception {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -313,6 +343,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPatientReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -332,6 +363,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPatientReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -351,6 +383,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPerformanceReportCsv(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;
@@ -370,6 +403,7 @@ public class ReportController {
     public ResponseEntity<byte[]> exportPerformanceReportPdf(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
         LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
         LocalDate to = dateTo != null ? dateTo : today;

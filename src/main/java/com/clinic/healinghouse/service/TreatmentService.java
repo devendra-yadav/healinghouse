@@ -5,6 +5,8 @@ import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ComboRepository;
+import com.clinic.healinghouse.repository.PackageTemplateRepository;
+import com.clinic.healinghouse.repository.PatientPackageServiceItemRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,8 @@ public class TreatmentService {
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final ComboRepository comboRepository;
     private final ComboService comboService;
+    private final PackageTemplateRepository packageTemplateRepository;
+    private final PatientPackageServiceItemRepository patientPackageServiceItemRepository;
 
     @Transactional(readOnly = true)
     public List<ClinicService> findAll() {
@@ -128,6 +132,17 @@ public class TreatmentService {
         if (comboRepository.existsByServiceItems_Service_Id(id)) {
             throw new IllegalArgumentException("Cannot permanently delete \"" + service.getName()
                     + "\" — it is part of one or more combos.");
+        }
+        // The FK from both item tables is non-nullable, so the DB would currently block this anyway —
+        // but as a bare DataIntegrityViolationException caught only by GlobalExceptionHandler's generic
+        // handler, giving a vague message instead of this specific, actionable one (Bug_Report_v4.md #12).
+        if (packageTemplateRepository.existsByServiceItems_Service_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + service.getName()
+                    + "\" — it is part of one or more package templates.");
+        }
+        if (patientPackageServiceItemRepository.existsByService_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + service.getName()
+                    + "\" — it is part of one or more sold patient packages.");
         }
         clinicServiceRepository.delete(service);
         log.info("Permanently deleted service id={} name='{}'", id, service.getName());

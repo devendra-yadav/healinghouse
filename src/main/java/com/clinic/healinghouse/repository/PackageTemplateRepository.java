@@ -27,6 +27,12 @@ public interface PackageTemplateRepository extends JpaRepository<PackageTemplate
     @Query("SELECT DISTINCT t FROM PackageTemplate t LEFT JOIN FETCH t.productItems pi WHERE pi.product.id = :productId")
     List<PackageTemplate> findByProductItems_Product_Id(@Param("productId") Long productId);
 
+    // Blocks permanent deletion of a ClinicService/Product still bundled into a package template
+    // definition — mirrors ComboRepository.existsByServiceItems_Service_Id (Bug_Report_v4.md #12).
+    boolean existsByServiceItems_Service_Id(Long serviceId);
+
+    boolean existsByProductItems_Product_Id(Long productId);
+
     // ── Two separate queries to avoid MultipleBagFetchException (PackageTemplate has two
     //    @OneToMany bags — same trap Combo/Appointment already work around) ──────────
     @Query("SELECT DISTINCT t FROM PackageTemplate t " +

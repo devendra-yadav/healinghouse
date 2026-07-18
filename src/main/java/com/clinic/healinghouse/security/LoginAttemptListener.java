@@ -32,6 +32,15 @@ public class LoginAttemptListener {
     public void onFailure(AbstractAuthenticationFailureEvent event) {
         String username = event.getAuthentication().getName();
         userRepository.findByUsernameIgnoreCase(username).ifPresent(user -> {
+            // An already-locked account rejects with LockedException before the password is even
+            // checked, which is itself an authentication-failure event — without this guard, an
+            // unauthenticated attacker who only knows the username (e.g. the default "owner") could
+            // keep re-triggering this listener and push lockedUntil forward forever, an indefinite
+            // DoS requiring no credential knowledge. Once locked, further attempts within the
+            // window are no-ops; the lock can only be extended by fresh failures after it expires.
+            if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(LocalDateTime.now())) {
+                return;
+            }
             int attempts = user.getFailedLoginAttempts() + 1;
             user.setFailedLoginAttempts(attempts);
             if (attempts >= properties.getSecurity().getMaxFailedLoginAttempts()) {

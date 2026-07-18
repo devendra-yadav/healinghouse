@@ -1,0 +1,234 @@
+2026-07-18 15:00:13.774 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 2360 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 15:00:13.774 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 2360 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 15:00:13.780 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 15:00:13.780 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 15:00:13.782 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 15:00:13.782 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 15:00:13.921 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-18 15:00:13.922 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-18 15:00:16.179 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 15:00:16.337 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 145 ms. Found 19 JPA repository interfaces.
+2026-07-18 15:00:17.965 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 15:00:17.992 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 15:00:17.993 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 15:00:18.099 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4176 ms
+2026-07-18 15:00:18.334 WARN  restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [C6F12C816A0C64E997131F187A2D19DE]
+2026-07-18 15:00:19.491 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 15:00:23.419 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 15:00:23.564 INFO  restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-18 15:00:26.251 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:00:26.251 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:00:29.306 WARN  restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-18 15:00:29.356 INFO  restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-18 15:00:30.393 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-18 15:00:30.405 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 18.155 seconds (process running for 19.437)
+2026-07-18 15:00:30.405 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 18.155 seconds (process running for 19.437)
+2026-07-18 15:00:30.573 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:00:30.573 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:01:11.866 INFO  http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-18 15:01:11.868 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-18 15:01:11.879 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 11 ms
+2026-07-18 15:01:59.149 INFO  http-nio-8080-exec-1 c.c.h.service.PatientService : Created patient id=9 name='Deva'
+2026-07-18 15:01:59.149 INFO  http-nio-8080-exec-1 c.c.h.service.PatientService : Created patient id=9 name='Deva'
+2026-07-18 15:02:30.460 INFO  http-nio-8080-exec-7 c.c.h.service.PatientService : Updated patient id=9 name='Devendra'
+2026-07-18 15:02:30.460 INFO  http-nio-8080-exec-7 c.c.h.service.PatientService : Updated patient id=9 name='Devendra'
+2026-07-18 15:11:35.575 INFO  SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-18 15:11:35.907 INFO  tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-18 15:11:36.058 INFO  SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 15:11:54.606 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 21696 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 15:11:54.606 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 21696 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 15:11:54.611 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 15:11:54.611 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 15:11:54.613 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 15:11:54.613 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 15:11:54.736 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-18 15:11:54.737 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-18 15:11:56.950 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 15:11:57.141 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 171 ms. Found 19 JPA repository interfaces.
+2026-07-18 15:11:59.401 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 15:11:59.477 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 15:11:59.478 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 15:11:59.565 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4827 ms
+2026-07-18 15:11:59.802 WARN  restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [25F2C98EC3A1EED72862DAE159554EF8]
+2026-07-18 15:12:01.111 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 15:12:05.055 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 15:12:05.247 INFO  restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-18 15:12:08.095 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:12:08.095 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:12:10.982 WARN  restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-18 15:12:11.100 INFO  restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-18 15:12:12.470 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-18 15:12:12.481 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 19.551 seconds (process running for 21.622)
+2026-07-18 15:12:12.481 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 19.551 seconds (process running for 21.622)
+2026-07-18 15:12:12.613 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:12:12.613 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 15:12:51.483 INFO  http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-18 15:12:51.483 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-18 15:12:51.486 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 3 ms
+2026-07-18 15:13:11.801 INFO  http-nio-8080-exec-9 c.c.h.service.PatientService : Deactivated patient id=9 name='Devendra'
+2026-07-18 15:13:11.801 INFO  http-nio-8080-exec-9 c.c.h.service.PatientService : Deactivated patient id=9 name='Devendra'
+2026-07-18 15:14:01.301 INFO  http-nio-8080-exec-10 c.c.h.service.TherapistService : Created therapist id=5 name='Logi'
+2026-07-18 15:14:01.301 INFO  http-nio-8080-exec-10 c.c.h.service.TherapistService : Created therapist id=5 name='Logi'
+2026-07-18 15:14:19.179 INFO  http-nio-8080-exec-6 c.c.h.service.TherapistService : Updated therapist id=5 name='Logi'
+2026-07-18 15:14:19.179 INFO  http-nio-8080-exec-6 c.c.h.service.TherapistService : Updated therapist id=5 name='Logi'
+2026-07-18 15:15:27.824 INFO  http-nio-8080-exec-8 c.c.h.service.AppointmentService : Appointment id=8 rescheduled to start=2026-07-18T07:00 duration=60min
+2026-07-18 15:15:27.824 INFO  http-nio-8080-exec-8 c.c.h.service.AppointmentService : Appointment id=8 rescheduled to start=2026-07-18T07:00 duration=60min
+2026-07-18 15:15:51.997 INFO  http-nio-8080-exec-1 c.c.h.service.AppointmentService : Appointment id=8 rescheduled to start=2026-07-18T10:00 duration=60min
+2026-07-18 15:15:51.997 INFO  http-nio-8080-exec-1 c.c.h.service.AppointmentService : Appointment id=8 rescheduled to start=2026-07-18T10:00 duration=60min
+2026-07-18 15:16:18.375 INFO  http-nio-8080-exec-7 c.c.h.service.AppointmentService : Created appointment id=10 patient='Fatima Sheikh' therapist='Marcia Gomes Yadav' grandTotal=1000.00
+2026-07-18 15:16:18.375 INFO  http-nio-8080-exec-7 c.c.h.service.AppointmentService : Created appointment id=10 patient='Fatima Sheikh' therapist='Marcia Gomes Yadav' grandTotal=1000.00
+2026-07-18 15:17:11.600 INFO  http-nio-8080-exec-4 c.c.h.service.TreatmentService : Created service id=43 name='test service'
+2026-07-18 15:17:11.600 INFO  http-nio-8080-exec-4 c.c.h.service.TreatmentService : Created service id=43 name='test service'
+2026-07-18 15:17:45.369 INFO  http-nio-8080-exec-2 c.c.h.service.TreatmentService : Updated service id=43 name='Test service'
+2026-07-18 15:17:45.369 INFO  http-nio-8080-exec-2 c.c.h.service.TreatmentService : Updated service id=43 name='Test service'
+2026-07-18 15:18:03.586 INFO  http-nio-8080-exec-8 c.c.h.service.TreatmentService : Deactivated service id=43 name='Test service'
+2026-07-18 15:18:03.586 INFO  http-nio-8080-exec-8 c.c.h.service.TreatmentService : Deactivated service id=43 name='Test service'
+2026-07-18 15:26:58.679 INFO  http-nio-8080-exec-5 c.c.h.service.TreatmentService : Created service id=44 name='AAAAA'
+2026-07-18 15:26:58.679 INFO  http-nio-8080-exec-5 c.c.h.service.TreatmentService : Created service id=44 name='AAAAA'
+2026-07-18 15:27:03.223 INFO  http-nio-8080-exec-2 c.c.h.service.TreatmentService : Deactivated service id=44 name='AAAAA'
+2026-07-18 15:27:03.223 INFO  http-nio-8080-exec-2 c.c.h.service.TreatmentService : Deactivated service id=44 name='AAAAA'
+2026-07-18 15:28:40.598 INFO  http-nio-8080-exec-1 c.c.h.service.ProductService : Created product id=8 name='AAPRODUCT' stock=25
+2026-07-18 15:28:40.598 INFO  http-nio-8080-exec-1 c.c.h.service.ProductService : Created product id=8 name='AAPRODUCT' stock=25
+2026-07-18 15:28:45.768 INFO  http-nio-8080-exec-3 c.c.h.service.ProductService : Deactivated product id=8 name='AAPRODUCT'
+2026-07-18 15:28:45.768 INFO  http-nio-8080-exec-3 c.c.h.service.ProductService : Deactivated product id=8 name='AAPRODUCT'
+2026-07-18 17:58:19.194 INFO  SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-18 17:58:19.334 INFO  tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-18 17:58:19.385 INFO  SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 22:03:50.501 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 22:03:50.501 INFO  restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 22684 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-18 22:03:50.525 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 22:03:50.525 DEBUG restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-18 22:03:50.529 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 22:03:50.529 INFO  restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-18 22:03:50.830 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-18 22:03:50.831 INFO  restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-18 22:03:53.917 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-18 22:03:54.484 INFO  restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 537 ms. Found 19 JPA repository interfaces.
+2026-07-18 22:03:58.369 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-18 22:03:58.420 INFO  restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-18 22:03:58.422 INFO  restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-18 22:03:58.571 INFO  restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 7739 ms
+2026-07-18 22:04:00.760 INFO  restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-18 22:04:05.593 INFO  restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-18 22:04:05.755 INFO  restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-18 22:04:08.544 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 22:04:08.544 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 22:04:12.442 WARN  restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-18 22:04:12.873 INFO  restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-18 22:04:16.659 INFO  restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-18 22:04:16.677 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 28.806 seconds (process running for 36.548)
+2026-07-18 22:04:16.677 INFO  restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 28.806 seconds (process running for 36.548)
+2026-07-18 22:04:16.972 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 22:04:16.972 INFO  restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-18 22:04:58.049 INFO  http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-18 22:04:58.050 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-18 22:04:58.059 INFO  http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 9 ms
+2026-07-18 22:07:50.790 INFO  http-nio-8080-exec-3 c.c.healinghouse.service.UserService : User id=1 username='owner' changed their own password
+2026-07-18 22:07:50.790 INFO  http-nio-8080-exec-3 c.c.healinghouse.service.UserService : User id=1 username='owner' changed their own password
+2026-07-18 22:08:13.239 INFO  http-nio-8080-exec-10 c.c.h.service.PatientService : Reactivated patient id=9 name='Devendra'
+2026-07-18 22:08:13.239 INFO  http-nio-8080-exec-10 c.c.h.service.PatientService : Reactivated patient id=9 name='Devendra'
+2026-07-18 22:08:25.333 INFO  http-nio-8080-exec-4 c.c.h.service.PatientService : Deactivated patient id=9 name='Devendra'
+2026-07-18 22:08:25.333 INFO  http-nio-8080-exec-4 c.c.h.service.PatientService : Deactivated patient id=9 name='Devendra'
+2026-07-18 22:08:39.950 INFO  http-nio-8080-exec-1 c.c.h.service.PatientService : Updated patient id=9 name='Devendra'
+2026-07-18 22:08:39.950 INFO  http-nio-8080-exec-1 c.c.h.service.PatientService : Updated patient id=9 name='Devendra'
+2026-07-18 22:09:01.018 INFO  http-nio-8080-exec-8 c.c.h.service.TherapistService : Deactivated therapist id=5 name='Logi'
+2026-07-18 22:09:01.018 INFO  http-nio-8080-exec-8 c.c.h.service.TherapistService : Deactivated therapist id=5 name='Logi'
+2026-07-18 22:09:06.908 INFO  http-nio-8080-exec-3 c.c.h.service.TherapistService : Reactivated therapist id=5 name='Logi'
+2026-07-18 22:09:06.908 INFO  http-nio-8080-exec-3 c.c.h.service.TherapistService : Reactivated therapist id=5 name='Logi'
+2026-07-18 22:09:25.441 INFO  http-nio-8080-exec-5 c.c.h.service.TreatmentService : Permanently deleted service id=44 name='AAAAA'
+2026-07-18 22:09:25.441 INFO  http-nio-8080-exec-5 c.c.h.service.TreatmentService : Permanently deleted service id=44 name='AAAAA'
+2026-07-18 22:09:38.653 INFO  http-nio-8080-exec-6 c.c.h.service.TreatmentService : Permanently deleted service id=43 name='Test service'
+2026-07-18 22:09:38.653 INFO  http-nio-8080-exec-6 c.c.h.service.TreatmentService : Permanently deleted service id=43 name='Test service'
+2026-07-18 22:09:43.685 INFO  http-nio-8080-exec-10 c.c.h.service.TreatmentService : Deactivated service id=1 name='Abhyanga Massage'
+2026-07-18 22:09:43.685 INFO  http-nio-8080-exec-10 c.c.h.service.TreatmentService : Deactivated service id=1 name='Abhyanga Massage'
+2026-07-18 22:09:43.752 INFO  http-nio-8080-exec-10 c.c.h.service.ComboService : Removed deactivated catalog item from combo id=1 name='Test combo'
+2026-07-18 22:09:43.752 INFO  http-nio-8080-exec-10 c.c.h.service.ComboService : Removed deactivated catalog item from combo id=1 name='Test combo'
+2026-07-18 22:09:48.947 INFO  http-nio-8080-exec-7 c.c.h.service.TreatmentService : Reactivated service id=1 name='Abhyanga Massage'
+2026-07-18 22:09:48.947 INFO  http-nio-8080-exec-7 c.c.h.service.TreatmentService : Reactivated service id=1 name='Abhyanga Massage'
+2026-07-18 22:10:02.305 INFO  http-nio-8080-exec-5 c.c.h.service.ProductService : Permanently deleted product id=8 name='AAPRODUCT'
+2026-07-18 22:10:02.305 INFO  http-nio-8080-exec-5 c.c.h.service.ProductService : Permanently deleted product id=8 name='AAPRODUCT'
+2026-07-18 22:11:28.210 INFO  http-nio-8080-exec-9 c.c.h.service.AppointmentService : Appointment id=5 marked CANCELLED reason=''
+2026-07-18 22:11:28.210 INFO  http-nio-8080-exec-9 c.c.h.service.AppointmentService : Appointment id=5 marked CANCELLED reason=''
+2026-07-18 22:11:58.086 INFO  http-nio-8080-exec-4 c.c.h.service.AppointmentService : Created appointment id=11 patient='Fatima Sheikh' therapist='Marcia Gomes Yadav' grandTotal=1000.00
+2026-07-18 22:11:58.086 INFO  http-nio-8080-exec-4 c.c.h.service.AppointmentService : Created appointment id=11 patient='Fatima Sheikh' therapist='Marcia Gomes Yadav' grandTotal=1000.00
+2026-07-18 22:13:31.640 INFO  http-nio-8080-exec-3 c.c.h.service.AppointmentService : Updated appointment id=8
+2026-07-18 22:13:31.640 INFO  http-nio-8080-exec-3 c.c.h.service.AppointmentService : Updated appointment id=8
+2026-07-18 22:13:35.300 INFO  http-nio-8080-exec-9 c.c.h.service.AppointmentService : Appointment id=8 marked COMPLETED
+2026-07-18 22:13:35.300 INFO  http-nio-8080-exec-9 c.c.h.service.AppointmentService : Appointment id=8 marked COMPLETED
+2026-07-18 22:15:12.800 INFO  http-nio-8080-exec-1 c.c.healinghouse.service.UserService : User id=2 username='arjun' changed their own password
+2026-07-18 22:15:12.800 INFO  http-nio-8080-exec-1 c.c.healinghouse.service.UserService : User id=2 username='arjun' changed their own password
+2026-07-18 22:15:23.006 WARN  http-nio-8080-exec-4 c.c.h.e.GlobalExceptionHandler : Access denied: The patients list isn't available for your role.
+2026-07-18 22:15:23.006 WARN  http-nio-8080-exec-4 c.c.h.e.GlobalExceptionHandler : Access denied: The patients list isn't available for your role.
+2026-07-18 22:15:23.012 WARN  http-nio-8080-exec-4 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: The patients list isn't available for your role.]
+2026-07-18 22:15:25.882 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: The patients list isn't available for your role.
+2026-07-18 22:15:25.882 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: The patients list isn't available for your role.
+2026-07-18 22:15:25.884 WARN  http-nio-8080-exec-7 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: The patients list isn't available for your role.]
+2026-07-18 22:16:04.903 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:04.903 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:04.917 WARN  http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:13.024 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:13.024 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:13.025 WARN  http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:17.438 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:17.438 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:17.439 WARN  http-nio-8080-exec-7 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:20.845 WARN  http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:20.845 WARN  http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:20.846 WARN  http-nio-8080-exec-2 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:27.309 WARN  http-nio-8080-exec-5 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:27.309 WARN  http-nio-8080-exec-5 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:27.309 WARN  http-nio-8080-exec-5 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:31.950 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:31.950 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:31.955 WARN  http-nio-8080-exec-9 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:36.552 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:36.552 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:36.552 WARN  http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:45.190 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:45.190 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:45.190 WARN  http-nio-8080-exec-9 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:49.966 WARN  http-nio-8080-exec-3 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:49.966 WARN  http-nio-8080-exec-3 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:49.967 WARN  http-nio-8080-exec-3 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:55.935 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:55.935 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:55.936 WARN  http-nio-8080-exec-9 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:16:58.775 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:58.775 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:16:58.776 WARN  http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:17:02.447 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:02.447 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:02.447 WARN  http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:17:20.424 WARN  http-nio-8080-exec-6 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:20.424 WARN  http-nio-8080-exec-6 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:20.425 WARN  http-nio-8080-exec-6 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:17:44.550 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:44.550 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:44.551 WARN  http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:47.003 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:47.003 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:47.004 WARN  http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:48.587 WARN  http-nio-8080-exec-4 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:48.587 WARN  http-nio-8080-exec-4 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:48.594 WARN  http-nio-8080-exec-4 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:48.693 WARN  http-nio-8080-exec-6 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:48.693 WARN  http-nio-8080-exec-6 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:48.693 WARN  http-nio-8080-exec-6 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:50.051 WARN  http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:50.051 WARN  http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:50.069 WARN  http-nio-8080-exec-1 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:50.111 WARN  http-nio-8080-exec-3 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:50.111 WARN  http-nio-8080-exec-3 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:50.111 WARN  http-nio-8080-exec-3 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:51.561 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:51.561 WARN  http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:51.562 WARN  http-nio-8080-exec-7 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:17:51.709 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:51.709 WARN  http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action.
+2026-07-18 22:17:51.709 WARN  http-nio-8080-exec-9 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-18 22:17:53.725 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:53.725 WARN  http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:53.726 WARN  http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]
+2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: This report isn't available for your role.
+2026-07-18 22:17:55.495 WARN  http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: This report isn't available for your role.]

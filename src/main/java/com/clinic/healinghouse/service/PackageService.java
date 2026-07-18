@@ -333,7 +333,7 @@ public class PackageService {
 
     // ── Refund / cancellation ────────────────────────────────────────────────
 
-    public void refund(Long patientPackageId, BigDecimal amount, PaymentMethod method, String note) {
+    public void refund(Long patientId, Long patientPackageId, BigDecimal amount, PaymentMethod method, String note) {
         if (amount == null || amount.signum() <= 0) {
             throw new IllegalArgumentException("Refund amount must be greater than zero.");
         }
@@ -341,6 +341,12 @@ public class PackageService {
             throw new IllegalArgumentException("Payment method is required for a refund.");
         }
         PatientPackage pkg = getById(patientPackageId);
+        if (!pkg.getPatient().getId().equals(patientId)) {
+            throw new IllegalArgumentException("This package does not belong to the specified patient.");
+        }
+        if (pkg.getStatus() == PatientPackageStatus.CANCELLED) {
+            throw new IllegalArgumentException("This package has already been refunded and cannot be refunded again.");
+        }
         BigDecimal refundable = computeRefundableValue(pkg);
         if (amount.compareTo(refundable) > 0) {
             String symbol = properties.getCurrency().getSymbol();

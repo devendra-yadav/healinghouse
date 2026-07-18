@@ -137,7 +137,7 @@ public class CsvExportUtil {
                 writer.writeNext(new String[]{"Therapist", "Gross Revenue", "Discount", "Net Revenue"});
                 for (RevenueByTherapistDTO t : report.byTherapist()) {
                     writer.writeNext(new String[]{
-                            t.therapistName(), formatCurrency(t.grossRevenue()),
+                            sanitize(t.therapistName()), formatCurrency(t.grossRevenue()),
                             formatCurrency(t.discountAmount()), formatCurrency(t.netRevenue())
                     });
                 }
@@ -165,7 +165,7 @@ public class CsvExportUtil {
                 for (AppointmentRevenueRowDTO row : report.appointments()) {
                     writer.writeNext(new String[]{
                             row.dateTime().format(dateTimeFormatter()),
-                            row.patientName(), row.therapistName(), row.status().name(),
+                            sanitize(row.patientName()), sanitize(row.therapistName()), row.status().name(),
                             formatCurrency(row.gross()), formatCurrency(row.discount()), formatCurrency(row.net()),
                             formatCurrency(row.collected()), formatCurrency(row.outstanding()),
                             row.paymentMethod() != null ? row.paymentMethod().name() : "N/A"
@@ -194,7 +194,7 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Name", "Tags", "Bookings", "Net Revenue"});
         for (RevenueByCatalogItemDTO item : items) {
             writer.writeNext(new String[]{
-                    item.name(), String.join(", ", item.tags()),
+                    sanitize(item.name()), sanitize(String.join(", ", item.tags())),
                     String.valueOf(item.bookingsCount()), formatCurrency(item.netRevenue())
             });
         }
@@ -242,7 +242,7 @@ public class CsvExportUtil {
         writer.writeNext(header.toArray(new String[0]));
 
         for (TherapistEarningsDTO earning : earnings) {
-            List<String> row = new java.util.ArrayList<>(List.of(earning.therapist().getFullName()));
+            List<String> row = new java.util.ArrayList<>(List.of(sanitize(earning.therapist().getFullName())));
             if (includeAllColumns) {
                 row.addAll(List.of(
                         formatCurrency(earning.allServicesRevenue()),
@@ -277,7 +277,7 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Tag", "Revenue (Pre-Discount)"});
         for (TagRevenueDTO tag : tagRevenues) {
             writer.writeNext(new String[]{
-                    tag.tagName(),
+                    sanitize(tag.tagName()),
                     formatCurrency(tag.revenue())
             });
         }
@@ -287,7 +287,7 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Product Name", "Units Sold", "Revenue (Pre-Discount)", "Stock Level"});
         for (ProductPerformanceDTO product : products) {
             writer.writeNext(new String[]{
-                    product.productName(),
+                    sanitize(product.productName()),
                     String.valueOf(product.unitsSold()),
                     formatCurrency(product.revenue()),
                     String.valueOf(product.stockQuantity())
@@ -299,11 +299,11 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Service Name", "Count", "Revenue (Pre-Discount)", "Average Price (Pre-Discount)", "Top Therapist"});
         for (ServicePerformanceDTO service : services) {
             writer.writeNext(new String[]{
-                    service.serviceName(),
+                    sanitize(service.serviceName()),
                     String.valueOf(service.bookingsCount()),
                     formatCurrency(service.revenue()),
                     formatCurrency(service.averagePrice()),
-                    service.topTherapistName() != null ? service.topTherapistName() : "N/A"
+                    service.topTherapistName() != null ? sanitize(service.topTherapistName()) : "N/A"
             });
         }
     }
@@ -312,12 +312,28 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Therapist", "New Patients", "Repeat Patients", "Retention Rate"});
         for (TherapistPatientMetricsDTO metric : metrics) {
             writer.writeNext(new String[]{
-                    metric.therapist().getFullName(),
+                    sanitize(metric.therapist().getFullName()),
                     String.valueOf(metric.newPatients()),
                     String.valueOf(metric.repeatPatients()),
                     formatPercentage(metric.retentionRate())
             });
         }
+    }
+
+    /** Neutralizes CSV/formula injection: any staff-editable free-text field (patient/therapist/
+     *  service/product/tag name) that starts with {@code = + - @} is interpreted as a formula by
+     *  Excel/Sheets when the exported file is opened, letting a maliciously-named record execute
+     *  arbitrary formulas (including HYPERLINK-based exfiltration or DDE/cmd execution) on whoever
+     *  reviews the report. Prefixing with a leading apostrophe forces spreadsheet apps to treat the
+     *  cell as plain text. Only applied to free-text fields — numeric/enum/currency-formatted cells
+     *  can't carry attacker-chosen content. */
+    private static String sanitize(String value) {
+        if (value == null || value.isEmpty()) return value;
+        char c = value.charAt(0);
+        if (c == '=' || c == '+' || c == '-' || c == '@' || c == '\t' || c == '\r') {
+            return "'" + value;
+        }
+        return value;
     }
 
     private String formatCurrency(BigDecimal value) {

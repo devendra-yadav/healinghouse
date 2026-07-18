@@ -45,7 +45,7 @@ public class PackageController {
     public String refund(@PathVariable Long patientId, @PathVariable Long packageId,
                          PackageRefundForm form, RedirectAttributes ra) {
         try {
-            packageService.refund(packageId, form.getAmount(), parsePaymentMethod(form.getPaymentMethod()), form.getNote());
+            packageService.refund(patientId, packageId, form.getAmount(), parsePaymentMethod(form.getPaymentMethod()), form.getNote());
             ra.addFlashAttribute("successMessage", "Package refunded successfully.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());

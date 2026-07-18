@@ -318,19 +318,39 @@ function requestCancel(eventObj) {
     new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
 }
 
+// Below 576px the 7-column time grid doesn't fit a phone screen, so the calendar opens in a
+// listWeek agenda view instead, with the view-switcher relocated to a footer toolbar so the header
+// stays down to just prev/next/today/title (§ mobile calendar requirements).
+function isMobileCalendar() { return window.matchMedia('(max-width: 576px)').matches; }
+
+function mobileHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: '' }; }
+function desktopHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }; }
+function mobileFooterToolbar() { return { right: 'listWeek,timeGridDay,timeGridWeek,dayGridMonth' }; }
+
 document.addEventListener('DOMContentLoaded', function () {
     applyCheckedState(loadSelectedIds());
 
     const calendarEl = document.getElementById('allTherapistsCalendar');
+    const startMobile = isMobileCalendar();
 
     calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'timeGridDay',
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-        footerToolbar: false,
+        initialView: startMobile ? 'listWeek' : 'timeGridDay',
+        headerToolbar: startMobile ? mobileHeaderToolbar() : desktopHeaderToolbar(),
+        footerToolbar: startMobile ? mobileFooterToolbar() : false,
         height: 'auto',
         nowIndicator: true,
         editable: true,
         snapDuration: '00:15:00',
+        windowResize: function () {
+            const mobile = isMobileCalendar();
+            calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
+            calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
+            if (mobile && calendar.view.type !== 'listWeek') {
+                calendar.changeView('listWeek');
+            } else if (!mobile && calendar.view.type === 'listWeek') {
+                calendar.changeView('timeGridDay');
+            }
+        },
         events: function (fetchInfo, successCallback, failureCallback) {
             const ids = getCheckedIds();
             if (ids.length === 0) {

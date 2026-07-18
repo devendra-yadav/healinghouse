@@ -39,7 +39,9 @@
                             <div class="col-md-5">
                                 <label class="form-label fw-semibold">Phone</label>
                                 <input type="tel" th:field="*{phone}" class="form-control"
+                                       th:classappend="${#fields.hasErrors('phone')} ? 'is-invalid'"
                                        placeholder="e.g. 9876543210"/>
+                                <div class="invalid-feedback" th:errors="*{phone}"></div>
                             </div>
                         </div>
 
@@ -48,7 +50,9 @@
                             <div class="col-md-5">
                                 <label class="form-label fw-semibold">Email</label>
                                 <input type="email" th:field="*{email}" class="form-control"
+                                       th:classappend="${#fields.hasErrors('email')} ? 'is-invalid'"
                                        placeholder="optional"/>
+                                <div class="invalid-feedback" th:errors="*{email}"></div>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label fw-semibold">Gender</label>

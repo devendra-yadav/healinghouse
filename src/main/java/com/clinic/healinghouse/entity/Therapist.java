@@ -1,6 +1,9 @@
 package com.clinic.healinghouse.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -34,16 +37,23 @@ public class Therapist {
     private String email;
 
     /** Typically 0 or null for the owner — no salary calculation applies to them (see {@code owner}). */
+    @DecimalMin(value = "0", message = "Fixed monthly salary cannot be negative.")
     @Column(precision = 10, scale = 2)
     private BigDecimal fixedMonthlySalary;
 
-    /** Stored as decimal fraction, e.g. 0.1000 = 10%. Typically null/0 for the owner. */
+    /** Stored as decimal fraction, e.g. 0.1000 = 10%. Typically null/0 for the owner. Bounded to
+     *  [0,1] — CommissionCalculator multiplies this straight against revenue, so an unbounded field
+     *  lets a typo'd "50" (meant as 50%, i.e. 0.5) become an accidental 5000% commission. */
+    @DecimalMin(value = "0", message = "Commission rate cannot be negative.")
+    @DecimalMax(value = "1", message = "Commission rate cannot exceed 1 (100%).")
     @Column(precision = 5, scale = 4)
     private BigDecimal commissionRate;
 
     /** Minimum services count in a month to earn the bonus. */
+    @Min(value = 0, message = "Performance bonus threshold cannot be negative.")
     private Integer performanceBonusThreshold;
 
+    @DecimalMin(value = "0", message = "Performance bonus amount cannot be negative.")
     @Column(precision = 10, scale = 2)
     private BigDecimal performanceBonusAmount;
 

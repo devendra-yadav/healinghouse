@@ -216,6 +216,22 @@ class PackageServiceTests {
     // ── refund ───────────────────────────────────────────────────────────────
 
     @Test
+    void refund_throws_whenPackageBelongsToADifferentPatient() {
+        PatientPackage pkg = patientPackage();
+        pkg.getServiceItems().add(PatientPackageServiceItem.builder()
+                .id(1L).patientPackage(pkg).service(service(5L, BigDecimal.valueOf(100)))
+                .sessionsTotal(10).sessionsUsed(5).priceAllocated(BigDecimal.valueOf(1000)).build());
+        when(patientPackageRepository.findWithServiceItemsById(100L)).thenReturn(Optional.of(pkg));
+        when(patientPackageRepository.findWithProductItemsById(100L)).thenReturn(Optional.of(pkg));
+
+        assertThatThrownBy(() -> packageService.refund(999L, 100L, BigDecimal.valueOf(100), PaymentMethod.CASH, null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("does not belong to the specified patient");
+
+        verify(patientPackageRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
     void refund_throws_whenAmountExceedsRefundableValue() {
         PatientPackage pkg = patientPackage();
         pkg.getServiceItems().add(PatientPackageServiceItem.builder()
@@ -225,7 +241,7 @@ class PackageServiceTests {
         when(patientPackageRepository.findWithProductItemsById(100L)).thenReturn(Optional.of(pkg));
 
         // refundable = 1000 * 5/10 = 500
-        assertThatThrownBy(() -> packageService.refund(100L, BigDecimal.valueOf(600), PaymentMethod.CASH, null))
+        assertThatThrownBy(() -> packageService.refund(PATIENT_ID, 100L, BigDecimal.valueOf(600), PaymentMethod.CASH, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cannot exceed the refundable value");
 
@@ -242,7 +258,7 @@ class PackageServiceTests {
         when(patientPackageRepository.findWithProductItemsById(100L)).thenReturn(Optional.of(pkg));
         when(patientPackageRepository.saveAndFlush(any(PatientPackage.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        packageService.refund(100L, BigDecimal.valueOf(500), PaymentMethod.UPI, "goodwill");
+        packageService.refund(PATIENT_ID, 100L, BigDecimal.valueOf(500), PaymentMethod.UPI, "goodwill");
 
         assertThat(pkg.getStatus()).isEqualTo(PatientPackageStatus.CANCELLED);
         assertThat(pkg.getServiceItems().get(0).getSessionsUsed()).isEqualTo(5); // untouched by refund

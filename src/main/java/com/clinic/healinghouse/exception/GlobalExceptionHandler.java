@@ -106,8 +106,26 @@ public class GlobalExceptionHandler {
         response.getWriter().write(objectMapper.writeValueAsString(Map.of("error", message)));
     }
 
+    /** Only honors Referer when it's same-origin — an attacker-controlled cross-origin value falls back to "/". */
     private static String fallbackUrl(HttpServletRequest request) {
         String referer = request.getHeader("Referer");
-        return (referer != null && !referer.isBlank()) ? referer : "/";
+        if (referer == null || referer.isBlank()) {
+            return "/";
+        }
+        if (referer.startsWith("/") && !referer.startsWith("//")) {
+            return referer;
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(referer);
+            if (uri.getHost() != null
+                    && uri.getHost().equalsIgnoreCase(request.getServerName())
+                    && uri.getScheme() != null
+                    && uri.getScheme().equalsIgnoreCase(request.getScheme())) {
+                return referer;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // malformed Referer — fall through to "/"
+        }
+        return "/";
     }
 }

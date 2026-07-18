@@ -807,6 +807,21 @@ document.getElementById('sellPackageModal').addEventListener('show.bs.modal', fu
     pkgTotalPriceManuallyEdited = false;
 });
 
+// Cancel (dismiss without submitting) never reloads the page, so the item rows/name/price from an
+// abandoned attempt would otherwise still be there on reopen — reopening for a genuinely new sale
+// would show stale rows, and adding fresh ones on top would sum old+new into the auto-filled total
+// price (Bug_Report_v4.md #15). A successful submit does reload the page, so this only ever needs
+// to cover the Cancel/dismiss path.
+document.getElementById('sellPackageModal').addEventListener('hidden.bs.modal', function () {
+    document.querySelectorAll('.pkg-service-item-row').forEach(r => r.remove());
+    document.querySelectorAll('.pkg-product-item-row').forEach(r => r.remove());
+    document.getElementById('pkgNameInput').value = '';
+    document.getElementById('pkgTotalPriceInput').value = '';
+    pkgTotalPriceManuallyEdited = false;
+    togglePkgUI();
+    updatePkgPreview();
+});
+
 document.getElementById('pkgTotalPriceInput').addEventListener('input', function () {
     pkgTotalPriceManuallyEdited = true;
 });

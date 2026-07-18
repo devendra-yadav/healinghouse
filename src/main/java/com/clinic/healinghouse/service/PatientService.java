@@ -6,6 +6,7 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,6 +44,13 @@ public class PatientService {
     public Page<Patient> search(String query, Pageable pageable) {
         if (!StringUtils.hasText(query)) return patientRepository.findByActiveTrueOrderByFullNameAsc(pageable);
         return patientRepository.searchActive(query.trim(), pageable);
+    }
+
+    /** Autocomplete variant — caps the result set at the DB query level instead of loading every match into memory. */
+    @Transactional(readOnly = true)
+    public List<Patient> search(String query, int limit) {
+        if (!StringUtils.hasText(query)) return List.of();
+        return patientRepository.searchActive(query.trim(), PageRequest.of(0, limit)).getContent();
     }
 
     /** Includes deactivated patients too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */

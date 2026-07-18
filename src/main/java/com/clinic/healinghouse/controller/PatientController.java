@@ -85,8 +85,7 @@ public class PatientController {
             throw new AccessDeniedException("Patient search isn't available for your role.");
         }
         if (q == null || q.isBlank()) return List.of();
-        return patientService.search(q).stream()
-                .limit(properties.getAutocomplete().getPatientMaxSuggestions())
+        return patientService.search(q, properties.getAutocomplete().getPatientMaxSuggestions()).stream()
                 .map(p -> new PatientSuggestionDTO(p.getId(), p.getFullName(), p.getPhone()))
                 .toList();
     }
