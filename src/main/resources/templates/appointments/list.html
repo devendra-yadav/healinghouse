@@ -146,17 +146,18 @@
                                         <i class="bi bi-pencil"></i>
                                     </a>
 
-                                    <!-- Complete -->
-                                    <form th:action="@{/appointments/{id}/complete(id=${a.id})}"
-                                          method="post" class="d-inline me-1">
-                                        <input type="hidden" name="returnUrl" value="/appointments">
-                                        <button type="submit" class="btn btn-sm btn-outline-success"
-                                                th:disabled="${a.balanceDue.signum() > 0}"
-                                                th:title="${a.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : 'Mark Completed'"
-                                                onclick="return confirm('Mark this appointment as completed?')">
-                                            <i class="bi bi-check-circle"></i>
-                                        </button>
-                                    </form>
+                                    <!-- Complete (opens modal for confirmation) -->
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-success me-1"
+                                            th:disabled="${a.balanceDue.signum() > 0}"
+                                            th:title="${a.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : 'Mark Completed'"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#completeModal"
+                                            th:attr="data-id=${a.id},
+                                                     data-patient=${a.patient.fullName},
+                                                     data-datetime=${#temporals.format(a.appointmentDateTime,'dd MMM yyyy, HH:mm')}">
+                                        <i class="bi bi-check-circle"></i>
+                                    </button>
 
                                     <!-- No-Show -->
                                     <form th:action="@{/appointments/{id}/no-show(id=${a.id})}"
@@ -218,6 +219,42 @@
     </div>
 </main>
 
+<!-- Complete Appointment Modal -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>Mark as Completed
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="completeForm" method="post">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <input type="hidden" name="returnUrl" value="/appointments">
+                <div class="modal-body pt-2">
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-success bg-opacity-10 mb-3">
+                        <i class="bi bi-check-circle text-success fs-2"></i>
+                        <div>
+                            <div class="fw-semibold" id="completeModalPatient"></div>
+                            <div class="text-muted small" id="completeModalDatetime"></div>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        This locks the appointment as completed and deducts any product stock used.
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle me-1"></i>Confirm Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Cancel Appointment Modal -->
 <div class="modal fade" id="cancelModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -261,6 +298,14 @@ document.getElementById('cancelModal').addEventListener('show.bs.modal', functio
     document.getElementById('cancelModalBody').textContent =
         'Cancel appointment for ' + btn.dataset.patient +
         ' on ' + btn.dataset.datetime + '?';
+});
+
+document.getElementById('completeModal').addEventListener('show.bs.modal', function(e) {
+    const btn = e.relatedTarget;
+    document.getElementById('completeForm').action =
+        '/appointments/' + btn.dataset.id + '/complete';
+    document.getElementById('completeModalPatient').textContent = btn.dataset.patient;
+    document.getElementById('completeModalDatetime').textContent = btn.dataset.datetime;
 });
 </script>
 

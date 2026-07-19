@@ -68,14 +68,12 @@
                    class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-pencil me-1"></i>Edit
                 </a>
-                <form th:action="@{/appointments/{id}/complete(id=${appointment.id})}" method="post">
-                    <button type="submit" class="btn btn-success btn-sm"
-                            th:disabled="${appointment.balanceDue.signum() > 0}"
-                            th:title="${appointment.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : ''"
-                            onclick="return confirm('Mark this appointment as completed?')">
-                        <i class="bi bi-check-circle me-1"></i>Complete
-                    </button>
-                </form>
+                <button type="button" class="btn btn-success btn-sm"
+                        th:disabled="${appointment.balanceDue.signum() > 0}"
+                        th:title="${appointment.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : ''"
+                        data-bs-toggle="modal" data-bs-target="#completeModal">
+                    <i class="bi bi-check-circle me-1"></i>Complete
+                </button>
                 <form th:action="@{/appointments/{id}/no-show(id=${appointment.id})}" method="post">
                     <button type="submit" class="btn btn-warning btn-sm"
                             onclick="return confirm('Mark this patient as no-show?')">
@@ -637,6 +635,42 @@
     </div>
 
 </main>
+
+<!-- ── Complete Modal ────────────────────────────────────────────────────── -->
+<div class="modal fade" id="completeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">
+                    <i class="bi bi-check-circle-fill text-success me-2"></i>Mark as Completed
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/appointments/{id}/complete(id=${appointment.id})}" method="post">
+                <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                <div class="modal-body pt-2">
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-success bg-opacity-10 mb-3">
+                        <i class="bi bi-check-circle text-success fs-2"></i>
+                        <div>
+                            <div class="fw-semibold" th:text="${appointment.patient.fullName}"></div>
+                            <div class="text-muted small"
+                                 th:text="${#temporals.format(appointment.appointmentDateTime, 'dd MMM yyyy, HH:mm')}"></div>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        This locks the appointment as completed and deducts any product stock used.
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-circle me-1"></i>Confirm Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <!-- ── Cancel Modal ──────────────────────────────────────────────────────── -->
 <div class="modal fade" id="cancelModal" tabindex="-1">

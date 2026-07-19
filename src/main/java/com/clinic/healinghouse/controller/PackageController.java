@@ -6,12 +6,9 @@ import com.clinic.healinghouse.dto.PackageSaleForm;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
-import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
-import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.PackageService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -24,8 +21,6 @@ import java.util.List;
 public class PackageController {
 
     private final PackageService packageService;
-    private final AppointmentService appointmentService;
-    private final PermissionService permissionService;
 
     @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.CREATE)
     @PostMapping
@@ -58,10 +53,6 @@ public class PackageController {
     @GetMapping("/available")
     @ResponseBody
     public List<PackageAvailabilityDTO> available(@PathVariable Long patientId) {
-        Long ownTherapistId = permissionService.currentTherapistId();
-        if (ownTherapistId != null && !appointmentService.hasAnyAppointmentForPatientAndTherapist(patientId, ownTherapistId)) {
-            throw new AccessDeniedException("You don't have access to this patient's packages.");
-        }
         return packageService.getPooledAvailability(patientId);
     }
 

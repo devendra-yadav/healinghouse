@@ -435,7 +435,12 @@
     </form>
 </main>
 
-<th:block th:replace="~{fragments/wallet-modals :: topUpModal(${editMode} ? ${appointment.patient.id} : null, ${walletBalance}, null, true)}"/>
+<!-- Floating toast used to confirm the AJAX top-up's outcome (see showActionToast). -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;" id="actionToastContainer"></div>
+
+<!-- openInNewTab=false: top-up is submitted via AJAX (see topUpModalForm's submit handler below),
+     never navigating away, so no separate tab is needed to protect the in-progress booking. -->
+<th:block th:replace="~{fragments/wallet-modals :: topUpModal(${editMode} ? ${appointment.patient.id} : null, ${walletBalance}, null, false)}"/>
 <th:block th:replace="~{fragments/combo-picker-modal :: comboPickerModal}"/>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
@@ -1230,6 +1235,73 @@ function updateTopUpFormAction(pid) {
     const form = document.getElementById('topUpModalForm');
     if (form && pid) form.action = '/patients/' + pid + '/wallet/topup';
 }
+// Small floating Bootstrap toast, used to confirm the AJAX top-up's outcome since the modal
+// (and its inline alert) closes/disappears on success and shouldn't be the only feedback.
+function showActionToast(success, message) {
+    const container = document.getElementById('actionToastContainer');
+    if (!container) return;
+    const toastEl = document.createElement('div');
+    toastEl.className = 'toast align-items-center text-white border-0 ' + (success ? 'bg-success' : 'bg-danger');
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+
+    const flex = document.createElement('div');
+    flex.className = 'd-flex';
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
+    closeBtn.setAttribute('data-bs-dismiss', 'toast');
+    flex.append(body, closeBtn);
+    toastEl.appendChild(flex);
+    container.appendChild(toastEl);
+
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
+// Top-up is submitted via AJAX so the in-progress appointment form is never disturbed by a
+// page navigation — updates the live balance in place and pops a toast with the outcome.
+function initTopUpModalAjax() {
+    const modalEl = document.getElementById('topUpModal');
+    const form = document.getElementById('topUpModalForm');
+    const submitBtn = document.getElementById('topUpModalSubmitBtn');
+    if (!modalEl || !form) return;
+
+    // Reset every time the modal opens — otherwise a browser-restored (bfcache) or
+    // previously-typed amount lingers into the next top-up.
+    modalEl.addEventListener('show.bs.modal', function () {
+        form.reset();
+    });
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        const url = form.action + (form.action.includes('?') ? '&' : '?') + 'ajax=true';
+        fetch(url, { method: 'POST', body: new URLSearchParams(new FormData(form)) })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                submitBtn.disabled = false;
+                if (ok && data.success) {
+                    currentWalletBalance = data.balance;
+                    renderWalletBalance(currentWalletBalance);
+                    updateBalance();
+                    bootstrap.Modal.getInstance(modalEl).hide();
+                    showActionToast(true, 'Wallet topped up successfully. New balance: ' + fmt(data.balance));
+                } else {
+                    showActionToast(false, data.message || 'Top up failed.');
+                }
+            })
+            .catch(() => {
+                submitBtn.disabled = false;
+                showActionToast(false, 'Top up failed. Please try again.');
+            });
+    });
+}
 
 // ── Searchable Patient / Therapist dropdowns ────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
@@ -1264,6 +1336,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (this.classList.contains('disabled')) e.preventDefault();
     });
     updateTopUpFormAction(document.getElementById('patientSelect').value);
+    initTopUpModalAjax();
     document.getElementById('patientSelect').addEventListener('change', function () {
         const pid = this.value;
         const topUpLink = document.getElementById('walletTopUpLink');

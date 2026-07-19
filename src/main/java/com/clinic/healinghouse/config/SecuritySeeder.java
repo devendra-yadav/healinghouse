@@ -51,6 +51,8 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillPackageTemplateApprovePermission();
         backfillTherapistPatientAccess();
         backfillTherapistAppointmentCreate();
+        backfillTherapistWalletAndPackageCreate();
+        backfillTherapistWalletAndPackageApprove();
         revokeReportsForNonAdminRoles();
         backfillFullAccessMatrix();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
@@ -94,7 +96,10 @@ public class SecuritySeeder implements CommandLineRunner {
      * edit endpoint exists). One deliberate narrowing versus the matrix's literal text: RECEPTIONIST
      * gets no APPROVE on PATIENT_PACKAGES (i.e. can sell but not refund), mirroring the identical,
      * unambiguous asymmetry the matrix already spells out for WALLET (receptionist tops up but
-     * can't refund) — refunds reverse money and are Owner/Admin-only across both features.
+     * can't refund) — refunds reverse money and stay Owner/Admin/RECEPTIONIST-restricted, but
+     * THERAPIST is granted APPROVE on both WALLET and PATIENT_PACKAGES (see the THERAPIST block
+     * below) since therapists at this clinic handle the full payment-correction workflow, not
+     * just RECEPTIONIST.
      */
     private void seedRolePermissions() {
         if (rolePermissionRepository.count() > 0) {
@@ -158,7 +163,10 @@ public class SecuritySeeder implements CommandLineRunner {
         // create/edit patients and create appointments, can edit only appointments they're
         // involved in; view-only on master data (Services/Products/Combos/Package Templates —
         // buttons hidden client-side too, not just denied server-side); no Tags, no reports at
-        // all, no user/matrix admin ──
+        // all, no user/matrix admin. Can top up a patient's wallet, sell packages, AND refund
+        // either (CREATE + APPROVE) — same full access as RECEPTIONIST plus refund rights, since
+        // this clinic has therapists routinely handling front-desk-style patient payment
+        // corrections, not just OWNER/ADMIN ──
         grant(defaults, THERAPIST, DASHBOARD, VIEW);
         grant(defaults, THERAPIST, PATIENTS, VIEW, CREATE, EDIT);
         grant(defaults, THERAPIST, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
@@ -167,8 +175,8 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST, PRODUCTS, VIEW);
         grant(defaults, THERAPIST, COMBOS, VIEW);
         grant(defaults, THERAPIST, PACKAGE_TEMPLATES, VIEW);
-        grant(defaults, THERAPIST, PATIENT_PACKAGES, VIEW);
-        grant(defaults, THERAPIST, WALLET, VIEW);
+        grant(defaults, THERAPIST, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
+        grant(defaults, THERAPIST, WALLET, VIEW, CREATE, APPROVE);
 
         rolePermissionRepository.saveAll(defaults);
         log.info("Seeded {} default role-permission rows.", defaults.size());
@@ -220,6 +228,52 @@ public class SecuritySeeder implements CommandLineRunner {
             rolePermissionRepository.save(
                     RolePermission.builder().role(THERAPIST).module(APPOINTMENTS).action(CREATE).granted(true).build());
             log.info("Backfilled THERAPIST/APPOINTMENTS/CREATE role-permission row.");
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before THERAPIST gained wallet top-up and
+     * package-sale rights — mirrors {@link #backfillTherapistPatientAccess()}. Finds-or-creates
+     * rather than checking existence alone, because {@link #backfillFullAccessMatrix()} may have
+     * already inserted these exact (role, module, action) cells as granted=false on a prior boot
+     * (any boot between when that method shipped and this one), before this feature existed —
+     * a plain existence check would treat that row as "already handled" and never flip it on.
+     */
+    private void backfillTherapistWalletAndPackageCreate() {
+        List<RolePermission> toSave = new ArrayList<>();
+        for (Module module : new Module[]{WALLET, PATIENT_PACKAGES}) {
+            RolePermission rp = rolePermissionRepository.findByRoleAndModuleAndAction(THERAPIST, module, CREATE)
+                    .orElseGet(() -> RolePermission.builder().role(THERAPIST).module(module).action(CREATE).granted(false).build());
+            if (!rp.isGranted()) {
+                rp.setGranted(true);
+                toSave.add(rp);
+            }
+        }
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} THERAPIST WALLET/PATIENT_PACKAGES CREATE role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before THERAPIST gained wallet/package
+     * refund rights — mirrors {@link #backfillTherapistWalletAndPackageCreate()}, same
+     * find-or-create reasoning (backfillFullAccessMatrix may have already inserted these cells
+     * as granted=false before this feature existed).
+     */
+    private void backfillTherapistWalletAndPackageApprove() {
+        List<RolePermission> toSave = new ArrayList<>();
+        for (Module module : new Module[]{WALLET, PATIENT_PACKAGES}) {
+            RolePermission rp = rolePermissionRepository.findByRoleAndModuleAndAction(THERAPIST, module, APPROVE)
+                    .orElseGet(() -> RolePermission.builder().role(THERAPIST).module(module).action(APPROVE).granted(false).build());
+            if (!rp.isGranted()) {
+                rp.setGranted(true);
+                toSave.add(rp);
+            }
+        }
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} THERAPIST WALLET/PATIENT_PACKAGES APPROVE role-permission row(s).", toSave.size());
         }
     }
 

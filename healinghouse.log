@@ -1821,3 +1821,1665 @@ Unconditional classes:
 2026-07-19 17:15:15.086 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
 2026-07-19 17:15:37.007 INFO  [devendra/OWNER] http-nio-8080-exec-8 c.c.healinghouse.service.UserService : User id=4 username='devendra' changed their own password
 2026-07-19 17:15:37.007 INFO  [devendra/OWNER] http-nio-8080-exec-8 c.c.healinghouse.service.UserService : User id=4 username='devendra' changed their own password
+2026-07-19 17:16:54.543 WARN  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'arjun'
+2026-07-19 17:16:54.543 WARN  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'arjun'
+2026-07-19 17:17:02.742 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:17:02.742 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:17:20.833 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=PATIENT_PACKAGES action=CREATE
+2026-07-19 17:17:20.833 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=PATIENT_PACKAGES action=CREATE
+2026-07-19 17:17:20.851 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/7/packages]
+2026-07-19 17:17:20.851 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/7/packages]
+2026-07-19 17:17:20.853 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-19 17:17:36.571 WARN  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/7/packages/available]
+2026-07-19 17:17:36.571 WARN  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/7/packages/available]
+2026-07-19 17:17:36.579 WARN  [arjun/THERAPIST] http-nio-8080-exec-5 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have access to this patient's packages.]
+2026-07-19 17:18:02.822 INFO  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.service.AppointmentService : Created appointment id=18 patient='Lakshmi Rao' therapist='Marcia Gomes Yadav' grandTotal=999.00
+2026-07-19 17:18:02.822 INFO  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.service.AppointmentService : Created appointment id=18 patient='Lakshmi Rao' therapist='Marcia Gomes Yadav' grandTotal=999.00
+2026-07-19 17:18:06.113 WARN  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You can only view your own therapist profile. [GET /therapists/1]
+2026-07-19 17:18:06.113 WARN  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.e.GlobalExceptionHandler : Access denied: You can only view your own therapist profile. [GET /therapists/1]
+2026-07-19 17:18:06.113 WARN  [arjun/THERAPIST] http-nio-8080-exec-10 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You can only view your own therapist profile.]
+2026-07-19 17:18:31.359 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=WALLET action=CREATE
+2026-07-19 17:18:31.359 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=WALLET action=CREATE
+2026-07-19 17:18:31.360 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/7/wallet/topup]
+2026-07-19 17:18:31.360 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/7/wallet/topup]
+2026-07-19 17:18:31.361 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-19 17:19:27.300 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/7/packages/available]
+2026-07-19 17:19:27.300 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/7/packages/available]
+2026-07-19 17:19:27.301 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have access to this patient's packages.]
+2026-07-19 17:20:05.204 INFO  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.service.AppointmentService : Created appointment id=19 patient='Lakshmi Rao' therapist='Priya Sharma' grandTotal=2000.00
+2026-07-19 17:20:05.204 INFO  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.service.AppointmentService : Created appointment id=19 patient='Lakshmi Rao' therapist='Priya Sharma' grandTotal=2000.00
+2026-07-19 17:25:26.776 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (0 additions, 215 deletions, 0 modifications)
+2026-07-19 17:25:27.234 INFO  [-/-] Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:25:27.412 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:25:27.426 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 17:25:27.723 INFO  [-/-] Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:25:30.933 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:30.933 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:30.933 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:30.933 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:30.934 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:30.934 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:31.884 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:25:32.004 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 8 ms. Found 0 JPA repository interfaces.
+2026-07-19 17:25:32.813 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:25:32.821 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:25:32.828 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:25:33.020 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2073 ms
+2026-07-19 17:25:33.172 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [454275CE1AFA024C411FA63727613FE9]
+2026-07-19 17:25:33.186 ERROR [-/-] restartedMain o.a.catalina.session.StandardManager : Exception loading sessions from persistent storage
+java.lang.ClassCastException: class java.io.ObjectStreamClass cannot be cast to class java.lang.String (java.io.ObjectStreamClass and java.lang.String are in module java.base of loader 'bootstrap')
+	at java.base/java.io.ObjectInputStream.readTypeString(ObjectInputStream.java:1839)
+	at java.base/java.io.ObjectStreamClass.readNonProxy(ObjectStreamClass.java:709)
+	at java.base/java.io.ObjectInputStream.readClassDescriptor(ObjectInputStream.java:1014)
+	at java.base/java.io.ObjectInputStream.readNonProxyDesc(ObjectInputStream.java:2050)
+	at java.base/java.io.ObjectInputStream.readClassDesc(ObjectInputStream.java:1927)
+	at java.base/java.io.ObjectInputStream.readOrdinaryObject(ObjectInputStream.java:2252)
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1762)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:540)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:498)
+	at org.apache.catalina.session.StandardSession.doReadObject(StandardSession.java:1187)
+	at org.apache.catalina.session.StandardSession.readObjectData(StandardSession.java:821)
+	at org.apache.catalina.session.StandardManager.load(StandardManager.java:146)
+	at org.apache.catalina.session.StandardManager.startInternal(StandardManager.java:255)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4447)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
+	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
+	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:429)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:167)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at com.clinic.healinghouse.HealinghouseApplication.main(HealinghouseApplication.java:13)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:52)
+2026-07-19 17:25:35.429 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:25:35.983 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:25:36.221 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:25:37.003 WARN  [-/-] restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 844c112e-7e46-4aab-ae47-40a01fb2f7f8
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-19 17:25:37.088 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-19 17:25:37.450 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:25:37.461 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.778 seconds (process running for 780.805)
+2026-07-19 17:25:37.461 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.778 seconds (process running for 780.805)
+2026-07-19 17:25:37.472 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 17:25:45.892 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 1 class path change (1 addition, 0 deletions, 0 modifications)
+2026-07-19 17:25:45.961 INFO  [-/-] Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:25:46.016 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 17:25:46.019 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:25:46.023 INFO  [-/-] Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:25:46.544 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:46.544 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:46.545 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:46.545 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:46.545 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:46.545 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:47.504 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:25:47.904 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 386 ms. Found 5 JPA repository interfaces.
+2026-07-19 17:25:48.589 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:25:48.591 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:25:48.592 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:25:49.052 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2501 ms
+2026-07-19 17:25:49.698 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:25:52.270 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:25:52.839 WARN  [-/-] restartedMain o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dataSeeder' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\config\DataSeeder.class]: Unsatisfied dependency expressed through constructor parameter 4: No qualifying bean of type 'com.clinic.healinghouse.service.TagService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-19 17:25:52.844 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:25:52.866 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Stopping service [Tomcat]
+2026-07-19 17:25:52.893 INFO  [-/-] restartedMain o.s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-19 17:25:53.022 ERROR [-/-] restartedMain o.s.b.d.LoggingFailureAnalysisReporter : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 4 of constructor in com.clinic.healinghouse.config.DataSeeder required a bean of type 'com.clinic.healinghouse.service.TagService' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'com.clinic.healinghouse.service.TagService' in your configuration.
+
+2026-07-19 17:25:56.951 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:56.951 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 25204 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:25:56.951 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:56.951 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:25:56.951 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:56.951 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:25:57.568 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:25:57.668 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 95 ms. Found 19 JPA repository interfaces.
+2026-07-19 17:25:58.208 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:25:58.212 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:25:58.212 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:25:58.262 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1305 ms
+2026-07-19 17:25:58.323 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:25:58.323 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:25:58.488 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:26:00.641 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:26:01.125 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:26:01.125 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:26:02.211 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:26:02.238 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 17:26:02.732 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:26:02.736 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.87 seconds (process running for 806.079)
+2026-07-19 17:26:02.736 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.87 seconds (process running for 806.079)
+2026-07-19 17:26:02.839 INFO  [-/-] restartedMain c.c.h.config.SecuritySeeder : Backfilled 2 THERAPIST WALLET/PATIENT_PACKAGES CREATE role-permission row(s).
+2026-07-19 17:26:02.839 INFO  [-/-] restartedMain c.c.h.config.SecuritySeeder : Backfilled 2 THERAPIST WALLET/PATIENT_PACKAGES CREATE role-permission row(s).
+2026-07-19 17:26:03.589 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:26:03.589 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:26:03.606 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 17:26:51.527 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:26:51.538 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:26:51.543 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:27:03.076 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:27:03.076 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:27:03.081 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:27:03.081 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:27:03.082 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:27:03.082 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:27:03.193 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 17:27:03.193 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 17:27:04.905 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:27:05.073 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 152 ms. Found 19 JPA repository interfaces.
+2026-07-19 17:27:06.700 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:27:06.736 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:27:06.737 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:27:06.843 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3649 ms
+2026-07-19 17:27:06.964 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:27:06.964 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:27:08.288 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:27:12.227 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:27:12.405 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 17:27:15.203 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:27:15.203 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:27:17.607 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:27:17.664 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 17:27:18.590 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:27:18.599 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 17.068 seconds (process running for 18.569)
+2026-07-19 17:27:18.599 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 17.068 seconds (process running for 18.569)
+2026-07-19 17:27:19.366 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:27:19.366 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:27:56.968 INFO  [-/-] http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 17:27:56.973 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 17:27:56.976 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 3 ms
+2026-07-19 17:28:02.022 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:28:02.022 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:28:18.813 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Created wallet for patient id=11
+2026-07-19 17:28:18.813 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Created wallet for patient id=11
+2026-07-19 17:28:18.877 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Wallet top-up patient id=11 amount=5000 method=CASH newBalance=5000
+2026-07-19 17:28:18.877 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Wallet top-up patient id=11 amount=5000 method=CASH newBalance=5000
+2026-07-19 17:28:34.095 INFO  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Sold package id=1 patient='Dada Dada' totalPrice=7000.00
+2026-07-19 17:28:34.095 INFO  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Sold package id=1 patient='Dada Dada' totalPrice=7000.00
+2026-07-19 17:28:47.964 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/11/packages/available]
+2026-07-19 17:28:47.964 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/11/packages/available]
+2026-07-19 17:28:47.972 WARN  [arjun/THERAPIST] http-nio-8080-exec-2 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have access to this patient's packages.]
+2026-07-19 17:29:17.180 WARN  [arjun/THERAPIST] http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/11/packages/available]
+2026-07-19 17:29:17.180 WARN  [arjun/THERAPIST] http-nio-8080-exec-8 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this patient's packages. [GET /patients/11/packages/available]
+2026-07-19 17:29:17.182 WARN  [arjun/THERAPIST] http-nio-8080-exec-8 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have access to this patient's packages.]
+2026-07-19 17:29:31.375 INFO  [-/-] http-nio-8080-exec-1 c.c.h.security.LoginAttemptListener : User 'owner' (role=OWNER) logged in successfully
+2026-07-19 17:29:31.375 INFO  [-/-] http-nio-8080-exec-1 c.c.h.security.LoginAttemptListener : User 'owner' (role=OWNER) logged in successfully
+2026-07-19 17:38:19.203 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (0 additions, 215 deletions, 0 modifications)
+2026-07-19 17:38:19.307 INFO  [-/-] Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:38:19.377 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:38:19.382 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 17:38:19.554 INFO  [-/-] Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:20.825 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:20.825 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:20.828 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:20.828 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:20.832 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:20.832 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:22.105 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:38:22.119 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 9 ms. Found 0 JPA repository interfaces.
+2026-07-19 17:38:22.767 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:38:22.782 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:38:22.783 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:38:22.929 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2086 ms
+2026-07-19 17:38:23.346 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [EE54C0B539C1108F11A502077BC583A1]
+2026-07-19 17:38:23.350 ERROR [-/-] restartedMain o.a.catalina.session.StandardManager : Exception loading sessions from persistent storage
+java.io.StreamCorruptedException: invalid type code: 00
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1793)
+	at java.base/java.io.ObjectInputStream$FieldValues.<init>(ObjectInputStream.java:2618)
+	at java.base/java.io.ObjectInputStream.defaultReadObject(ObjectInputStream.java:678)
+	at java.base/java.lang.Throwable.readObject(Throwable.java:936)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.io.ObjectStreamClass.invokeReadObject(ObjectStreamClass.java:1102)
+	at java.base/java.io.ObjectInputStream.readSerialData(ObjectInputStream.java:2444)
+	at java.base/java.io.ObjectInputStream.readOrdinaryObject(ObjectInputStream.java:2284)
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1762)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:540)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:498)
+	at org.apache.catalina.session.StandardSession.doReadObject(StandardSession.java:1120)
+	at org.apache.catalina.session.StandardSession.readObjectData(StandardSession.java:821)
+	at org.apache.catalina.session.StandardManager.load(StandardManager.java:146)
+	at org.apache.catalina.session.StandardManager.startInternal(StandardManager.java:255)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4447)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
+	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
+	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:429)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:167)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at com.clinic.healinghouse.HealinghouseApplication.main(HealinghouseApplication.java:13)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:52)
+2026-07-19 17:38:24.091 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:38:25.777 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:25.933 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:38:26.606 WARN  [-/-] restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: b8a60fc7-9256-4b27-9a6e-87d831a9f4ba
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-19 17:38:26.633 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-19 17:38:26.869 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:38:26.883 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.365 seconds (process running for 686.849)
+2026-07-19 17:38:26.883 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.365 seconds (process running for 686.849)
+2026-07-19 17:38:26.895 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 17:38:41.832 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 53 class path changes (53 additions, 0 deletions, 0 modifications)
+2026-07-19 17:38:41.852 INFO  [-/-] Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:38:41.871 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 17:38:41.870 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:38:41.875 INFO  [-/-] Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:42.414 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:42.414 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:42.415 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:42.415 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:42.415 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:42.415 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:43.677 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:38:43.915 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 231 ms. Found 9 JPA repository interfaces.
+2026-07-19 17:38:44.632 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:38:44.637 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:38:44.638 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:38:44.884 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2455 ms
+2026-07-19 17:38:45.019 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:38:45.019 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:38:46.002 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:38:51.030 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:51.770 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:51.770 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:51.880 WARN  [-/-] restartedMain o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'appointmentController' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\controller\AppointmentController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'appointmentService' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\service\AppointmentService.class]: Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-19 17:38:51.880 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:51.893 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Stopping service [Tomcat]
+2026-07-19 17:38:51.912 INFO  [-/-] restartedMain o.s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-19 17:38:51.957 ERROR [-/-] restartedMain o.s.b.d.LoggingFailureAnalysisReporter : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 0 of constructor in com.clinic.healinghouse.service.AppointmentService required a bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' in your configuration.
+
+2026-07-19 17:38:53.538 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:53.538 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 3872 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:38:53.539 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:53.539 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:38:53.539 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:53.539 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:38:54.171 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:38:54.284 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 107 ms. Found 19 JPA repository interfaces.
+2026-07-19 17:38:54.558 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:38:54.563 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:38:54.566 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:38:54.615 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1072 ms
+2026-07-19 17:38:54.656 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:38:54.656 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:38:54.802 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:38:56.152 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:38:56.487 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:56.487 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:57.650 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:38:57.687 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 17:38:58.121 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:38:58.125 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 4.648 seconds (process running for 718.091)
+2026-07-19 17:38:58.125 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 4.648 seconds (process running for 718.091)
+2026-07-19 17:38:58.646 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:58.646 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:38:58.650 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 17:44:35.842 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 17:44:35.856 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 17:44:35.903 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:44:55.320 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:44:55.320 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 17:44:55.324 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:44:55.324 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 17:44:55.325 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:44:55.325 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 17:44:55.473 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 17:44:55.474 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 17:44:57.667 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 17:44:57.944 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 259 ms. Found 19 JPA repository interfaces.
+2026-07-19 17:44:59.960 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 17:44:59.988 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 17:44:59.989 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 17:45:00.095 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4620 ms
+2026-07-19 17:45:00.355 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:45:00.355 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 17:45:01.933 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 17:45:06.334 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 17:45:06.577 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 17:45:10.308 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:45:10.308 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:45:13.425 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 17:45:13.511 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 17:45:14.660 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 17:45:14.673 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 21.148 seconds (process running for 22.794)
+2026-07-19 17:45:14.673 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 21.148 seconds (process running for 22.794)
+2026-07-19 17:45:15.687 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:45:15.687 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 17:45:48.308 INFO  [-/-] http-nio-8080-exec-2 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 17:45:48.309 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 17:45:48.314 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Completed initialization in 5 ms
+2026-07-19 17:45:53.651 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:45:53.651 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 17:46:23.105 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.PackageService : Package service item id=1 consumed 1 session, appointment id=20
+2026-07-19 17:46:23.105 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.PackageService : Package service item id=1 consumed 1 session, appointment id=20
+2026-07-19 17:46:23.106 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Created appointment id=20 patient='Dada Dada' therapist='Marcia Gomes Yadav' grandTotal=800.00
+2026-07-19 17:46:23.106 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Created appointment id=20 patient='Dada Dada' therapist='Marcia Gomes Yadav' grandTotal=800.00
+2026-07-19 20:12:31.927 INFO  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 20:12:31.927 INFO  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 20:14:16.946 WARN  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=PATIENT_PACKAGES action=APPROVE
+2026-07-19 20:14:16.946 WARN  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.security.PermissionService : Permission denied: user='arjun' role=THERAPIST module=PATIENT_PACKAGES action=APPROVE
+2026-07-19 20:14:16.980 WARN  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/11/packages/1/refund]
+2026-07-19 20:14:16.980 WARN  [arjun/THERAPIST] http-nio-8080-exec-9 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have permission to perform this action. [POST /patients/11/packages/1/refund]
+2026-07-19 20:14:16.985 WARN  [arjun/THERAPIST] http-nio-8080-exec-9 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have permission to perform this action.]
+2026-07-19 20:15:00.136 INFO  [-/-] http-nio-8080-exec-8 c.c.h.security.LoginAttemptListener : User 'owner' (role=OWNER) logged in successfully
+2026-07-19 20:15:00.136 INFO  [-/-] http-nio-8080-exec-8 c.c.h.security.LoginAttemptListener : User 'owner' (role=OWNER) logged in successfully
+2026-07-19 20:15:10.197 WARN  [-/-] http-nio-8080-exec-2 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'devendra'
+2026-07-19 20:15:10.197 WARN  [-/-] http-nio-8080-exec-2 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'devendra'
+2026-07-19 20:15:23.615 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 20:15:23.615 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 20:15:55.586 INFO  [devendra/OWNER] http-nio-8080-exec-8 c.c.h.service.PackageService : Refunded package id=1 amount=6300.00 method=CASH
+2026-07-19 20:15:55.586 INFO  [devendra/OWNER] http-nio-8080-exec-8 c.c.h.service.PackageService : Refunded package id=1 amount=6300.00 method=CASH
+2026-07-19 20:16:35.065 INFO  [devendra/OWNER] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Appointment id=20 marked COMPLETED
+2026-07-19 20:16:35.065 INFO  [devendra/OWNER] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Appointment id=20 marked COMPLETED
+2026-07-19 20:18:35.816 INFO  [devendra/OWNER] http-nio-8080-exec-3 c.c.healinghouse.service.UserService : Disabled user id=2 username='arjun'
+2026-07-19 20:18:35.816 INFO  [devendra/OWNER] http-nio-8080-exec-3 c.c.healinghouse.service.UserService : Disabled user id=2 username='arjun'
+2026-07-19 20:18:46.625 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 20:18:46.625 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 20:18:50.139 WARN  [-/-] http-nio-8080-exec-9 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'arjun'
+2026-07-19 20:18:50.139 WARN  [-/-] http-nio-8080-exec-9 c.c.h.security.LoginAttemptListener : Failed login attempt 1 of 5 for user 'arjun'
+2026-07-19 20:19:03.559 WARN  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : Failed login attempt 2 of 5 for user 'arjun'
+2026-07-19 20:19:03.559 WARN  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : Failed login attempt 2 of 5 for user 'arjun'
+2026-07-19 20:19:24.596 INFO  [devendra/OWNER] http-nio-8080-exec-7 c.c.healinghouse.service.UserService : Re-enabled user id=2 username='arjun'
+2026-07-19 20:19:24.596 INFO  [devendra/OWNER] http-nio-8080-exec-7 c.c.healinghouse.service.UserService : Re-enabled user id=2 username='arjun'
+2026-07-19 20:26:48.226 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (0 additions, 215 deletions, 0 modifications)
+2026-07-19 20:26:48.941 INFO  [-/-] Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 20:26:49.390 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 20:26:49.382 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 20:26:49.772 INFO  [-/-] Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:26:54.874 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:26:54.874 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:26:54.874 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:26:54.874 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:26:54.875 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:26:54.875 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:26:55.800 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 20:26:55.817 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 7 ms. Found 0 JPA repository interfaces.
+2026-07-19 20:26:56.508 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 20:26:56.521 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 20:26:56.522 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 20:26:56.811 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1923 ms
+2026-07-19 20:26:56.929 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [E1B521684BA33CBC33A2D45B5E426F90]
+2026-07-19 20:26:56.935 ERROR [-/-] restartedMain o.a.catalina.session.StandardManager : Exception loading sessions from persistent storage
+java.io.StreamCorruptedException: invalid type code: 00
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1793)
+	at java.base/java.io.ObjectInputStream$FieldValues.<init>(ObjectInputStream.java:2618)
+	at java.base/java.io.ObjectInputStream.defaultReadObject(ObjectInputStream.java:678)
+	at java.base/java.lang.Throwable.readObject(Throwable.java:936)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.io.ObjectStreamClass.invokeReadObject(ObjectStreamClass.java:1102)
+	at java.base/java.io.ObjectInputStream.readSerialData(ObjectInputStream.java:2444)
+	at java.base/java.io.ObjectInputStream.readOrdinaryObject(ObjectInputStream.java:2284)
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1762)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:540)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:498)
+	at org.apache.catalina.session.StandardSession.doReadObject(StandardSession.java:1120)
+	at org.apache.catalina.session.StandardSession.readObjectData(StandardSession.java:821)
+	at org.apache.catalina.session.StandardManager.load(StandardManager.java:146)
+	at org.apache.catalina.session.StandardManager.startInternal(StandardManager.java:255)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4447)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
+	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
+	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:429)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:167)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at com.clinic.healinghouse.HealinghouseApplication.main(HealinghouseApplication.java:13)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:52)
+2026-07-19 20:26:57.363 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 20:26:57.676 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:26:57.824 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 20:26:58.258 WARN  [-/-] restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 42d15a19-4cdb-4b65-92cd-124e5bcd5c3b
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-19 20:26:58.315 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-19 20:26:58.637 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 20:26:58.646 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.964 seconds (process running for 9726.69)
+2026-07-19 20:26:58.646 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.964 seconds (process running for 9726.69)
+2026-07-19 20:26:58.660 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 20:27:22.325 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 53 class path changes (53 additions, 0 deletions, 0 modifications)
+2026-07-19 20:27:22.386 INFO  [-/-] Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 20:27:22.450 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 20:27:22.450 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 20:27:22.454 INFO  [-/-] Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:27:23.119 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:27:23.119 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:27:23.119 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:27:23.119 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:27:23.120 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:27:23.120 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:27:25.315 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 20:27:25.548 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 226 ms. Found 12 JPA repository interfaces.
+2026-07-19 20:27:26.213 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 20:27:26.214 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 20:27:26.215 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 20:27:26.381 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3250 ms
+2026-07-19 20:27:26.522 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:27:26.522 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:27:26.914 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 20:27:30.294 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:27:31.058 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:31.058 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:31.122 WARN  [-/-] restartedMain o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'appointmentController' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\controller\AppointmentController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'appointmentService' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\service\AppointmentService.class]: Unsatisfied dependency expressed through constructor parameter 0: No qualifying bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-19 20:27:31.123 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:27:31.129 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Stopping service [Tomcat]
+2026-07-19 20:27:31.144 INFO  [-/-] restartedMain o.s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-19 20:27:31.208 ERROR [-/-] restartedMain o.s.b.d.LoggingFailureAnalysisReporter : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 0 of constructor in com.clinic.healinghouse.service.AppointmentService required a bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'com.clinic.healinghouse.repository.AppointmentRepository' in your configuration.
+
+2026-07-19 20:27:32.790 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:27:32.790 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 23440 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:27:32.791 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:27:32.791 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:27:32.791 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:27:32.791 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:27:33.176 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 20:27:33.246 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 67 ms. Found 19 JPA repository interfaces.
+2026-07-19 20:27:33.905 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 20:27:33.908 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 20:27:33.910 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 20:27:33.984 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1190 ms
+2026-07-19 20:27:34.078 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:27:34.078 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:27:34.310 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 20:27:35.871 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:27:36.170 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:36.170 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:37.653 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 20:27:37.677 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 20:27:38.091 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 20:27:38.095 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.378 seconds (process running for 9766.138)
+2026-07-19 20:27:38.095 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.378 seconds (process running for 9766.138)
+2026-07-19 20:27:38.178 INFO  [-/-] restartedMain c.c.h.config.SecuritySeeder : Backfilled 2 THERAPIST WALLET/PATIENT_PACKAGES APPROVE role-permission row(s).
+2026-07-19 20:27:38.178 INFO  [-/-] restartedMain c.c.h.config.SecuritySeeder : Backfilled 2 THERAPIST WALLET/PATIENT_PACKAGES APPROVE role-permission row(s).
+2026-07-19 20:27:38.610 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:38.610 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:27:38.619 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 20:29:04.219 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 20:29:04.250 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 20:29:04.255 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:29:21.269 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 2912 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:29:21.269 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 2912 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 20:29:21.275 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:29:21.275 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 20:29:21.276 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:29:21.276 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 20:29:21.447 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 20:29:21.452 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 20:29:24.539 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 20:29:24.804 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 244 ms. Found 19 JPA repository interfaces.
+2026-07-19 20:29:27.158 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 20:29:27.301 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 20:29:27.302 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 20:29:27.424 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5971 ms
+2026-07-19 20:29:27.618 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:29:27.618 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 20:29:29.355 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 20:29:34.814 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 20:29:35.031 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 20:29:39.710 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:29:39.710 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:29:45.589 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 20:29:45.647 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 20:29:46.618 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 20:29:46.628 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 27.54 seconds (process running for 31.327)
+2026-07-19 20:29:46.628 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 27.54 seconds (process running for 31.327)
+2026-07-19 20:29:47.397 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:29:47.397 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 20:33:34.392 INFO  [-/-] http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 20:33:34.394 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 20:33:34.399 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 4 ms
+2026-07-19 20:33:34.779 WARN  [-/-] http-nio-8080-exec-1 o.a.c.util.SessionIdGeneratorBase : Creation of SecureRandom instance for session ID generation using [SHA1PRNG] took [317] milliseconds.
+2026-07-19 20:33:40.962 INFO  [-/-] http-nio-8080-exec-3 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 20:33:40.962 INFO  [-/-] http-nio-8080-exec-3 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 20:34:02.334 INFO  [arjun/THERAPIST] http-nio-8080-exec-8 c.c.h.service.PatientService : Created patient id=12 name='Lalla'
+2026-07-19 20:34:02.334 INFO  [arjun/THERAPIST] http-nio-8080-exec-8 c.c.h.service.PatientService : Created patient id=12 name='Lalla'
+2026-07-19 20:34:18.953 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.PackageService : Sold package id=2 patient='Lalla' totalPrice=7000.00
+2026-07-19 20:34:18.953 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.PackageService : Sold package id=2 patient='Lalla' totalPrice=7000.00
+2026-07-19 20:35:11.169 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.PackageService : Package service item id=2 consumed 1 session, appointment id=21
+2026-07-19 20:35:11.169 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.PackageService : Package service item id=2 consumed 1 session, appointment id=21
+2026-07-19 20:35:11.169 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Created appointment id=21 patient='Lalla' therapist='Priya Sharma' grandTotal=800.00
+2026-07-19 20:35:11.169 INFO  [arjun/THERAPIST] http-nio-8080-exec-10 c.c.h.service.AppointmentService : Created appointment id=21 patient='Lalla' therapist='Priya Sharma' grandTotal=800.00
+2026-07-19 20:35:18.130 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: You can only view your own therapist profile. [GET /therapists/2]
+2026-07-19 20:35:18.130 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.e.GlobalExceptionHandler : Access denied: You can only view your own therapist profile. [GET /therapists/2]
+2026-07-19 20:35:18.134 WARN  [arjun/THERAPIST] http-nio-8080-exec-1 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You can only view your own therapist profile.]
+2026-07-19 20:35:28.522 INFO  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Refunded package id=2 amount=6300.00 method=CASH
+2026-07-19 20:35:28.522 INFO  [arjun/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Refunded package id=2 amount=6300.00 method=CASH
+2026-07-19 20:36:30.357 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=8
+2026-07-19 20:36:30.357 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=8
+2026-07-19 20:36:30.375 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=8 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:36:30.375 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=8 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:37:14.514 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet usage patient id=8 appointment id=22 amount=1500 newBalance=3500.00
+2026-07-19 20:37:14.514 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet usage patient id=8 appointment id=22 amount=1500 newBalance=3500.00
+2026-07-19 20:37:14.514 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.AppointmentService : Created appointment id=22 patient='Arun Pillai' therapist='Logi' grandTotal=1500.00
+2026-07-19 20:37:14.514 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.AppointmentService : Created appointment id=22 patient='Arun Pillai' therapist='Logi' grandTotal=1500.00
+2026-07-19 20:38:22.506 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=6
+2026-07-19 20:38:22.506 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=6
+2026-07-19 20:38:22.517 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=6 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:38:22.517 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=6 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:39:12.691 INFO  [-/-] http-nio-8080-exec-5 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 20:39:12.691 INFO  [-/-] http-nio-8080-exec-5 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 20:39:49.766 INFO  [devendra/OWNER] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=1
+2026-07-19 20:39:49.766 INFO  [devendra/OWNER] http-nio-8080-exec-6 c.c.h.service.WalletService : Created wallet for patient id=1
+2026-07-19 20:39:49.779 INFO  [devendra/OWNER] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:39:49.779 INFO  [devendra/OWNER] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=5000 method=CASH newBalance=5000
+2026-07-19 20:50:32.639 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this appointment. [GET /appointments/17/edit]
+2026-07-19 20:50:32.639 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.e.GlobalExceptionHandler : Access denied: You don't have access to this appointment. [GET /appointments/17/edit]
+2026-07-19 20:50:32.640 WARN  [arjun/THERAPIST] http-nio-8080-exec-7 o.s.w.s.m.m.a.ExceptionHandlerExceptionResolver : Resolved [org.springframework.security.access.AccessDeniedException: You don't have access to this appointment.]
+2026-07-19 20:52:11.898 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Wallet refund patient id=11 amount=1000 method=CASH newBalance=4000.00
+2026-07-19 20:52:11.898 INFO  [arjun/THERAPIST] http-nio-8080-exec-3 c.c.h.service.WalletService : Wallet refund patient id=11 amount=1000 method=CASH newBalance=4000.00
+2026-07-19 20:53:37.804 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=11 amount=5000 method=CASH newBalance=9000.00
+2026-07-19 20:53:37.804 INFO  [arjun/THERAPIST] http-nio-8080-exec-6 c.c.h.service.WalletService : Wallet top-up patient id=11 amount=5000 method=CASH newBalance=9000.00
+2026-07-19 20:55:17.715 INFO  [devendra/OWNER] http-nio-8080-exec-9 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=1000 method=CASH newBalance=6000.00
+2026-07-19 20:55:17.715 INFO  [devendra/OWNER] http-nio-8080-exec-9 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=1000 method=CASH newBalance=6000.00
+2026-07-19 21:07:37.572 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:07:37.680 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:07:37.808 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:07:48.791 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:07:48.791 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:07:48.795 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:07:48.795 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:07:48.797 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:07:48.797 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:07:48.921 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 21:07:48.921 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 21:07:51.408 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:07:51.635 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 207 ms. Found 19 JPA repository interfaces.
+2026-07-19 21:07:53.452 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:07:53.477 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:07:53.480 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:07:53.579 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4656 ms
+2026-07-19 21:07:53.784 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [1C1A45AE1E6D74B6AC3B7FA16A15E86E]
+2026-07-19 21:07:53.787 ERROR [-/-] restartedMain o.a.catalina.session.StandardManager : Exception loading sessions from persistent storage
+java.io.StreamCorruptedException: invalid type code: 00
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1793)
+	at java.base/java.io.ObjectInputStream$FieldValues.<init>(ObjectInputStream.java:2618)
+	at java.base/java.io.ObjectInputStream.defaultReadObject(ObjectInputStream.java:678)
+	at java.base/java.lang.Throwable.readObject(Throwable.java:936)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.io.ObjectStreamClass.invokeReadObject(ObjectStreamClass.java:1102)
+	at java.base/java.io.ObjectInputStream.readSerialData(ObjectInputStream.java:2444)
+	at java.base/java.io.ObjectInputStream.readOrdinaryObject(ObjectInputStream.java:2284)
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1762)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:540)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:498)
+	at org.apache.catalina.session.StandardSession.doReadObject(StandardSession.java:1120)
+	at org.apache.catalina.session.StandardSession.readObjectData(StandardSession.java:821)
+	at org.apache.catalina.session.StandardManager.load(StandardManager.java:146)
+	at org.apache.catalina.session.StandardManager.startInternal(StandardManager.java:255)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4447)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
+	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
+	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:429)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:167)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at com.clinic.healinghouse.HealinghouseApplication.main(HealinghouseApplication.java:13)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:52)
+2026-07-19 21:07:53.799 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:07:53.799 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:07:55.114 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:07:59.280 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:07:59.430 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 21:08:02.205 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:08:02.205 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:08:04.410 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:08:04.474 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 21:08:05.561 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:08:05.570 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 18.381 seconds (process running for 20.269)
+2026-07-19 21:08:05.570 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 18.381 seconds (process running for 20.269)
+2026-07-19 21:08:06.384 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:08:06.384 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:15:46.507 INFO  [-/-] http-nio-8080-exec-2 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 21:15:46.510 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 21:15:46.517 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Completed initialization in 7 ms
+2026-07-19 21:16:08.929 INFO  [-/-] http-nio-8080-exec-5 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 21:16:08.929 INFO  [-/-] http-nio-8080-exec-5 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 21:16:34.386 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Created wallet for patient id=5
+2026-07-19 21:16:34.386 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Created wallet for patient id=5
+2026-07-19 21:16:34.449 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Wallet top-up patient id=5 amount=5000 method=CASH newBalance=5000
+2026-07-19 21:16:34.449 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Wallet top-up patient id=5 amount=5000 method=CASH newBalance=5000
+2026-07-19 21:26:13.128 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet top-up patient id=5 amount=1000 method=CASH newBalance=6000.00
+2026-07-19 21:26:13.128 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet top-up patient id=5 amount=1000 method=CASH newBalance=6000.00
+2026-07-19 21:33:15.738 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (0 additions, 215 deletions, 0 modifications)
+2026-07-19 21:33:15.910 INFO  [-/-] Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:33:15.984 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:33:15.990 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 21:33:16.094 INFO  [-/-] Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:33:18.227 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:33:18.227 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:33:18.227 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:33:18.227 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:33:18.228 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:33:18.228 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:33:19.540 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:33:19.561 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 9 ms. Found 0 JPA repository interfaces.
+2026-07-19 21:33:20.418 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:33:20.422 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:33:20.423 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:33:20.712 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 2479 ms
+2026-07-19 21:33:20.840 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [889936762C42D9FFA137C3CA2B7A9FCE]
+2026-07-19 21:33:21.706 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:33:22.013 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:33:22.167 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:33:23.123 WARN  [-/-] restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 9f9be67b-bfb3-4705-9a7b-a5a52e2a9cb4
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-19 21:33:23.214 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-19 21:33:24.185 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:33:24.221 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.26 seconds (process running for 1538.905)
+2026-07-19 21:33:24.221 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 6.26 seconds (process running for 1538.905)
+2026-07-19 21:33:24.235 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 21:33:42.035 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (215 additions, 0 deletions, 0 modifications)
+2026-07-19 21:33:42.037 INFO  [-/-] Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:33:42.048 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:33:42.048 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 21:33:42.051 INFO  [-/-] Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:33:42.275 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:33:42.275 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 24752 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:33:42.275 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:33:42.275 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:33:42.275 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:33:42.275 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:33:42.783 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:33:42.867 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 81 ms. Found 19 JPA repository interfaces.
+2026-07-19 21:33:43.152 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:33:43.154 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:33:43.154 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:33:43.218 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 938 ms
+2026-07-19 21:33:43.306 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:33:43.306 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:33:43.484 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:33:45.221 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:33:45.718 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:33:45.718 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:33:46.808 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:33:46.831 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 21:33:47.276 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:33:47.280 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.081 seconds (process running for 1561.963)
+2026-07-19 21:33:47.280 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 5.081 seconds (process running for 1561.963)
+2026-07-19 21:33:47.968 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:33:47.968 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:33:47.987 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 21:41:20.273 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:41:20.285 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:41:20.291 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:41:32.295 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:41:32.295 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:41:32.299 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:41:32.299 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:41:32.300 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:41:32.300 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:41:32.415 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 21:41:32.416 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 21:41:34.763 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:41:34.924 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 147 ms. Found 19 JPA repository interfaces.
+2026-07-19 21:41:36.452 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:41:36.478 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:41:36.478 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:41:36.578 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4161 ms
+2026-07-19 21:41:36.728 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:41:36.728 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:41:37.889 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:41:41.617 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:41:41.765 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 21:41:44.572 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:41:44.572 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:41:46.937 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:41:46.995 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 21:41:47.976 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:41:47.985 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 17.444 seconds (process running for 18.924)
+2026-07-19 21:41:47.985 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 17.444 seconds (process running for 18.924)
+2026-07-19 21:41:48.811 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:41:48.811 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:43:12.824 INFO  [-/-] http-nio-8080-exec-1 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 21:43:12.825 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 21:43:12.828 INFO  [-/-] http-nio-8080-exec-1 o.s.web.servlet.DispatcherServlet : Completed initialization in 2 ms
+2026-07-19 21:43:17.257 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 21:43:17.257 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 21:43:50.614 INFO  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=500 method=CASH newBalance=6500.00
+2026-07-19 21:43:50.614 INFO  [arjun/THERAPIST] http-nio-8080-exec-1 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=500 method=CASH newBalance=6500.00
+2026-07-19 21:44:14.117 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.WalletService : Wallet usage patient id=1 appointment id=23 amount=500 newBalance=6000.00
+2026-07-19 21:44:14.117 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.WalletService : Wallet usage patient id=1 appointment id=23 amount=500 newBalance=6000.00
+2026-07-19 21:44:14.118 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.AppointmentService : Created appointment id=23 patient='Anita Desai' therapist='Priya Sharma' grandTotal=1550.00
+2026-07-19 21:44:14.118 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.AppointmentService : Created appointment id=23 patient='Anita Desai' therapist='Priya Sharma' grandTotal=1550.00
+2026-07-19 21:49:05.920 INFO  [-/-] http-nio-8080-exec-9 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 21:49:05.920 INFO  [-/-] http-nio-8080-exec-9 c.c.h.security.LoginAttemptListener : User 'devendra' (role=OWNER) logged in successfully
+2026-07-19 21:49:17.336 INFO  [-/-] http-nio-8080-exec-2 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 21:49:17.336 INFO  [-/-] http-nio-8080-exec-2 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 21:49:24.166 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'logi' (role=THERAPIST) logged in successfully
+2026-07-19 21:49:24.166 INFO  [-/-] http-nio-8080-exec-6 c.c.h.security.LoginAttemptListener : User 'logi' (role=THERAPIST) logged in successfully
+2026-07-19 21:49:47.380 INFO  [logi/THERAPIST] http-nio-8080-exec-1 c.c.healinghouse.service.UserService : User id=3 username='logi' changed their own password
+2026-07-19 21:49:47.380 INFO  [logi/THERAPIST] http-nio-8080-exec-1 c.c.healinghouse.service.UserService : User id=3 username='logi' changed their own password
+2026-07-19 21:50:10.159 INFO  [logi/THERAPIST] http-nio-8080-exec-9 c.c.h.service.WalletService : Wallet usage patient id=5 appointment id=13 amount=499.00 newBalance=5501.00
+2026-07-19 21:50:10.159 INFO  [logi/THERAPIST] http-nio-8080-exec-9 c.c.h.service.WalletService : Wallet usage patient id=5 appointment id=13 amount=499.00 newBalance=5501.00
+2026-07-19 21:50:10.160 INFO  [logi/THERAPIST] http-nio-8080-exec-9 c.c.h.service.AppointmentService : Updated appointment id=13
+2026-07-19 21:50:10.160 INFO  [logi/THERAPIST] http-nio-8080-exec-9 c.c.h.service.AppointmentService : Updated appointment id=13
+2026-07-19 21:53:39.055 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 215 class path changes (0 additions, 215 deletions, 0 modifications)
+2026-07-19 21:53:39.100 INFO  [-/-] Thread-1 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:53:39.190 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:53:39.182 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 21:53:39.238 INFO  [-/-] Thread-1 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:53:41.673 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:53:41.673 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:53:41.688 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:53:41.688 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:53:41.689 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:53:41.689 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:53:44.567 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:53:44.603 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 28 ms. Found 0 JPA repository interfaces.
+2026-07-19 21:53:45.965 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:53:45.972 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:53:45.972 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:53:47.181 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 5473 ms
+2026-07-19 21:53:48.131 WARN  [-/-] restartedMain o.a.c.c.C.[Tomcat].[localhost].[/] : Cannot deserialize session attribute [SPRING_SECURITY_CONTEXT] for session [F90F9B813B22357284D34224AB366B05]
+2026-07-19 21:53:48.138 ERROR [-/-] restartedMain o.a.catalina.session.StandardManager : Exception loading sessions from persistent storage
+java.io.StreamCorruptedException: invalid type code: 00
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1793)
+	at java.base/java.io.ObjectInputStream$FieldValues.<init>(ObjectInputStream.java:2618)
+	at java.base/java.io.ObjectInputStream.defaultReadObject(ObjectInputStream.java:678)
+	at java.base/java.lang.Throwable.readObject(Throwable.java:936)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at java.base/java.io.ObjectStreamClass.invokeReadObject(ObjectStreamClass.java:1102)
+	at java.base/java.io.ObjectInputStream.readSerialData(ObjectInputStream.java:2444)
+	at java.base/java.io.ObjectInputStream.readOrdinaryObject(ObjectInputStream.java:2284)
+	at java.base/java.io.ObjectInputStream.readObject0(ObjectInputStream.java:1762)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:540)
+	at java.base/java.io.ObjectInputStream.readObject(ObjectInputStream.java:498)
+	at org.apache.catalina.session.StandardSession.doReadObject(StandardSession.java:1120)
+	at org.apache.catalina.session.StandardSession.readObjectData(StandardSession.java:821)
+	at org.apache.catalina.session.StandardManager.load(StandardManager.java:146)
+	at org.apache.catalina.session.StandardManager.startInternal(StandardManager.java:255)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardContext.startInternal(StandardContext.java:4447)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardHost.startInternal(StandardHost.java:780)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1162)
+	at org.apache.catalina.core.ContainerBase$StartChild.call(ContainerBase.java:1158)
+	at java.base/java.util.concurrent.FutureTask.run(FutureTask.java:317)
+	at org.apache.tomcat.util.threads.InlineExecutorService.execute(InlineExecutorService.java:81)
+	at java.base/java.util.concurrent.AbstractExecutorService.submit(AbstractExecutorService.java:145)
+	at org.apache.catalina.core.ContainerBase.startInternal(ContainerBase.java:714)
+	at org.apache.catalina.core.StandardEngine.startInternal(StandardEngine.java:201)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardService.startInternal(StandardService.java:410)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.core.StandardServer.startInternal(StandardServer.java:864)
+	at org.apache.catalina.util.LifecycleBase.start(LifecycleBase.java:164)
+	at org.apache.catalina.startup.Tomcat.start(Tomcat.java:435)
+	at org.springframework.boot.tomcat.TomcatWebServer.initialize(TomcatWebServer.java:131)
+	at org.springframework.boot.tomcat.TomcatWebServer.<init>(TomcatWebServer.java:110)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getTomcatWebServer(TomcatServletWebServerFactory.java:429)
+	at org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory.getWebServer(TomcatServletWebServerFactory.java:167)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.createWebServer(ServletWebServerApplicationContext.java:190)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.onRefresh(ServletWebServerApplicationContext.java:164)
+	at org.springframework.context.support.AbstractApplicationContext.refresh(AbstractApplicationContext.java:615)
+	at org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContext.refresh(ServletWebServerApplicationContext.java:143)
+	at org.springframework.boot.SpringApplication.refresh(SpringApplication.java:756)
+	at org.springframework.boot.SpringApplication.refreshContext(SpringApplication.java:445)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:321)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1365)
+	at org.springframework.boot.SpringApplication.run(SpringApplication.java:1354)
+	at com.clinic.healinghouse.HealinghouseApplication.main(HealinghouseApplication.java:13)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.springframework.boot.devtools.restart.RestartLauncher.run(RestartLauncher.java:52)
+2026-07-19 21:54:04.037 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:54:05.654 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:54:06.682 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:54:09.558 WARN  [-/-] restartedMain o.s.b.s.a.UserDetailsServiceAutoConfiguration : 
+
+Using generated security password: 5cf57818-5e00-49c4-8fb8-421019ca4d4e
+
+This generated password is for development use only. Your security configuration must be updated before running your application in production.
+
+2026-07-19 21:54:09.748 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name inMemoryUserDetailsManager
+2026-07-19 21:54:10.676 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:54:10.699 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 30.421 seconds (process running for 761.63)
+2026-07-19 21:54:10.699 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 30.421 seconds (process running for 761.63)
+2026-07-19 21:54:10.726 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+      - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration matched:
+      - AllNestedConditions 2 matched 0 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) did not find any beans; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration matched:
+      - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+      - found 'session' scope (OnWebApplicationCondition)
+      - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+      - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) did not find any beans (OnBeanCondition)
+
+
+Negative matches:
+-----------------
+
+    None
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 21:54:21.375 INFO  [-/-] File Watcher o.s.b.d.a.LocalDevToolsAutoConfiguration$RestartingClassPathChangeChangedEventListener : Restarting due to 1 class path change (1 addition, 0 deletions, 0 modifications)
+2026-07-19 21:54:21.418 INFO  [-/-] Thread-5 o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 21:54:21.525 ERROR [-/-] http-nio-8080-Acceptor org.apache.tomcat.util.net.Acceptor : Socket accept failed
+java.nio.channels.AsynchronousCloseException
+	at java.base/java.nio.channels.spi.AbstractInterruptibleChannel.end(AbstractInterruptibleChannel.java:203)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.end(ServerSocketChannelImpl.java:383)
+	at java.base/sun.nio.ch.ServerSocketChannelImpl.accept(ServerSocketChannelImpl.java:407)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:532)
+	at org.apache.tomcat.util.net.NioEndpoint.serverSocketAccept(NioEndpoint.java:71)
+	at org.apache.tomcat.util.net.Acceptor.run(Acceptor.java:127)
+	at java.base/java.lang.Thread.run(Thread.java:1583)
+2026-07-19 21:54:21.525 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 21:54:21.533 INFO  [-/-] Thread-5 o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:54:22.368 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:54:22.368 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:54:22.381 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:54:22.381 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:54:22.421 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:54:22.421 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:54:23.888 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:54:24.220 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 198 ms. Found 5 JPA repository interfaces.
+2026-07-19 21:54:25.518 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:54:25.520 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:54:25.520 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:54:25.803 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 3356 ms
+2026-07-19 21:54:26.820 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:54:31.896 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:54:32.635 WARN  [-/-] restartedMain o.s.b.w.s.s.c.AnnotationConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'dataSeeder' defined in file [D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes\com\clinic\healinghouse\config\DataSeeder.class]: Unsatisfied dependency expressed through constructor parameter 4: No qualifying bean of type 'com.clinic.healinghouse.service.TagService' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-19 21:54:32.636 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:54:32.647 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Stopping service [Tomcat]
+2026-07-19 21:54:32.674 INFO  [-/-] restartedMain o.s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-19 21:54:32.776 ERROR [-/-] restartedMain o.s.b.d.LoggingFailureAnalysisReporter : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 4 of constructor in com.clinic.healinghouse.config.DataSeeder required a bean of type 'com.clinic.healinghouse.service.TagService' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'com.clinic.healinghouse.service.TagService' in your configuration.
+
+2026-07-19 21:54:40.182 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:54:40.182 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 31536 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 21:54:40.183 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:54:40.183 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 21:54:40.185 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:54:40.185 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 21:54:40.971 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 21:54:41.147 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 168 ms. Found 19 JPA repository interfaces.
+2026-07-19 21:54:41.832 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 21:54:41.838 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 21:54:41.861 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 21:54:41.993 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 1803 ms
+2026-07-19 21:54:42.066 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:54:42.066 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 21:54:42.267 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 21:54:44.690 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 21:54:45.499 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:54:45.499 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:54:47.144 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 21:54:47.183 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 21:54:48.165 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 21:54:48.176 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 8.095 seconds (process running for 799.108)
+2026-07-19 21:54:48.176 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 8.095 seconds (process running for 799.108)
+2026-07-19 21:54:49.139 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:54:49.139 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 21:54:49.150 INFO  [-/-] restartedMain o.s.b.d.a.ConditionEvaluationDeltaLoggingListener : Condition evaluation delta:
+
+
+==========================
+CONDITION EVALUATION DELTA
+==========================
+
+
+Positive matches:
+-----------------
+
+    None
+
+
+Negative matches:
+-----------------
+
+   ServletWebSecurityAutoConfiguration.EnableWebSecurityConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (names: springSecurityFilterChain; SearchStrategy: all) found beans named springSecurityFilterChain (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.config.annotation.web.configuration.EnableWebSecurity' (OnClassCondition)
+
+   ServletWebSecurityAutoConfiguration.SecurityFilterChainConfiguration:
+      Did not match:
+         - AllNestedConditions 1 matched 1 did not; NestedCondition on DefaultWebSecurityCondition.Beans @ConditionalOnMissingBean (types: org.springframework.security.web.SecurityFilterChain; SearchStrategy: all) found beans of type 'org.springframework.security.web.SecurityFilterChain' securityFilterChain; NestedCondition on DefaultWebSecurityCondition.Classes @ConditionalOnClass found required classes 'org.springframework.security.web.SecurityFilterChain', 'org.springframework.security.config.annotation.web.builders.HttpSecurity' (DefaultWebSecurityCondition)
+
+   UserDetailsServiceAutoConfiguration:
+      Did not match:
+         - @ConditionalOnMissingBean (types: org.springframework.security.authentication.AuthenticationManager,org.springframework.security.authentication.AuthenticationProvider,org.springframework.security.core.userdetails.UserDetailsService,org.springframework.security.authentication.AuthenticationManagerResolver,org.springframework.security.oauth2.jwt.JwtDecoder; SearchStrategy: all) found beans of type 'org.springframework.security.core.userdetails.UserDetailsService' appUserDetailsService (OnBeanCondition)
+      Matched:
+         - @ConditionalOnClass found required class 'org.springframework.security.authentication.AuthenticationManager' (OnClassCondition)
+         - found 'session' scope (OnWebApplicationCondition)
+         - AnyNestedCondition 1 matched 2 did not; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.PasswordConfigured @ConditionalOnProperty (spring.security.user.password) did not find property 'spring.security.user.password'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.NameConfigured @ConditionalOnProperty (spring.security.user.name) did not find property 'spring.security.user.name'; NestedCondition on MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured.MissingAlternative @ConditionalOnMissingClass did not find unwanted classes 'org.springframework.security.oauth2.client.registration.ClientRegistrationRepository', 'org.springframework.security.oauth2.server.resource.introspection.OpaqueTokenIntrospector', 'org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistrationRepository' (MissingAlternativeUserDetailsManagerOrUserPropertiesConfigured)
+
+
+Exclusions:
+-----------
+
+    None
+
+
+Unconditional classes:
+----------------------
+
+    None
+
+
+
+2026-07-19 22:02:42.267 INFO  [-/-] SpringApplicationShutdownHook o.s.boot.tomcat.GracefulShutdown : Commencing graceful shutdown. Waiting for active requests to complete
+2026-07-19 22:02:42.320 INFO  [-/-] tomcat-shutdown o.s.boot.tomcat.GracefulShutdown : Graceful shutdown complete
+2026-07-19 22:02:42.388 INFO  [-/-] SpringApplicationShutdownHook o.s.o.j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 22:03:08.030 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 28980 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 22:03:08.030 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Starting HealinghouseApplication using Java 21.0.10 with PID 28980 (D:\HEALING_HOUSE\Clinic\Applications\healinghouse\target\classes started by hp in D:\HEALING_HOUSE\Clinic\Applications\healinghouse)
+2026-07-19 22:03:08.043 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 22:03:08.043 DEBUG [-/-] restartedMain c.c.h.HealinghouseApplication : Running with Spring Boot v4.1.0, Spring v7.0.8
+2026-07-19 22:03:08.046 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 22:03:08.046 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : No active profile set, falling back to 1 default profile: "default"
+2026-07-19 22:03:08.215 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : Devtools property defaults active! Set 'spring.devtools.add-properties' to 'false' to disable
+2026-07-19 22:03:08.216 INFO  [-/-] restartedMain o.s.b.d.e.DevToolsPropertyDefaultsPostProcessor : For additional web related logging consider setting the 'logging.level.web' property to 'DEBUG'
+2026-07-19 22:03:11.917 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-19 22:03:12.206 INFO  [-/-] restartedMain o.s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 258 ms. Found 19 JPA repository interfaces.
+2026-07-19 22:03:14.680 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat initialized with port 8080 (http)
+2026-07-19 22:03:14.824 INFO  [-/-] restartedMain o.a.catalina.core.StandardService : Starting service [Tomcat]
+2026-07-19 22:03:14.829 INFO  [-/-] restartedMain o.a.catalina.core.StandardEngine : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-19 22:03:15.084 INFO  [-/-] restartedMain o.s.b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 6863 ms
+2026-07-19 22:03:15.622 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 22:03:15.622 DEBUG [-/-] restartedMain c.c.h.security.LoginRateLimitFilter : Filter 'loginRateLimitFilter' configured for use
+2026-07-19 22:03:18.769 INFO  [-/-] restartedMain o.s.o.j.p.SpringPersistenceUnitInfo : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-19 22:03:24.409 INFO  [-/-] restartedMain o.s.o.j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-19 22:03:24.717 INFO  [-/-] restartedMain o.s.d.j.r.q.QueryEnhancerFactories : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-19 22:03:28.833 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 22:03:28.833 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 22:03:34.744 WARN  [-/-] restartedMain o.s.b.j.a.JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-07-19 22:03:34.896 INFO  [-/-] restartedMain o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name appUserDetailsService
+2026-07-19 22:03:37.291 INFO  [-/-] restartedMain o.s.boot.tomcat.TomcatWebServer : Tomcat started on port 8080 (http) with context path '/'
+2026-07-19 22:03:37.308 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 31.757 seconds (process running for 35.522)
+2026-07-19 22:03:37.308 INFO  [-/-] restartedMain c.c.h.HealinghouseApplication : Started HealinghouseApplication in 31.757 seconds (process running for 35.522)
+2026-07-19 22:03:38.281 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 22:03:38.281 INFO  [-/-] restartedMain c.c.h.security.PermissionService : Permission cache reloaded (4 roles).
+2026-07-19 22:03:43.971 INFO  [-/-] http-nio-8080-exec-2 o.a.c.c.C.[Tomcat].[localhost].[/] : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-07-19 22:03:43.972 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Initializing Servlet 'dispatcherServlet'
+2026-07-19 22:03:43.975 INFO  [-/-] http-nio-8080-exec-2 o.s.web.servlet.DispatcherServlet : Completed initialization in 3 ms
+2026-07-19 22:03:49.281 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 22:03:49.281 INFO  [-/-] http-nio-8080-exec-4 c.c.h.security.LoginAttemptListener : User 'arjun' (role=THERAPIST) logged in successfully
+2026-07-19 22:04:10.445 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=200 method=CASH newBalance=6200.00
+2026-07-19 22:04:10.445 INFO  [arjun/THERAPIST] http-nio-8080-exec-2 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=200 method=CASH newBalance=6200.00
+2026-07-19 22:04:22.384 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.WalletService : Wallet refund patient id=1 amount=200 method=CASH newBalance=6000.00
+2026-07-19 22:04:22.384 INFO  [arjun/THERAPIST] http-nio-8080-exec-4 c.c.h.service.WalletService : Wallet refund patient id=1 amount=200 method=CASH newBalance=6000.00
+2026-07-19 22:05:01.452 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=6000 method=CASH newBalance=12000.00
+2026-07-19 22:05:01.452 INFO  [arjun/THERAPIST] http-nio-8080-exec-7 c.c.h.service.WalletService : Wallet top-up patient id=1 amount=6000 method=CASH newBalance=12000.00
+2026-07-19 22:05:51.875 INFO  [-/-] http-nio-8080-exec-8 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 22:05:51.875 INFO  [-/-] http-nio-8080-exec-8 c.c.h.config.SecurityConfig : User 'arjun' logged out
+2026-07-19 22:06:02.337 INFO  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : User 'logi' (role=THERAPIST) logged in successfully
+2026-07-19 22:06:02.337 INFO  [-/-] http-nio-8080-exec-10 c.c.h.security.LoginAttemptListener : User 'logi' (role=THERAPIST) logged in successfully
+2026-07-19 22:06:35.721 INFO  [logi/THERAPIST] http-nio-8080-exec-2 c.c.h.service.PackageService : Sold package id=3 patient='Lalla' totalPrice=7000.00
+2026-07-19 22:06:35.721 INFO  [logi/THERAPIST] http-nio-8080-exec-2 c.c.h.service.PackageService : Sold package id=3 patient='Lalla' totalPrice=7000.00
+2026-07-19 22:06:47.001 INFO  [logi/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Refunded package id=3 amount=7000.00 method=CASH
+2026-07-19 22:06:47.001 INFO  [logi/THERAPIST] http-nio-8080-exec-5 c.c.h.service.PackageService : Refunded package id=3 amount=7000.00 method=CASH

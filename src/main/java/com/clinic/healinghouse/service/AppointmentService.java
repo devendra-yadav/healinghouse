@@ -14,7 +14,6 @@ import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
@@ -122,16 +121,6 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public boolean involvesTherapist(Long appointmentId, Long therapistId) {
         return involvesTherapist(getById(appointmentId), therapistId);
-    }
-
-    /** Used to scope a THERAPIST-role user's visibility of a patient to only those tied to one of
-     *  their own appointments (main or reassigned line) — no dedicated query needed, this reuses
-     *  the same patient+therapist filtered lookup already backing the Patient/Therapist detail
-     *  history tables. */
-    @Transactional(readOnly = true)
-    public boolean hasAnyAppointmentForPatientAndTherapist(Long patientId, Long therapistId) {
-        if (therapistId == null) return false;
-        return findByFilters(null, therapistId, null, null, null, patientId, PageRequest.of(0, 1)).hasContent();
     }
 
     /**
