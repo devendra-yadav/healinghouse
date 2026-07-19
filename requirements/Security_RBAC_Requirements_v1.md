@@ -58,7 +58,7 @@ A `User` is always exactly one role. A `THERAPIST`-role user is linked via a nul
 | Module | OWNER | ADMIN | RECEPTIONIST | THERAPIST |
 |---|---|---|---|---|
 | Dashboard | V | V | V *(ops KPIs only, no ₹ commission)* | V *(own schedule + own earnings widget only)* |
-| Patients | V,C,E,D | V,C,E,D | V,C,E | V *(read-only; only patients tied to own appointments)* |
+| Patients | V,C,E,D | V,C,E,D | V,C,E | V *(read-only; full list/detail access, no create/edit/deactivate)* |
 | Appointments | V,C,E,D,A | V,C,E,D,A | V,C,E,A | V *(own only)*, E *(own line reassignment only)*, A *(mark own Completed/No-Show only)* |
 | Therapists (master data) | V,C,E,D | V,C,E,D | V | V *(own profile, read-only)* |
 | Services / Products / Combos / Package Templates (catalog) | V,C,E,D,A *(permanent delete)* | V,C,E,D,A *(permanent delete)* | V | V |
@@ -222,7 +222,7 @@ public class AuditLog {
 - **View-level gating:** a `@Component("perm")` bean exposed to Thymeleaf so templates can do `<a th:if="${@perm.has('APPOINTMENTS','DELETE')}" ...>` to hide buttons/links a user can't act on — avoids a user reaching a page and then bouncing off a 403.
 - **Data scoping for THERAPIST** (beyond the module/action gate — row-level filtering):
   - *Appointments:* list/calendar queries add a `therapistId` filter via the existing `AppointmentSpec.hasTherapistId`, scoped to the logged-in user's linked `Therapist.id`.
-  - *Patients:* no standalone "Patients list" access; a therapist reaches a patient only by opening one of their own appointments (no direct patient search/list for this role).
+  - *Patients:* full read-only list/search/detail access (same as other roles); create/edit/deactivate remain blocked at the module/action gate (VIEW only, no C/E/D).
   - *Reports:* the therapist-comparison/daily/period rows are filtered server-side to the one row matching the logged-in therapist — never returns other therapists' figures even if the request is tampered with client-side.
   - *Wallet:* no dedicated `/patients/{id}/wallet` access; the "Paid from Wallet" figure only appears embedded in the detail page of an appointment the therapist is already authorized to view.
 - **New-user bootstrap:** since the app currently ships with zero users, `SecuritySeeder` also creates one default `OWNER` account on first run — mirrors how `DataSeeder`/`OwnerFlagBackfill` already do one-time idempotent setup work. Username is a fixed default (e.g. `owner`); password comes from a new required env var, `HEALING_HOUSE_OWNER_PASSWORD`, read the same way `HEALING_HOUSE_DB_PASSWORD` already is for the `test`/`preprod`/`prod` profiles (see the Database Setup table in `CLAUDE.md`) — never a hardcoded literal in source or `application*.yml`. `mustChangePassword=true` is still forced on the seeded account, so the env-var value is only ever a one-time bootstrap credential, replaced on first login.

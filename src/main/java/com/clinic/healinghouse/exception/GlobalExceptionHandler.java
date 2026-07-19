@@ -41,7 +41,7 @@ public class GlobalExceptionHandler {
     public String handleNotFound(EntityNotFoundException ex, HttpServletRequest request,
                                   HttpServletResponse response, HandlerMethod handlerMethod,
                                   RedirectAttributes ra) throws IOException {
-        log.warn("Entity not found: {}", ex.getMessage());
+        log.warn("Entity not found: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
         String message = "The record you were looking for doesn't exist or was already removed.";
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.NOT_FOUND, message);
@@ -55,7 +55,7 @@ public class GlobalExceptionHandler {
     public String handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request,
                                                 HttpServletResponse response, HandlerMethod handlerMethod,
                                                 RedirectAttributes ra) throws IOException {
-        log.warn("Data integrity violation: {}", ex.getMessage());
+        log.warn("Data integrity violation: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
         String message = "This action conflicts with existing data (e.g. a duplicate value). Please review and try again.";
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.CONFLICT, message);
@@ -69,7 +69,7 @@ public class GlobalExceptionHandler {
     public String handleAccessDenied(AccessDeniedException ex, HttpServletRequest request,
                                       HttpServletResponse response, HandlerMethod handlerMethod,
                                       RedirectAttributes ra) throws IOException {
-        log.warn("Access denied: {}", ex.getMessage());
+        log.warn("Access denied: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
         String message = "You don't have permission to perform this action.";
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.FORBIDDEN, message);
@@ -80,9 +80,9 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(Exception.class)
-    public String handleUnexpected(Exception ex, HttpServletResponse response,
+    public String handleUnexpected(Exception ex, HttpServletRequest request, HttpServletResponse response,
                                     HandlerMethod handlerMethod, Model model) throws IOException {
-        log.error("Unhandled exception", ex);
+        log.error("Unhandled exception [{} {}]", request.getMethod(), request.getRequestURI(), ex);
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.");
             return null;

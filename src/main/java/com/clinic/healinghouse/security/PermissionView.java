@@ -22,4 +22,11 @@ public class PermissionView {
             return false;
         }
     }
+
+    /** The logged-in THERAPIST's own {@code Therapist.id}, or {@code null} for every other role —
+     *  lets a template branch to "my calendar" (e.g. the dashboard's calendar link) without a
+     *  controller-side model attribute. */
+    public Long currentTherapistId() {
+        return permissionService.currentTherapistId();
+    }
 }

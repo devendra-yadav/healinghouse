@@ -65,6 +65,15 @@ public class TreatmentController {
         return "services/form";
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        ClinicService service = treatmentService.getById(id);
+        model.addAttribute("service", service);
+        model.addAttribute("pageTitle", service.getName());
+        return "services/detail";
+    }
+
     @RequiresPermission(module = Module.SERVICES, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {

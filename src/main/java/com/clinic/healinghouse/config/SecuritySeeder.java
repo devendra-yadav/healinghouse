@@ -49,6 +49,10 @@ public class SecuritySeeder implements CommandLineRunner {
         seedOwnerAccount();
         seedRolePermissions();
         backfillPackageTemplateApprovePermission();
+        backfillTherapistPatientAccess();
+        backfillTherapistAppointmentCreate();
+        revokeReportsForNonAdminRoles();
+        backfillFullAccessMatrix();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
         // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
         // before invoking any CommandLineRunner, regardless of runner order. Without this, a
@@ -136,7 +140,8 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, ADMIN, ACCESS_MATRIX, VIEW);
 
         // ── RECEPTIONIST — front desk: bookings, patients, payments; no catalog/master-data edit,
-        // no commission/revenue ₹ visibility (enforced at template level, not this module gate) ──
+        // no commission/revenue ₹ visibility (enforced at template level, not this module gate);
+        // no Reports access at all (clinic-wide ₹/commission data is Owner/Admin-only) ──
         grant(defaults, RECEPTIONIST, DASHBOARD, VIEW);
         grant(defaults, RECEPTIONIST, PATIENTS, VIEW, CREATE, EDIT);
         grant(defaults, RECEPTIONIST, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
@@ -148,13 +153,15 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, RECEPTIONIST, TAGS, VIEW);
         grant(defaults, RECEPTIONIST, PATIENT_PACKAGES, VIEW, CREATE);
         grant(defaults, RECEPTIONIST, WALLET, VIEW, CREATE);
-        grant(defaults, RECEPTIONIST, REPORTS_STANDARD, VIEW, EXPORT);
 
-        // ── THERAPIST — own schedule/earnings only (row-level "own" scoping is Phase C); no
-        // master-data edit rights, no Tags, no revenue report, no user/matrix admin ──
+        // ── THERAPIST — own schedule/earnings only (row-level "own" scoping is Phase C); can
+        // create/edit patients and create appointments, can edit only appointments they're
+        // involved in; view-only on master data (Services/Products/Combos/Package Templates —
+        // buttons hidden client-side too, not just denied server-side); no Tags, no reports at
+        // all, no user/matrix admin ──
         grant(defaults, THERAPIST, DASHBOARD, VIEW);
-        grant(defaults, THERAPIST, PATIENTS, VIEW);
-        grant(defaults, THERAPIST, APPOINTMENTS, VIEW, EDIT, APPROVE);
+        grant(defaults, THERAPIST, PATIENTS, VIEW, CREATE, EDIT);
+        grant(defaults, THERAPIST, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
         grant(defaults, THERAPIST, THERAPISTS, VIEW);
         grant(defaults, THERAPIST, SERVICES, VIEW);
         grant(defaults, THERAPIST, PRODUCTS, VIEW);
@@ -162,7 +169,6 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST, PACKAGE_TEMPLATES, VIEW);
         grant(defaults, THERAPIST, PATIENT_PACKAGES, VIEW);
         grant(defaults, THERAPIST, WALLET, VIEW);
-        grant(defaults, THERAPIST, REPORTS_STANDARD, VIEW, EXPORT);
 
         rolePermissionRepository.saveAll(defaults);
         log.info("Seeded {} default role-permission rows.", defaults.size());
@@ -185,6 +191,81 @@ public class SecuritySeeder implements CommandLineRunner {
         if (!toAdd.isEmpty()) {
             rolePermissionRepository.saveAll(toAdd);
             log.info("Backfilled {} PACKAGE_TEMPLATES/APPROVE role-permission row(s).", toAdd.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before THERAPIST gained patient
+     * create/edit rights — mirrors {@link #backfillPackageTemplateApprovePermission()}.
+     */
+    private void backfillTherapistPatientAccess() {
+        List<RolePermission> toAdd = new ArrayList<>();
+        for (PermissionAction action : new PermissionAction[]{CREATE, EDIT}) {
+            if (!rolePermissionRepository.existsByRoleAndModuleAndAction(THERAPIST, PATIENTS, action)) {
+                toAdd.add(RolePermission.builder().role(THERAPIST).module(PATIENTS).action(action).granted(true).build());
+            }
+        }
+        if (!toAdd.isEmpty()) {
+            rolePermissionRepository.saveAll(toAdd);
+            log.info("Backfilled {} THERAPIST/PATIENTS role-permission row(s).", toAdd.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before THERAPIST gained appointment
+     * create rights — mirrors {@link #backfillPackageTemplateApprovePermission()}.
+     */
+    private void backfillTherapistAppointmentCreate() {
+        if (!rolePermissionRepository.existsByRoleAndModuleAndAction(THERAPIST, APPOINTMENTS, CREATE)) {
+            rolePermissionRepository.save(
+                    RolePermission.builder().role(THERAPIST).module(APPOINTMENTS).action(CREATE).granted(true).build());
+            log.info("Backfilled THERAPIST/APPOINTMENTS/CREATE role-permission row.");
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before Reports access was pulled from
+     * RECEPTIONIST/THERAPIST — revokes rather than deletes, so the row (and its Access Matrix
+     * checkbox) stays available for the Owner to re-grant later if desired.
+     */
+    private void revokeReportsForNonAdminRoles() {
+        List<RolePermission> toRevoke = new ArrayList<>();
+        for (AppRole role : new AppRole[]{RECEPTIONIST, THERAPIST}) {
+            for (PermissionAction action : new PermissionAction[]{VIEW, EXPORT}) {
+                rolePermissionRepository.findByRoleAndModuleAndAction(role, REPORTS_STANDARD, action)
+                        .filter(RolePermission::isGranted)
+                        .ifPresent(toRevoke::add);
+            }
+        }
+        if (!toRevoke.isEmpty()) {
+            toRevoke.forEach(rp -> rp.setGranted(false));
+            rolePermissionRepository.saveAll(toRevoke);
+            log.info("Revoked {} REPORTS_STANDARD role-permission row(s) from RECEPTIONIST/THERAPIST.", toRevoke.size());
+        }
+    }
+
+    /**
+     * Ensures every (role, module, action) triple has a RolePermission row — the Access Matrix
+     * UI (requirements/Security_RBAC_Requirements_v1.md §8.2) only renders a checkbox for cells
+     * that already have a row, so any combination the original seed didn't anticipate was
+     * permanently stuck showing "—" with no way for the Owner to turn it on. Inserts missing
+     * cells as granted=false (a no-op until explicitly toggled); already-existing rows are left
+     * untouched. Runs last, after the role-specific backfills above, so it never races them.
+     */
+    private void backfillFullAccessMatrix() {
+        List<RolePermission> toAdd = new ArrayList<>();
+        for (AppRole role : AppRole.values()) {
+            for (Module module : Module.values()) {
+                for (PermissionAction action : PermissionAction.values()) {
+                    if (!rolePermissionRepository.existsByRoleAndModuleAndAction(role, module, action)) {
+                        toAdd.add(RolePermission.builder().role(role).module(module).action(action).granted(false).build());
+                    }
+                }
+            }
+        }
+        if (!toAdd.isEmpty()) {
+            rolePermissionRepository.saveAll(toAdd);
+            log.info("Backfilled {} missing role-permission row(s) so the Access Matrix covers every cell.", toAdd.size());
         }
     }
 

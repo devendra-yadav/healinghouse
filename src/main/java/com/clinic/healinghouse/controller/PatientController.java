@@ -25,7 +25,6 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -60,11 +59,6 @@ public class PatientController {
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
-        // THERAPIST role: no standalone Patients list — a therapist reaches a patient only via
-        // one of their own appointments (requirements/Security_RBAC_Requirements_v1.md §7).
-        if (permissionService.currentTherapistId() != null) {
-            throw new AccessDeniedException("The patients list isn't available for your role.");
-        }
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
         model.addAttribute("patients", showInactive
@@ -81,9 +75,6 @@ public class PatientController {
     @GetMapping("/search")
     @ResponseBody
     public List<PatientSuggestionDTO> search(@RequestParam(required = false) String q) {
-        if (permissionService.currentTherapistId() != null) {
-            throw new AccessDeniedException("Patient search isn't available for your role.");
-        }
         if (q == null || q.isBlank()) return List.of();
         return patientService.search(q, properties.getAutocomplete().getPatientMaxSuggestions()).stream()
                 .map(p -> new PatientSuggestionDTO(p.getId(), p.getFullName(), p.getPhone()))
@@ -107,14 +98,6 @@ public class PatientController {
                          Model model, RedirectAttributes ra) {
         try {
             Patient patient = patientService.getById(id);
-            // THERAPIST role: reachable only via a patient tied to one of the therapist's own
-            // appointments — treated as "not found" rather than a distinct denial message so a
-            // direct-URL guess at another patient's id can't be used to confirm it exists
-            // (requirements/Security_RBAC_Requirements_v1.md §7).
-            Long ownTherapistId = permissionService.currentTherapistId();
-            if (ownTherapistId != null && !appointmentService.hasAnyAppointmentForPatientAndTherapist(id, ownTherapistId)) {
-                throw new IllegalArgumentException("Patient not found");
-            }
             walletPage = paginationUtil.clampPage(walletPage);
             packagePage = paginationUtil.clampPage(packagePage);
             packageListPage = paginationUtil.clampPage(packageListPage);

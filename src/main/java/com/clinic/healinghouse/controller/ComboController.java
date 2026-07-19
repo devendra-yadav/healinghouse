@@ -66,6 +66,16 @@ public class ComboController {
         return "combos/form";
     }
 
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        Combo combo = comboService.getById(id);
+        model.addAttribute("combo", combo);
+        model.addAttribute("comboService", comboService); // for computeOriginalPrice/computeComboPrice in the template
+        model.addAttribute("pageTitle", combo.getName());
+        return "combos/detail";
+    }
+
     @RequiresPermission(module = Module.COMBOS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {

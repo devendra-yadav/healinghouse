@@ -13,8 +13,13 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <h4 class="section-header mb-0">Dashboard</h4>
         <div class="d-flex align-items-center gap-3">
-            <a href="/calendar" class="btn btn-sm btn-outline-primary">
+            <a th:if="${@perm.currentTherapistId() == null}" href="/calendar" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
+            </a>
+            <a th:if="${@perm.currentTherapistId() != null}"
+               th:href="@{/therapists/{id}/calendar(id=${@perm.currentTherapistId()})}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-calendar3 me-1"></i>My Calendar
             </a>
             <small class="text-muted" th:text="${#temporals.format(#temporals.createNow(), 'EEEE, dd MMMM yyyy')}"></small>
         </div>
@@ -79,7 +84,7 @@
             <a th:href="@{/patients/new}" class="btn btn-hh">
                 <i class="bi bi-person-plus me-1"></i>New Patient
             </a>
-            <a th:href="@{/reports}" class="btn btn-outline-success">
+            <a th:href="@{/reports}" class="btn btn-outline-success" th:if="${@perm.has('REPORTS_STANDARD','VIEW')}">
                 <i class="bi bi-bar-chart-line me-1"></i>View Reports
             </a>
         </div>
@@ -206,14 +211,19 @@
                                                                        'Therapists|/therapists|bi-person-badge',
                                                                        'Services|/services|bi-clipboard2-heart',
                                                                        'Products|/products|bi-bag-heart',
-                                                                       'Appointments|/appointments|bi-calendar2-check',
-                                                                       'Reports|/reports|bi-bar-chart-line'} }">
+                                                                       'Appointments|/appointments|bi-calendar2-check'} }">
                 <th:block th:with="parts=${#strings.arraySplit(item,'|')}">
                     <a th:href="@{${parts[1]}}" class="card card-kpi p-3 bg-white text-center text-decoration-none h-100 d-flex flex-column align-items-center justify-content-center gap-1">
                         <i th:class="'bi ' + ${parts[2]} + ' fs-3 text-success'"></i>
                         <small class="fw-semibold text-dark" th:text="${parts[0]}"></small>
                     </a>
                 </th:block>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2" th:if="${@perm.has('REPORTS_STANDARD','VIEW')}">
+                <a th:href="@{/reports}" class="card card-kpi p-3 bg-white text-center text-decoration-none h-100 d-flex flex-column align-items-center justify-content-center gap-1">
+                    <i class="bi bi-bar-chart-line fs-3 text-success"></i>
+                    <small class="fw-semibold text-dark">Reports</small>
+                </a>
             </div>
         </div>
     </div>

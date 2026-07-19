@@ -18,7 +18,7 @@
                class="btn btn-sm">
                 <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
             </a>
-            <a th:href="@{/package-templates/new}" class="btn btn-hh btn-sm">
+            <a th:if="${@perm.has('PACKAGE_TEMPLATES','CREATE')}" th:href="@{/package-templates/new}" class="btn btn-hh btn-sm">
                 <i class="bi bi-plus-lg me-1"></i>New Template
             </a>
         </div>
@@ -72,24 +72,28 @@
                                       class="text-muted">—</span>
                             </td>
                             <td class="text-center text-nowrap">
-                                <a th:href="@{/package-templates/{id}/edit(id=${t.id})}"
+                                <a th:href="@{/package-templates/{id}(id=${t.id})}"
+                                   class="btn btn-sm btn-outline-secondary me-1" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a th:if="${@perm.has('PACKAGE_TEMPLATES','EDIT')}" th:href="@{/package-templates/{id}/edit(id=${t.id})}"
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form th:if="${!t.active}" th:action="@{/package-templates/{id}/activate(id=${t.id})}"
+                                <form th:if="${!t.active and @perm.has('PACKAGE_TEMPLATES','DELETE')}" th:action="@{/package-templates/{id}/activate(id=${t.id})}"
                                       method="post" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-success">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
-                                        th:if="${!t.active}"
+                                        th:if="${!t.active and @perm.has('PACKAGE_TEMPLATES','APPROVE')}"
                                         data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
                                         th:attr="data-name=${t.name}, data-url=@{/package-templates/{id}/delete-permanent(id=${t.id})}">
                                     <i class="bi bi-trash3-fill"></i>
                                 </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger"
-                                        th:if="${t.active}"
+                                        th:if="${t.active and @perm.has('PACKAGE_TEMPLATES','DELETE')}"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${t.name}, data-url=@{/package-templates/{id}/deactivate(id=${t.id})}">
                                     <i class="bi bi-trash"></i>

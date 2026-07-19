@@ -66,6 +66,15 @@ public class ProductController {
         return "products/form";
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        Product product = productService.getById(id);
+        model.addAttribute("product", product);
+        model.addAttribute("pageTitle", product.getName());
+        return "products/detail";
+    }
+
     @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {

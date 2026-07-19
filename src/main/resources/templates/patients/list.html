@@ -19,7 +19,7 @@
                class="btn btn-sm">
                 <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
             </a>
-            <a th:href="@{/patients/new}" class="btn btn-hh btn-sm">
+            <a th:if="${@perm.has('PATIENTS','CREATE')}" th:href="@{/patients/new}" class="btn btn-hh btn-sm">
                 <i class="bi bi-person-plus me-1"></i>New Patient
             </a>
         </div>
@@ -81,17 +81,17 @@
                                    class="btn btn-sm btn-outline-secondary me-1" title="View">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <a th:href="@{/patients/{id}/edit(id=${p.id})}"
+                                <a th:if="${@perm.has('PATIENTS','EDIT')}" th:href="@{/patients/{id}/edit(id=${p.id})}"
                                    class="btn btn-sm btn-outline-primary me-1" title="Edit">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form th:if="${!p.active}" th:action="@{/patients/{id}/activate(id=${p.id})}"
+                                <form th:if="${!p.active and @perm.has('PATIENTS','DELETE')}" th:action="@{/patients/{id}/activate(id=${p.id})}"
                                       method="post" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-success">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
-                                <button th:if="${p.active}" type="button" class="btn btn-sm btn-outline-danger"
+                                <button th:if="${p.active and @perm.has('PATIENTS','DELETE')}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${p.fullName}, data-url=@{/patients/{id}/delete(id=${p.id})}">
                                     <i class="bi bi-person-dash"></i>

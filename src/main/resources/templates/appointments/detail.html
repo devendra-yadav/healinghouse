@@ -7,7 +7,8 @@
 
 <nav th:replace="~{fragments/layout :: navbar('Appointments')}"></nav>
 
-<main class="container-fluid px-4 py-4 flex-grow-1">
+<main class="container-fluid px-4 py-4 flex-grow-1"
+      th:with="canEdit=${@perm.currentTherapistId() == null or @appointmentService.involvesTherapist(appointment, @perm.currentTherapistId())}">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
     <!-- ── Per-line therapist reassignment conflict warning ─────────────────── -->
@@ -57,12 +58,12 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             <!-- Wallet quick action — not status-gated, a patient's balance can be topped up any time -->
-            <button type="button" class="btn btn-outline-success btn-sm"
+            <button th:if="${@perm.has('WALLET','CREATE')}" type="button" class="btn btn-outline-success btn-sm"
                     data-bs-toggle="modal" data-bs-target="#topUpModal">
                 <i class="bi bi-wallet2 me-1"></i>Top Up Wallet
             </button>
-            <!-- Status actions — SCHEDULED only -->
-            <span th:if="${appointment.status.name() == 'SCHEDULED'}" class="d-flex gap-2">
+            <!-- Status actions — SCHEDULED only, and (for a THERAPIST) only on appointments they're involved in -->
+            <span th:if="${appointment.status.name() == 'SCHEDULED' and canEdit}" class="d-flex gap-2">
                 <a th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"
                    class="btn btn-outline-secondary btn-sm">
                     <i class="bi bi-pencil me-1"></i>Edit
@@ -277,7 +278,7 @@
                             <tr th:each="sl : ${appointment.getServiceLinesForCombo(ac)}">
                                 <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
                                 <td>
-                                    <form method="post"
+                                    <form th:if="${canEdit}" method="post"
                                           th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
                                           class="d-flex align-items-center gap-1">
                                         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -290,6 +291,7 @@
                                             </option>
                                         </select>
                                     </form>
+                                    <span th:unless="${canEdit}" th:text="${sl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${sl.quantity}"></td>
                                 <td class="text-end pe-3 fw-semibold">
@@ -306,7 +308,7 @@
                             <tr th:each="pl : ${appointment.getProductLinesForCombo(ac)}">
                                 <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
                                 <td>
-                                    <form method="post"
+                                    <form th:if="${canEdit}" method="post"
                                           th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
                                           class="d-flex align-items-center gap-1">
                                         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -319,6 +321,7 @@
                                             </option>
                                         </select>
                                     </form>
+                                    <span th:unless="${canEdit}" th:text="${pl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${pl.quantity}"></td>
                                 <td class="text-end pe-3 fw-semibold">
@@ -372,7 +375,7 @@
                             </span>
                         </td>
                         <td>
-                            <form method="post"
+                            <form th:if="${canEdit}" method="post"
                                   th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
                                   class="d-flex align-items-center gap-1">
                                 <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -389,6 +392,7 @@
                                     <i class="bi bi-arrow-left-right"></i>
                                 </span>
                             </form>
+                            <span th:unless="${canEdit}" th:text="${sl.therapist.fullName}"></span>
                         </td>
                         <td class="text-center text-muted small"
                             th:text="${sl.service.durationMinutes != null
@@ -452,7 +456,7 @@
                             </span>
                         </td>
                         <td>
-                            <form method="post"
+                            <form th:if="${canEdit}" method="post"
                                   th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
                                   class="d-flex align-items-center gap-1">
                                 <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -469,6 +473,7 @@
                                     <i class="bi bi-arrow-left-right"></i>
                                 </span>
                             </form>
+                            <span th:unless="${canEdit}" th:text="${pl.therapist.fullName}"></span>
                         </td>
                         <td class="text-center" th:text="${pl.quantity}"></td>
                         <td class="text-end text-muted small"

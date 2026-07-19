@@ -67,14 +67,8 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
-        // A THERAPIST-role user is scoped to their own schedule regardless of what's submitted —
-        // silently overriding rather than rejecting, since it's an ordinary filter param, not a
-        // deliberate cross-therapist request (requirements/Security_RBAC_Requirements_v1.md §7).
-        Long ownTherapistId = permissionService.currentTherapistId();
-        if (ownTherapistId != null) {
-            therapistId = ownTherapistId;
-        }
-
+        // THERAPIST can browse/filter every appointment, same as any other role holding
+        // APPOINTMENTS,VIEW — only editing is scoped to "own" (see enforceOwnAppointmentForTherapist).
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
@@ -222,7 +216,8 @@ public class AppointmentController {
                          Model model, RedirectAttributes ra) {
         try {
             Appointment appt = appointmentService.getById(id);
-            enforceOwnAppointmentForTherapist(appt);
+            // THERAPIST can view any appointment's detail page (view-all) — only editing/status
+            // changes are scoped to "own" (see enforceOwnAppointmentForTherapist elsewhere).
             model.addAttribute("appointment", appt);
             model.addAttribute("therapists", therapistService.findAll());
             model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
@@ -244,7 +239,7 @@ public class AppointmentController {
     public String editForm(@PathVariable Long id,
                            @RequestParam(required = false) String returnUrl,
                            Model model, RedirectAttributes ra) {
-        denyFullEditForTherapist();
+        enforceOwnAppointmentForTherapist(id);
         returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         try {
             Appointment appt = appointmentService.getById(id);
@@ -299,7 +294,7 @@ public class AppointmentController {
                          @RequestParam(defaultValue = "false") boolean forceSave,
                          Model model,
                          RedirectAttributes ra) {
-        denyFullEditForTherapist();
+        enforceOwnAppointmentForTherapist(id);
         returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
@@ -446,27 +441,10 @@ public class AppointmentController {
 
     /** Throws if the logged-in user is a THERAPIST who isn't the main therapist or a
      *  reassigned-line therapist on this appointment (requirements/Security_RBAC_Requirements_v1.md §7). */
-    private void enforceOwnAppointmentForTherapist(Appointment appt) {
-        Long ownTherapistId = permissionService.currentTherapistId();
-        if (ownTherapistId != null && !appointmentService.involvesTherapist(appt, ownTherapistId)) {
-            throw new AccessDeniedException("You don't have access to this appointment.");
-        }
-    }
-
     private void enforceOwnAppointmentForTherapist(Long appointmentId) {
         Long ownTherapistId = permissionService.currentTherapistId();
         if (ownTherapistId != null && !appointmentService.involvesTherapist(appointmentId, ownTherapistId)) {
             throw new AccessDeniedException("You don't have access to this appointment.");
-        }
-    }
-
-    /** THERAPIST's only "edit" capability is per-line therapist reassignment (the dedicated
-     *  endpoints above) — the full edit form/save flow (services, discount, payment, etc.) is
-     *  never available to that role, regardless of the coarse APPOINTMENTS,EDIT grant those
-     *  reassignment endpoints need (requirements/Security_RBAC_Requirements_v1.md §4). */
-    private void denyFullEditForTherapist() {
-        if (permissionService.currentTherapistId() != null) {
-            throw new AccessDeniedException("Full appointment editing isn't available for your role.");
         }
     }
 

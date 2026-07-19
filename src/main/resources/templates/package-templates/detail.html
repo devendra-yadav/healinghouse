@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('PackageTemplates')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <!-- Page header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="section-header mb-0" th:text="${template.name}"></h4>
+            <span class="badge" th:classappend="${template.active} ? 'bg-success' : 'bg-secondary'"
+                  th:text="${template.active} ? 'Active' : 'Inactive'">
+            </span>
+        </div>
+        <div class="d-flex gap-2">
+            <a th:if="${@perm.has('PACKAGE_TEMPLATES','EDIT')}" th:href="@{/package-templates/{id}/edit(id=${template.id})}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Edit Template
+            </a>
+            <a th:href="@{/package-templates}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Package Templates
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-box2-heart me-1"></i>Template Details
+        </div>
+        <div class="card-body">
+            <div class="row g-3 mb-2">
+                <div class="col-md-6">
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted ps-0" style="width:160px">
+                                    <i class="bi bi-percent me-1"></i>Discount
+                                </td>
+                                <td>
+                                    <span th:if="${template.discountType == null or template.discountType.name() == 'NONE'}"
+                                          class="text-muted">No discount</span>
+                                    <span th:if="${template.discountType != null and template.discountType.name() == 'PERCENTAGE'}"
+                                          th:text="${#numbers.formatDecimal(template.discountValue, 1, 2)} + '% off'"></span>
+                                    <span th:if="${template.discountType != null and template.discountType.name() == 'FLAT'}"
+                                          th:text="'₹ ' + ${#numbers.formatDecimal(template.discountValue, 1, 2)} + ' flat off'"></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-cash-coin me-1"></i>Original Price
+                                </td>
+                                <td th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template), 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-cash-stack me-1"></i>Package Price
+                                </td>
+                                <td class="fw-semibold" th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeSuggestedPrice(template), 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-piggy-bank me-1"></i>Savings
+                                </td>
+                                <td>
+                                    <span th:if="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                          class="badge bg-success"
+                                          th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template).subtract(packageTemplateService.computeSuggestedPrice(template)), 1, 2)} off|"></span>
+                                    <span th:unless="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                          class="text-muted">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small mb-1"><i class="bi bi-card-text me-1"></i>Description</div>
+                    <p class="mb-0" th:text="${template.description ?: '—'}"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-list-check me-1"></i>Included Items
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Name</th>
+                            <th class="text-center">Sessions</th>
+                            <th class="text-end">Unit Price (₹)</th>
+                            <th class="text-end">Line Total (₹)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${template.serviceItems.empty and template.productItems.empty}">
+                            <td colspan="5" class="text-center text-muted py-3">No items in this template.</td>
+                        </tr>
+                        <tr th:each="si : ${template.serviceItems}">
+                            <td><span class="badge bg-success bg-opacity-75">Service</span></td>
+                            <td th:text="${si.service.name}"></td>
+                            <td class="text-center" th:text="${si.sessionCount}"></td>
+                            <td class="text-end" th:text="${#numbers.formatDecimal(si.service.price, 1, 2)}"></td>
+                            <td class="text-end fw-semibold"
+                                th:text="${#numbers.formatDecimal(si.service.price.multiply(new java.math.BigDecimal(si.sessionCount)), 1, 2)}"></td>
+                        </tr>
+                        <tr th:each="pi : ${template.productItems}">
+                            <td><span class="badge bg-info text-dark">Product</span></td>
+                            <td th:text="${pi.product.name}"></td>
+                            <td class="text-center" th:text="${pi.sessionCount}"></td>
+                            <td class="text-end" th:text="${#numbers.formatDecimal(pi.product.price, 1, 2)}"></td>
+                            <td class="text-end fw-semibold"
+                                th:text="${#numbers.formatDecimal(pi.product.price.multiply(new java.math.BigDecimal(pi.sessionCount)), 1, 2)}"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

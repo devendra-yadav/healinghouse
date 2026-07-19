@@ -66,8 +66,21 @@ public class PermissionService {
      *  covers more than one matrix action (e.g. a shared create/edit "save" endpoint). */
     public void require(Module module, PermissionAction action) {
         if (!has(module, action)) {
+            AppRole role = currentRole();
+            log.warn("Permission denied: user='{}' role={} module={} action={}",
+                    currentUsername(), role, module, action);
             throw new AccessDeniedException("You don't have permission to perform this action.");
         }
+    }
+
+    /** The logged-in username, or {@code "anonymous"} if unauthenticated — for log messages only;
+     *  business code should use {@link #currentUserId()} instead. */
+    public String currentUsername() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof UserPrincipal principal)) {
+            return "anonymous";
+        }
+        return principal.getUsername();
     }
 
     /** The logged-in user's role, or {@code null} if unauthenticated — public because Phase D's

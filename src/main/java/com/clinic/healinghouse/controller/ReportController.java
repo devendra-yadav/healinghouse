@@ -51,11 +51,11 @@ public class ReportController {
     private final PermissionService permissionService;
 
     /** Daily/period/comparison/patients/performance are clinic-wide aggregates — every therapist's
-     *  revenue and commission, not just the caller's own (SecuritySeeder's THERAPIST comment: "own
-     *  schedule/earnings only ... no revenue report"). A THERAPIST's own earnings are already served
-     *  by {@code GET /therapists/{id}} via CommissionCalculator; REPORTS_STANDARD stays granted to
-     *  that role only for whatever narrower use these endpoints gain in future, so the block lives
-     *  here rather than in the Access Matrix. */
+     *  revenue and commission, not just the caller's own. THERAPIST no longer holds REPORTS_STANDARD
+     *  at all (Reports is Owner/Admin/Receptionist only), so these endpoints are already unreachable
+     *  for that role via the coarse module gate — this check is defense in depth in case a future
+     *  Access Matrix edit re-grants REPORTS_STANDARD to THERAPIST without also scoping it. A
+     *  THERAPIST's own earnings are already served by {@code GET /therapists/{id}} via CommissionCalculator. */
     private void denyClinicWideReportsForTherapist() {
         if (permissionService.currentTherapistId() != null) {
             throw new AccessDeniedException("This report isn't available for your role.");

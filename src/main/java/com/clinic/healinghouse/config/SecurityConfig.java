@@ -1,12 +1,15 @@
 package com.clinic.healinghouse.config;
 
 import com.clinic.healinghouse.security.LoginRateLimitFilter;
+import com.clinic.healinghouse.security.MdcUserContextFilter;
 import com.clinic.healinghouse.security.MustChangePasswordFilter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -25,6 +28,7 @@ import org.springframework.security.web.session.HttpSessionEventPublisher;
 @Configuration
 @EnableWebSecurity
 @EnableAspectJAutoProxy
+@Slf4j
 public class SecurityConfig {
 
     @Bean
@@ -73,6 +77,7 @@ public class SecurityConfig {
             .logout(logout -> logout
                 .logoutUrl("/logout")
                 .logoutSuccessUrl("/login?logout")
+                .addLogoutHandler((request, response, authentication) -> logLogout(authentication))
                 .permitAll()
             )
             // maximumSessions(-1): no cap on concurrent sessions per user — this is only here to
@@ -86,10 +91,18 @@ public class SecurityConfig {
             // Runs once a request is authenticated — redirects to /account/change-password while
             // User.mustChangePassword is still true (see MustChangePasswordFilter's javadoc).
             .addFilterAfter(new MustChangePasswordFilter(), UsernamePasswordAuthenticationFilter.class)
+            // Populates MDC with the current user/role so every log line for this request shows
+            // "who" — see MdcUserContextFilter's javadoc.
+            .addFilterAfter(new MdcUserContextFilter(), UsernamePasswordAuthenticationFilter.class)
             // Per-IP throttle ahead of the actual authentication attempt — see LoginRateLimitFilter's
             // javadoc for why this is needed alongside (not instead of) the account-level lockout.
             .addFilterBefore(loginRateLimitFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    private static void logLogout(Authentication authentication) {
+        String username = authentication != null ? authentication.getName() : "unknown";
+        log.info("User '{}' logged out", username);
     }
 }

@@ -57,6 +57,16 @@ public class PackageTemplateController {
         return "package-templates/form";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        PackageTemplate template = packageTemplateService.getById(id);
+        model.addAttribute("template", template);
+        model.addAttribute("packageTemplateService", packageTemplateService); // for computeOriginalPrice/computeSuggestedPrice in the template
+        model.addAttribute("pageTitle", template.getName());
+        return "package-templates/detail";
+    }
+
     @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {

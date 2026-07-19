@@ -31,7 +31,7 @@ public class LoginAttemptListener {
     @Transactional
     public void onFailure(AbstractAuthenticationFailureEvent event) {
         String username = event.getAuthentication().getName();
-        userRepository.findByUsernameIgnoreCase(username).ifPresent(user -> {
+        userRepository.findByUsernameIgnoreCase(username).ifPresentOrElse(user -> {
             // An already-locked account rejects with LockedException before the password is even
             // checked, which is itself an authentication-failure event — without this guard, an
             // unauthenticated attacker who only knows the username (e.g. the default "owner") could
@@ -47,9 +47,12 @@ public class LoginAttemptListener {
                 user.setLockedUntil(LocalDateTime.now().plusMinutes(properties.getSecurity().getLockoutMinutes()));
                 log.warn("User '{}' locked out for {} minutes after {} failed login attempts",
                         username, properties.getSecurity().getLockoutMinutes(), attempts);
+            } else {
+                log.warn("Failed login attempt {} of {} for user '{}'",
+                        attempts, properties.getSecurity().getMaxFailedLoginAttempts(), username);
             }
             userRepository.save(user);
-        });
+        }, () -> log.warn("Failed login attempt for unknown username '{}'", username));
     }
 
     @EventListener
@@ -61,6 +64,7 @@ public class LoginAttemptListener {
             user.setLockedUntil(null);
             user.setLastLoginAt(LocalDateTime.now());
             userRepository.save(user);
+            log.info("User '{}' (role={}) logged in successfully", username, user.getRole());
         });
     }
 }

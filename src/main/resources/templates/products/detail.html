@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Products')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <!-- Page header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="section-header mb-0" th:text="${product.name}"></h4>
+            <span class="badge" th:classappend="${product.active} ? 'bg-success' : 'bg-secondary'"
+                  th:text="${product.active} ? 'Active' : 'Inactive'">
+            </span>
+            <span th:if="${product.lowStock}" class="badge bg-danger">Low Stock</span>
+        </div>
+        <div class="d-flex gap-2">
+            <a th:if="${@perm.has('PRODUCTS','EDIT')}" th:href="@{/products/{id}/edit(id=${product.id})}"
+               class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-pencil me-1"></i>Edit Product
+            </a>
+            <a th:href="@{/products}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Back to Products
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-box-seam me-1"></i>Product Details
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tbody>
+                            <tr>
+                                <td class="text-muted ps-0" style="width:160px">
+                                    <i class="bi bi-cash-coin me-1"></i>Price
+                                </td>
+                                <td class="fw-semibold"
+                                    th:text="${product.price != null} ? |₹ ${#numbers.formatDecimal(product.price, 1, 2)}| : '—'"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-boxes me-1"></i>Stock Quantity
+                                </td>
+                                <td>
+                                    <span th:text="${product.stockQuantity}"
+                                          th:classappend="${product.lowStock} ? 'text-danger fw-bold' : 'text-success fw-semibold'">
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-arrow-repeat me-1"></i>Reorder At
+                                </td>
+                                <td th:text="${product.reorderLevel}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0 align-top">
+                                    <i class="bi bi-tags me-1"></i>Tags
+                                </td>
+                                <td>
+                                    <span th:each="t : ${product.sortedTags}"
+                                          class="badge rounded-pill bg-info text-dark me-1"
+                                          th:text="${t.name}"></span>
+                                    <span th:if="${product.sortedTags.empty}" class="text-muted">—</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <div class="text-muted small mb-1"><i class="bi bi-card-text me-1"></i>Description</div>
+                    <p class="mb-0" th:text="${product.description ?: '—'}"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>
