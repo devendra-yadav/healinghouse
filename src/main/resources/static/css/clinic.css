@@ -145,6 +145,16 @@ a:hover { color: var(--hh-blush); }
     color: var(--hh-blush-deep);
 }
 
+.navbar-brand-logo {
+    height: 34px;
+    width: 34px;
+    object-fit: contain;
+    border-radius: 50%;
+    background: var(--hh-white);
+    padding: 2px;
+    margin-right: .5rem;
+}
+
 .navbar-hh .nav-link {
     color: #c7d8cd !important;
     font-size: 0.93rem;

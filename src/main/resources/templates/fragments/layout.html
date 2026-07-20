@@ -23,6 +23,8 @@
           href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"/>
     <!-- Clinic theme -->
     <link rel="stylesheet" th:href="@{/css/clinic.css}"/>
+    <!-- Favicon -->
+    <link rel="icon" type="image/jpeg" th:href="@{/images/clinic_logo.jpeg}"/>
 </head>
 
 <!-- ═══════════════════════════════════════════
@@ -33,8 +35,8 @@
     <div class="container-fluid px-4">
 
         <!-- Brand -->
-        <a class="navbar-brand" th:href="@{/}">
-            <i class="bi bi-flower3 me-2"></i>Healing House Clinic
+        <a class="navbar-brand d-flex align-items-center" th:href="@{/}">
+            <img th:src="@{/images/clinic_logo.jpeg}" alt="Healing House Clinic" class="navbar-brand-logo"/>Healing House Clinic
         </a>
 
         <button class="navbar-toggler" type="button"
