@@ -201,9 +201,11 @@
                     <div class="fs-5 fw-bold" th:text="|₹ ${#numbers.formatDecimal(earnings.totalCommission, 1, 2)}|"></div>
                     <div class="small text-muted">
                         Bonus:
+                        <span th:if="${therapist.performanceBonusThreshold != null}"
+                              th:text="${earnings.servicesCount} + '/' + ${therapist.performanceBonusThreshold} + ' completed'"></span>
                         <span th:if="${earnings.bonusEarned}" class="text-success fw-semibold"
-                              th:text="|₹ ${#numbers.formatDecimal(earnings.bonusAmount, 1, 2)}|"></span>
-                        <span th:unless="${earnings.bonusEarned}">—</span>
+                              th:text="'— ₹' + ${#numbers.formatDecimal(earnings.bonusAmount, 1, 2)}"></span>
+                        <span th:if="${therapist.performanceBonusThreshold == null}">—</span>
                     </div>
                 </div>
             </div>
