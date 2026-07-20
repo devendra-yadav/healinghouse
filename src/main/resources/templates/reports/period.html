@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -205,6 +205,10 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.color = '#ad9fa4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+</script>
 <script th:inline="javascript">
     /*[# th:if="${not report.tagRevenue.empty}"]*/
     const tagLabels = /*[[${report.tagRevenue.![tagName]}]]*/ [];
@@ -216,7 +220,7 @@
             labels: tagLabels,
             datasets: [{
                 data: tagValues,
-                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+                backgroundColor: ['#4fae82', '#e3a0b5', '#c9a15c', '#8fd6b3', '#c97b95', '#e6c78a', '#2f6e50', '#a5677d']
             }]
         },
         options: {

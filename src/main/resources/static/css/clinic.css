@@ -1,34 +1,152 @@
-/* Healing House Clinic — Calming Green Theme */
+/* Healing House Clinic — TCM-Inspired Feminine Dark Theme (Jade / Blush / Gold / Ink) */
 
-:root {
-    --hh-green-dark:  #2d6a4f;
-    --hh-green-mid:   #40916c;
-    --hh-green-light: #74c69d;
-    --hh-green-pale:  #d8f3dc;
-    --hh-accent:      #1b4332;
-    --hh-text-light:  #f8fffe;
+:root,
+[data-bs-theme="dark"] {
+    /* ── Core palette — lacquerware ink background ── */
+    --hh-bg:            #110f10;   /* page background — warm near-black lacquer */
+    --hh-surface:       #1b171a;   /* cards, panels */
+    --hh-surface-alt:   #221c1f;   /* headers, table stripes, hover */
+    --hh-surface-raised:#2a2226;   /* dropdowns, modals, popovers */
+    --hh-border:        #3a2f34;   /* borders / dividers */
+    --hh-border-soft:   rgba(255,255,255,.07);
+
+    /* ── Jade green — primary accent (traditional TCM jade) ── */
+    --hh-jade:          #4fae82;
+    --hh-jade-dark:      #1f4d38;   /* deep jade (navbar, footer) */
+    --hh-jade-mid:       #3f9c72;   /* buttons, links, hover fills */
+    --hh-jade-light:     #8fd6b3;   /* lighter jade accents */
+    --hh-jade-pale:      #c3ecd8;   /* pale jade text-on-dark accents */
+
+    /* ── Blush pink — feminine accent ── */
+    --hh-blush:          #e3a0b5;
+    --hh-blush-deep:     #c97b95;
+    --hh-blush-pale:     #f6d9e2;
+
+    /* ── Antique gold — TCM ornament, replaces harsh yellow ── */
+    --hh-gold:           #c9a15c;
+    --hh-gold-dark:      #8a6a34;
+    --hh-gold-light:     #e6c78a;
+
+    --hh-text:          #f1ece7;   /* primary text — warm ivory */
+    --hh-text-muted:    #ad9fa4;   /* secondary/muted text — soft rose-grey */
+    --hh-white:         #ffffff;
+
+    /* ── Legacy variable names kept so existing page-level <style> blocks
+         (calendar "today" cell, help page TOC/step circles) repaint on-theme
+         without needing per-template edits — these now alias to genuine
+         jade tones, a natural fit since jade IS green ── */
+    --hh-green-dark:  var(--hh-jade-dark);
+    --hh-green-mid:   var(--hh-jade-mid);
+    --hh-green-light: var(--hh-jade-light);
+    --hh-green-pale:  #1e3a2c;
+    --hh-accent:      var(--hh-blush);
+    --hh-text-light:  var(--hh-white);
+
+    /* ── Bootstrap 5.3 theme variables — recolors every component that
+         already consumes these (cards, tables, forms, modals, dropdowns,
+         alerts, badges, links) without touching individual templates ── */
+    --bs-body-bg: var(--hh-bg);
+    --bs-body-bg-rgb: 17,15,16;
+    --bs-body-color: var(--hh-text);
+    --bs-body-color-rgb: 241,236,231;
+    --bs-emphasis-color: var(--hh-white);
+    --bs-secondary-color: var(--hh-text-muted);
+    --bs-secondary-bg: var(--hh-surface-alt);
+    --bs-tertiary-bg: var(--hh-surface-alt);
+    --bs-border-color: var(--hh-border);
+    --bs-border-color-translucent: var(--hh-border-soft);
+    --bs-heading-color: var(--hh-white);
+
+    --bs-primary: var(--hh-jade-mid);
+    --bs-primary-rgb: 63,156,114;
+    --bs-primary-text-emphasis: var(--hh-jade-pale);
+    --bs-primary-bg-subtle: #163024;
+    --bs-primary-border-subtle: #24503b;
+
+    --bs-secondary: #8a7b80;
+    --bs-secondary-rgb: 138,123,128;
+
+    --bs-info: #6fbfa0;
+    --bs-info-rgb: 111,191,160;
+    --bs-info-text-emphasis: #a8ddc4;
+    --bs-info-bg-subtle: #17332a;
+    --bs-info-border-subtle: #234a3c;
+
+    --bs-success-bg-subtle: #17301f;
+    --bs-success-border-subtle: #234a2f;
+    --bs-danger-bg-subtle: #3a1420;
+    --bs-danger-border-subtle: #551d2c;
+
+    /* Warning was left on Bootstrap's stock bright-yellow (#ffc107) before —
+       that's what made badges/alerts hard to read. Repointed to a soft
+       antique gold, with an explicit text-emphasis so alert-warning text
+       is legible instead of falling back to Bootstrap's default. */
+    --bs-warning: var(--hh-gold);
+    --bs-warning-rgb: 201,161,92;
+    --bs-warning-text-emphasis: var(--hh-gold-light);
+    --bs-warning-bg-subtle: #2e2410;
+    --bs-warning-border-subtle: #4a3a18;
+
+    --bs-link-color: var(--hh-jade-light);
+    --bs-link-color-rgb: 143,214,179;
+    --bs-link-hover-color: var(--hh-blush);
+    --bs-link-hover-color-rgb: 227,160,181;
+
+    --bs-card-bg: var(--hh-surface);
+    --bs-card-cap-bg: var(--hh-surface-alt);
+    --bs-card-border-color: var(--hh-border);
+
+    --bs-table-color: var(--hh-text);
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--hh-border);
+    --bs-table-striped-bg: rgba(255,255,255,.025);
+    --bs-table-hover-color: var(--hh-text);
+    --bs-table-hover-bg: rgba(79,174,130,.10);
+
+    --bs-modal-bg: var(--hh-surface-raised);
+    --bs-modal-color: var(--hh-text);
+    --bs-modal-header-border-color: var(--hh-border);
+    --bs-modal-footer-border-color: var(--hh-border);
+
+    --bs-dropdown-bg: var(--hh-surface-raised);
+    --bs-dropdown-color: var(--hh-text);
+    --bs-dropdown-link-color: var(--hh-text);
+    --bs-dropdown-link-hover-color: var(--hh-white);
+    --bs-dropdown-link-hover-bg: rgba(79,174,130,.20);
+    --bs-dropdown-border-color: var(--hh-border);
+
+    --bs-form-select-bg: var(--hh-surface);
+    --bs-form-invalid-color: #e8798f;
 }
 
 body {
-    background-color: #f4faf6;
+    background-color: var(--hh-bg);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #2c3e50;
+    color: var(--hh-text);
 }
+
+a { color: var(--hh-jade-light); }
+a:hover { color: var(--hh-blush); }
 
 /* ── Navbar ── */
 .navbar-hh {
-    background-color: var(--hh-green-dark);
+    background: linear-gradient(180deg, var(--hh-jade-dark) 0%, #14251d 100%);
+    border-bottom: 1px solid var(--hh-border);
 }
 
 .navbar-hh .navbar-brand {
-    color: var(--hh-text-light) !important;
+    color: var(--hh-white) !important;
     font-weight: 700;
     font-size: 1.3rem;
     letter-spacing: 0.5px;
 }
 
+.navbar-hh .navbar-brand i {
+    color: var(--hh-blush-deep);
+}
+
 .navbar-hh .nav-link {
-    color: #cdefd8 !important;
+    color: #c7d8cd !important;
     font-size: 0.93rem;
     padding: 0.5rem 0.85rem;
     border-radius: 4px;
@@ -37,71 +155,243 @@ body {
 
 .navbar-hh .nav-link:hover,
 .navbar-hh .nav-link.active {
-    background-color: var(--hh-green-mid);
-    color: #fff !important;
+    background-color: var(--hh-jade-mid);
+    color: var(--hh-white) !important;
+}
+
+.navbar-hh .dropdown-menu {
+    background-color: var(--hh-surface-raised);
+    border-color: var(--hh-border);
+}
+
+.navbar-hh .dropdown-item {
+    color: var(--hh-text);
+}
+
+.navbar-hh .dropdown-item:hover,
+.navbar-hh .dropdown-item:focus {
+    background-color: rgba(79,174,130,.20);
+    color: var(--hh-white);
 }
 
 .navbar-hh .navbar-toggler {
-    border-color: var(--hh-green-light);
+    border-color: var(--hh-jade-light);
 }
 
-/* ── KPI Cards ── */
+/* ── Cards ── */
+.card {
+    background-color: var(--hh-surface);
+    border: 1px solid var(--hh-border);
+    color: var(--hh-text);
+}
+
+.card-header, .card-footer {
+    background-color: var(--hh-surface-alt);
+    border-color: var(--hh-border);
+}
+
 .card-kpi {
-    border: none;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--hh-border);
+    border-radius: 14px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.35);
     transition: transform 0.15s;
 }
 
 .card-kpi:hover {
     transform: translateY(-3px);
+    border-color: var(--hh-jade-mid);
 }
 
 .card-kpi .card-icon {
     font-size: 2.2rem;
-    opacity: 0.85;
+    opacity: 0.9;
+}
+
+/* Cute decorative blossom watermark on every KPI card, a small TCM/feminine
+   flourish that costs no template edits. */
+.card-kpi::after {
+    content: "\f5c8"; /* bootstrap-icons "flower3" glyph */
+    font-family: "bootstrap-icons", sans-serif;
+    position: absolute;
+    right: -10px;
+    bottom: -18px;
+    font-size: 4rem;
+    color: var(--hh-blush);
+    opacity: .07;
+    pointer-events: none;
 }
 
 /* ── Section headings ── */
 .section-header {
-    border-left: 4px solid var(--hh-green-mid);
+    border-left: 4px solid var(--hh-jade-mid);
     padding-left: 0.6rem;
-    color: var(--hh-green-dark);
+    color: var(--hh-jade-pale);
     font-weight: 600;
+}
+
+.section-header::before {
+    content: "\2740";
+    margin-right: .35rem;
+    color: var(--hh-blush);
+    font-size: .85em;
 }
 
 /* ── Footer ── */
 footer {
-    background-color: var(--hh-green-dark);
-    color: #cdefd8;
+    background: var(--hh-jade-dark);
+    color: #c7d8cd;
     font-size: 0.82rem;
+    border-top: 1px solid var(--hh-border);
 }
 
 /* ── Quick action buttons ── */
 .btn-hh {
-    background-color: var(--hh-green-mid);
-    border-color: var(--hh-green-mid);
+    background-color: var(--hh-jade-mid);
+    border-color: var(--hh-jade-mid);
     color: #fff;
-    border-radius: 8px;
+    border-radius: 10px;
     padding: 0.6rem 1.2rem;
     font-weight: 500;
     transition: background 0.2s;
 }
 
 .btn-hh:hover {
-    background-color: var(--hh-green-dark);
-    border-color: var(--hh-green-dark);
+    background-color: var(--hh-jade-dark);
+    border-color: var(--hh-jade-dark);
     color: #fff;
 }
 
+/* ── Bootstrap button repaint — Bootstrap's compiled .btn-* component
+     variables use fixed hex literals per variant (not derived from the
+     root --bs-warning/--bs-primary custom properties), so recoloring the
+     theme requires overriding these directly too. This is also the real
+     fix for "yellow too strong": .btn-warning was still stock #ffc107
+     with black text baked in — now a soft antique gold. ── */
+.btn, .btn-hh {
+    border-radius: .55rem;
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--hh-jade-mid);
+    --bs-btn-border-color: var(--hh-jade-mid);
+    --bs-btn-hover-bg: var(--hh-jade-dark);
+    --bs-btn-hover-border-color: var(--hh-jade-dark);
+    --bs-btn-active-bg: var(--hh-jade-dark);
+    --bs-btn-active-border-color: var(--hh-jade-dark);
+    --bs-btn-disabled-bg: var(--hh-jade-mid);
+    --bs-btn-disabled-border-color: var(--hh-jade-mid);
+}
+
+.btn-outline-primary {
+    --bs-btn-color: var(--hh-jade-light);
+    --bs-btn-border-color: var(--hh-jade-mid);
+    --bs-btn-hover-bg: var(--hh-jade-mid);
+    --bs-btn-hover-border-color: var(--hh-jade-mid);
+    --bs-btn-active-bg: var(--hh-jade-mid);
+    --bs-btn-active-border-color: var(--hh-jade-mid);
+}
+
+.btn-secondary {
+    --bs-btn-bg: #6b5b60;
+    --bs-btn-border-color: #6b5b60;
+    --bs-btn-hover-bg: #584a4e;
+    --bs-btn-hover-border-color: #584a4e;
+    --bs-btn-active-bg: #584a4e;
+    --bs-btn-active-border-color: #584a4e;
+}
+
+.btn-outline-secondary {
+    --bs-btn-color: var(--hh-text-muted);
+    --bs-btn-border-color: var(--hh-border);
+    --bs-btn-hover-bg: var(--hh-surface-alt);
+    --bs-btn-hover-color: var(--hh-text);
+    --bs-btn-hover-border-color: var(--hh-border);
+}
+
+.btn-info {
+    --bs-btn-color: #0e2119;
+    --bs-btn-bg: var(--bs-info);
+    --bs-btn-border-color: var(--bs-info);
+    --bs-btn-hover-color: #0e2119;
+    --bs-btn-hover-bg: #85cdb0;
+    --bs-btn-hover-border-color: #85cdb0;
+}
+
+.btn-warning {
+    --bs-btn-color: #2a1d0c;
+    --bs-btn-bg: var(--hh-gold);
+    --bs-btn-border-color: var(--hh-gold);
+    --bs-btn-hover-color: #2a1d0c;
+    --bs-btn-hover-bg: var(--hh-gold-light);
+    --bs-btn-hover-border-color: var(--hh-gold-light);
+    --bs-btn-active-color: #2a1d0c;
+    --bs-btn-active-bg: var(--hh-gold-light);
+    --bs-btn-active-border-color: var(--hh-gold-light);
+}
+
+.btn-outline-warning {
+    --bs-btn-color: var(--hh-gold-light);
+    --bs-btn-border-color: var(--hh-gold);
+    --bs-btn-hover-color: #2a1d0c;
+    --bs-btn-hover-bg: var(--hh-gold);
+    --bs-btn-hover-border-color: var(--hh-gold);
+    --bs-btn-active-color: #2a1d0c;
+    --bs-btn-active-bg: var(--hh-gold);
+    --bs-btn-active-border-color: var(--hh-gold);
+}
+
+/* Badges/table rows painted with the bright (non-subtle) warning gold need
+   guaranteed dark ink text — templates hardcode "bg-warning text-dark" and
+   our own .text-dark utility override below would otherwise turn that text
+   near-white, which is exactly what made these unreadable. Two classes
+   beats one on specificity so this wins regardless of source order. */
+.badge.bg-warning {
+    color: #2a1d0c !important;
+}
+
+/* ── Utility-class overrides (bg-white / bg-light / text-dark are used
+     throughout templates as "neutral surface" classes from the old light
+     theme — repoint them so we don't have to touch every page) ── */
+.bg-white {
+    background-color: var(--hh-surface) !important;
+    color: var(--hh-text) !important;
+}
+
+.bg-light {
+    background-color: var(--hh-surface-alt) !important;
+    color: var(--hh-text) !important;
+}
+
+.text-dark,
+.text-dark-emphasis {
+    color: var(--hh-text) !important;
+}
+
+.text-muted,
+.text-secondary,
+.text-body-secondary {
+    color: var(--hh-text-muted) !important;
+}
+
+.text-black { color: var(--hh-text) !important; }
+
+.text-warning { color: var(--hh-gold-light) !important; }
+
+.border-light { border-color: var(--hh-border) !important; }
+
+.shadow-sm { box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important; }
+
 /* ── Tables ── */
 .table thead {
-    background-color: var(--hh-green-pale);
-    color: var(--hh-accent);
+    background-color: var(--hh-surface-alt);
+    color: var(--hh-jade-pale);
 }
 
 .table thead th {
     vertical-align: middle;
+    border-color: var(--hh-border);
 }
 
 .table-earnings thead th {
@@ -109,12 +399,180 @@ footer {
     line-height: 1.3;
 }
 
+/* ── Form controls ── */
+.form-control, .form-select {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+    color: var(--hh-text);
+}
+
+.form-control:focus, .form-select:focus {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-jade-mid);
+    color: var(--hh-text);
+    box-shadow: 0 0 0 .25rem rgba(79,174,130,.25);
+}
+
+.form-control::placeholder { color: var(--hh-text-muted); }
+.form-control:disabled, .form-select:disabled { background-color: var(--hh-surface-alt); }
+
+.input-group-text {
+    background-color: var(--hh-surface-alt);
+    border-color: var(--hh-border);
+    color: var(--hh-text-muted);
+}
+
+.form-check-input {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+}
+
+.form-check-input:checked {
+    background-color: var(--hh-jade-mid);
+    border-color: var(--hh-jade-mid);
+}
+
+/* ── List groups / accordions ── */
+.list-group-item {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+    color: var(--hh-text);
+}
+
+.accordion-item {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+}
+
+.accordion-button {
+    background-color: var(--hh-surface-alt);
+    color: var(--hh-text);
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: rgba(79,174,130,.15);
+    color: var(--hh-jade-pale);
+    box-shadow: inset 0 -1px 0 var(--hh-border);
+}
+
+/* ── Pagination / breadcrumb ── */
+.page-link {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+    color: var(--hh-jade-light);
+}
+
+.page-link:hover {
+    background-color: var(--hh-surface-alt);
+    color: var(--hh-blush);
+}
+
+.page-item.active .page-link {
+    background-color: var(--hh-jade-mid);
+    border-color: var(--hh-jade-mid);
+}
+
+.page-item.disabled .page-link {
+    background-color: var(--hh-surface-alt);
+    color: var(--hh-text-muted);
+}
+
+.breadcrumb-item + .breadcrumb-item::before { color: var(--hh-text-muted); }
+
+/* ── Badges — soft rounded-pill for a cuter look ── */
+.badge {
+    border-radius: 999px;
+    font-weight: 600;
+    letter-spacing: .2px;
+}
+
 /* ── Placeholder coming-soon boxes ── */
 .coming-soon-card {
-    border: 2px dashed var(--hh-green-light);
+    border: 2px dashed var(--hh-jade-light);
     border-radius: 12px;
-    background: #f0faf4;
-    color: #555;
+    background: var(--hh-surface);
+    color: var(--hh-text-muted);
     text-align: center;
     padding: 3rem 1rem;
+}
+
+/* ── FullCalendar dark theming (calendar / therapist calendar pages) ── */
+.fc {
+    --fc-border-color: var(--hh-border);
+    --fc-page-bg-color: var(--hh-surface);
+    --fc-neutral-bg-color: var(--hh-surface-alt);
+    --fc-neutral-text-color: var(--hh-text-muted);
+    --fc-list-event-hover-bg-color: var(--hh-surface-alt);
+    --fc-today-bg-color: rgba(227,160,181,.12);
+    --fc-now-indicator-color: #e8798f;
+    --fc-event-border-color: transparent;
+    color: var(--hh-text);
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-daygrid-day-number,
+.fc .fc-timegrid-slot-label-cushion,
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text,
+.fc .fc-toolbar-title {
+    color: var(--hh-text);
+}
+
+.fc .fc-button-primary {
+    background-color: var(--hh-jade-mid);
+    border-color: var(--hh-jade-mid);
+}
+
+.fc .fc-button-primary:hover {
+    background-color: var(--hh-jade-dark);
+    border-color: var(--hh-jade-dark);
+}
+
+.fc .fc-button-primary:disabled {
+    background-color: var(--hh-surface-alt);
+    border-color: var(--hh-border);
+    color: var(--hh-text-muted);
+}
+
+.fc-list, .fc-scrollgrid, .fc-theme-standard td, .fc-theme-standard th {
+    border-color: var(--hh-border);
+}
+
+.fc-list-event:hover td { background-color: var(--hh-surface-alt) !important; }
+
+/* ── Choices.js dark theming (appointment form patient/therapist pickers) ── */
+.choices__inner {
+    background-color: var(--hh-surface);
+    border-color: var(--hh-border);
+    color: var(--hh-text);
+}
+
+.choices__list--dropdown, .choices__list[aria-expanded] {
+    background-color: var(--hh-surface-raised);
+    border-color: var(--hh-border);
+    color: var(--hh-text);
+}
+
+.choices__list--dropdown .choices__item--selectable.is-highlighted,
+.choices__list[aria-expanded] .choices__item--selectable.is-highlighted {
+    background-color: var(--hh-jade-mid);
+    color: var(--hh-white);
+}
+
+.choices__input {
+    background-color: transparent;
+    color: var(--hh-text);
+}
+
+.choices__list--single .choices__item {
+    color: var(--hh-text);
+}
+
+.choices__placeholder { color: var(--hh-text-muted); opacity: 1; }
+
+.choices[data-type*='select-one'] .choices__inner { padding-bottom: 7.5px; }
+
+.choices__list--dropdown .choices__item--selectable:not(.is-highlighted) {
+    color: var(--hh-text);
 }

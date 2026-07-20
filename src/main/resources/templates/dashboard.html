@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -234,6 +234,10 @@
 
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
+    Chart.defaults.color = '#ad9fa4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+</script>
 <script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" th:inline="javascript">
     const trendLabels = /*[[${revenueTrend.labels}]]*/ [];
     const trendValues = /*[[${revenueTrend.values}]]*/ [];
@@ -245,8 +249,8 @@
             datasets: [{
                 label: 'Revenue (₹)',
                 data: trendValues,
-                borderColor: '#40916c',
-                backgroundColor: 'rgba(64, 145, 108, 0.15)',
+                borderColor: '#4fae82',
+                backgroundColor: 'rgba(79, 174, 130, 0.15)',
                 tension: 0.3,
                 fill: true,
                 pointRadius: 3
@@ -270,7 +274,7 @@
             labels: tagLabels,
             datasets: [{
                 data: tagValues,
-                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+                backgroundColor: ['#4fae82', '#e3a0b5', '#c9a15c', '#8fd6b3', '#c97b95', '#e6c78a', '#2f6e50', '#a5677d']
             }]
         },
         options: {
