@@ -128,10 +128,8 @@ public class AppointmentController {
     public List<CalendarEventDTO> calendarFeedMulti(@RequestParam List<Long> therapistIds,
                                                     @RequestParam String start,
                                                     @RequestParam String end) {
-        Long ownTherapistId = permissionService.currentTherapistId();
-        List<Long> effectiveIds = ownTherapistId != null ? List.of(ownTherapistId) : therapistIds;
         return appointmentService.findCalendarEventsForTherapists(
-                effectiveIds, parseCalendarBound(start), parseCalendarBound(end));
+                therapistIds, parseCalendarBound(start), parseCalendarBound(end));
     }
 
     /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date. */

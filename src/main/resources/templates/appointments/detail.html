@@ -74,12 +74,10 @@
                         data-bs-toggle="modal" data-bs-target="#completeModal">
                     <i class="bi bi-check-circle me-1"></i>Complete
                 </button>
-                <form th:action="@{/appointments/{id}/no-show(id=${appointment.id})}" method="post">
-                    <button type="submit" class="btn btn-warning btn-sm"
-                            onclick="return confirm('Mark this patient as no-show?')">
-                        <i class="bi bi-person-x me-1"></i>No-Show
-                    </button>
-                </form>
+                <button type="button" class="btn btn-warning btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#noShowModal">
+                    <i class="bi bi-person-x me-1"></i>No-Show
+                </button>
                 <button type="button" class="btn btn-danger btn-sm"
                         data-bs-toggle="modal" data-bs-target="#cancelModal">
                     <i class="bi bi-x-circle me-1"></i>Cancel
@@ -665,6 +663,42 @@
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-success">
                         <i class="bi bi-check-circle me-1"></i>Confirm Complete
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ── No-Show Modal ─────────────────────────────────────────────────────── -->
+<div class="modal fade" id="noShowModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-semibold">
+                    <i class="bi bi-person-x-fill text-warning me-2"></i>Mark as No-Show
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form th:action="@{/appointments/{id}/no-show(id=${appointment.id})}" method="post">
+                <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
+                <div class="modal-body pt-2">
+                    <div class="d-flex align-items-center gap-3 p-3 rounded-3 bg-warning bg-opacity-10 mb-3">
+                        <i class="bi bi-person-x text-warning fs-2"></i>
+                        <div>
+                            <div class="fw-semibold" th:text="${appointment.patient.fullName}"></div>
+                            <div class="text-muted small"
+                                 th:text="${#temporals.format(appointment.appointmentDateTime, 'dd MMM yyyy, HH:mm')}"></div>
+                        </div>
+                    </div>
+                    <p class="text-muted small mb-0">
+                        Mark this patient as a no-show for this appointment.
+                    </p>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-person-x me-1"></i>Confirm No-Show
                     </button>
                 </div>
             </form>

@@ -29,6 +29,16 @@
             .fc .fc-daygrid-day-number { font-size: .78rem; }
         }
 
+        /* Month view renders timed events as a dot + plain title (.fc-daygrid-dot-event), not a
+           filled block — text sits on the dark page background, not on the event's own status
+           color, so the JS-computed contrast text color (picked against the *fill*) can land as
+           dark-on-dark and disappear for light status colors (e.g. NO_SHOW gold). Force the normal
+           theme text color for dot-style events specifically. */
+        .fc-daygrid-dot-event .fc-event-title,
+        .fc-daygrid-dot-event .fc-event-time {
+            color: var(--hh-text) !important;
+        }
+
         .fc-event-delete-btn {
             position: absolute; top: 1px; right: 2px; z-index: 5;
             width: 15px; height: 15px; line-height: 15px; text-align: center;
@@ -154,6 +164,29 @@ function fmt(n) {
     return '₹' + Number(n).toLocaleString('en-IN', {
         minimumFractionDigits: 2, maximumFractionDigits: 2
     });
+}
+
+// Per-event text color, chosen for contrast rather than assumed white — the NO_SHOW status
+// color (gold) is too light for white event text to stay readable against it. Picks whichever
+// of white / dark ink actually contrasts better against the event's own background, per the
+// WCAG relative-luminance formula, so any current or future status color stays legible without
+// hand-tuning a per-color exception.
+const DARK_INK = '#1a1a1a';
+function relativeLuminance(hex) {
+    const n = hex.replace('#', '');
+    const r = parseInt(n.substring(0, 2), 16) / 255;
+    const g = parseInt(n.substring(2, 4), 16) / 255;
+    const b = parseInt(n.substring(4, 6), 16) / 255;
+    const lin = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+const DARK_INK_LUMINANCE = relativeLuminance(DARK_INK);
+function eventTextColor(bgHex) {
+    if (!bgHex) return '#ffffff';
+    const bgL = relativeLuminance(bgHex);
+    const contrastWhite = 1.05 / (bgL + 0.05);
+    const contrastDark = (bgL + 0.05) / (DARK_INK_LUMINANCE + 0.05);
+    return contrastDark > contrastWhite ? DARK_INK : '#ffffff';
 }
 
 function hideCalendarAlert() {
@@ -306,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            extendedProps: { status: ev.status, amountPaid: ev.amountPaid }
+                            extendedProps: { status: ev.status, amountPaid: ev.amountPaid, bgColor: ev.color }
                         };
                     }));
                 })
@@ -322,6 +355,8 @@ document.addEventListener('DOMContentLoaded', function () {
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
         eventDidMount: function (info) {
+            info.el.style.setProperty('--fc-event-text-color', eventTextColor(info.event.extendedProps.bgColor));
+
             const isScheduled = info.event.extendedProps.status === 'SCHEDULED';
             const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
             if (amountPaid > 0) {

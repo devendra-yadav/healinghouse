@@ -25,6 +25,19 @@
             font-weight: 600;
         }
 
+        /* Month view renders events as a dot + plain title (.fc-daygrid-dot-event), not a filled
+           block — text sits directly on the dark page background, not on the event's own color, so
+           both the dark-ink override above (for inactive events) and the JS-computed contrast color
+           below (for scheduled events, picked against the *fill* color) can land as dark-on-dark and
+           disappear. Force the normal theme text color for dot-style events specifically; must come
+           after the rule above to win the !important vs !important tie via source order. */
+        .fc-daygrid-dot-event.fc-event-inactive .fc-event-title,
+        .fc-daygrid-dot-event.fc-event-inactive .fc-event-time,
+        .fc-daygrid-dot-event .fc-event-title,
+        .fc-daygrid-dot-event .fc-event-time {
+            color: var(--hh-text) !important;
+        }
+
         #therapistPanel { max-height: 260px; overflow-y: auto; min-width: 220px; }
         .therapist-check-row { display: flex; align-items: center; gap: .5rem; padding: .15rem 0; }
         .therapist-color-swatch {
@@ -67,18 +80,31 @@
         }
         .fc-event-paid-flag i { font-size: .62rem; flex: 0 0 auto; }
         .fc-event-paid-flag--with-delete { right: 19px; }
+
+        /* Status flag for non-SCHEDULED events: this calendar colors by therapist identity, not
+           status, so the hatch pattern alone (.fc-event-inactive) only says "not scheduled" —
+           doesn't distinguish completed/cancelled/no-show. Bottom-right icon badge fills that gap. */
+        .fc-event-status-flag {
+            position: absolute; bottom: 1px; right: 2px; z-index: 5;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 3px; font-size: .65rem;
+            box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+        .fc-event-status-flag.status-completed { background: #198754; color: #fff; }
+        .fc-event-status-flag.status-cancelled { background: #dc3545; color: #fff; }
+        .fc-event-status-flag.status-no-show { background: #ffc107; color: #1a1a1a; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-<nav th:replace="~{fragments/layout :: navbar('Calendar')}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('ClinicCalendar')}"></nav>
 
 <main class="container-fluid px-4 py-4 flex-grow-1">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h4 class="section-header mb-0">
-            <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
+            <i class="bi bi-calendar3 me-1"></i>Clinic Calendar
         </h4>
         <a href="/" class="btn btn-sm btn-outline-secondary">
             <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
@@ -126,7 +152,9 @@
                 <i class="bi bi-info-circle me-1"></i>
                 Click an appointment to open it, or click an empty slot to start a new booking. Scheduled
                 appointments can be dragged to reschedule, resized to change duration, or removed with the
-                <i class="bi bi-x-circle"></i> icon. Faded/hatched events are completed, cancelled, or no-show.
+                <i class="bi bi-x-circle"></i> icon. Hatched events are completed, cancelled, or no-show —
+                the badge in the bottom-right corner (<i class="bi bi-check-lg"></i> completed,
+                <i class="bi bi-x-lg"></i> cancelled, <i class="bi bi-person-x-fill"></i> no-show) shows which.
             </p>
         </div>
     </div>
@@ -184,6 +212,29 @@ function fmt(n) {
     return '₹' + Number(n).toLocaleString('en-IN', {
         minimumFractionDigits: 2, maximumFractionDigits: 2
     });
+}
+
+// Per-event text color, chosen for contrast rather than assumed white — some therapist palette
+// colors (cyan, teal, amber) and the NO_SHOW status gold are too light for white event text to
+// stay readable. Picks whichever of white / dark ink actually contrasts better against the
+// event's own background, per the WCAG relative-luminance formula, so any current or future
+// palette/status color stays legible without hand-tuning a per-color exception.
+const DARK_INK = '#1a1a1a';
+function relativeLuminance(hex) {
+    const n = hex.replace('#', '');
+    const r = parseInt(n.substring(0, 2), 16) / 255;
+    const g = parseInt(n.substring(2, 4), 16) / 255;
+    const b = parseInt(n.substring(4, 6), 16) / 255;
+    const lin = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+const DARK_INK_LUMINANCE = relativeLuminance(DARK_INK);
+function eventTextColor(bgHex) {
+    if (!bgHex) return '#ffffff';
+    const bgL = relativeLuminance(bgHex);
+    const contrastWhite = 1.05 / (bgL + 0.05);
+    const contrastDark = (bgL + 0.05) / (DARK_INK_LUMINANCE + 0.05);
+    return contrastDark > contrastWhite ? DARK_INK : '#ffffff';
 }
 
 function loadSelectedIds() {
@@ -378,7 +429,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
                             classNames: isScheduled ? [] : ['fc-event-inactive'],
-                            extendedProps: { status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId, amountPaid: ev.amountPaid }
+                            extendedProps: { status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId, amountPaid: ev.amountPaid, bgColor: ev.color }
                         };
                     }));
                 })
@@ -393,6 +444,11 @@ document.addEventListener('DOMContentLoaded', function () {
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
         eventDidMount: function (info) {
+            // .fc-event-inactive (below) hardcodes dark ink via !important for non-SCHEDULED
+            // events, so this only visibly changes SCHEDULED events — but is left unconditional
+            // since it's harmless either way and keeps this single code path in sync.
+            info.el.style.setProperty('--fc-event-text-color', eventTextColor(info.event.extendedProps.bgColor));
+
             const isScheduled = info.event.extendedProps.status === 'SCHEDULED';
             const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
             if (amountPaid > 0) {
@@ -403,7 +459,21 @@ document.addEventListener('DOMContentLoaded', function () {
                 info.el.appendChild(flag);
             }
 
-            if (!isScheduled) return;
+            if (!isScheduled) {
+                const statusMeta = {
+                    COMPLETED: { cls: 'status-completed', icon: 'bi-check-lg', title: 'Completed' },
+                    CANCELLED: { cls: 'status-cancelled', icon: 'bi-x-lg', title: 'Cancelled' },
+                    NO_SHOW: { cls: 'status-no-show', icon: 'bi-person-x-fill', title: 'No-show' }
+                }[info.event.extendedProps.status];
+                if (statusMeta) {
+                    const statusFlag = document.createElement('span');
+                    statusFlag.className = 'fc-event-status-flag ' + statusMeta.cls;
+                    statusFlag.title = statusMeta.title;
+                    statusFlag.innerHTML = '<i class="bi ' + statusMeta.icon + '"></i>';
+                    info.el.appendChild(statusFlag);
+                }
+                return;
+            }
             const btn = document.createElement('span');
             btn.className = 'fc-event-delete-btn';
             btn.title = 'Cancel appointment';

@@ -2,6 +2,13 @@
 
 :root,
 [data-bs-theme="dark"] {
+    /* Tells the browser to draw native form-control chrome (select dropdown
+       popups, checkboxes/radios, scrollbars, date/time pickers) dark — those
+       are browser-drawn, not CSS-styled, so without this they inconsistently
+       fall back to a white popup even though the closed <select> box itself
+       is already dark-themed via --bs-form-select-bg below. */
+    color-scheme: dark;
+
     /* ── Core palette — lacquerware ink background ── */
     --hh-bg:            #110f10;   /* page background — warm near-black lacquer */
     --hh-surface:       #1b171a;   /* cards, panels */
@@ -146,8 +153,8 @@ a:hover { color: var(--hh-blush); }
 }
 
 .navbar-brand-logo {
-    height: 34px;
-    width: 34px;
+    height: 72px;
+    width: 72px;
     object-fit: contain;
     border-radius: 50%;
     background: var(--hh-white);
@@ -409,6 +416,17 @@ footer {
     line-height: 1.3;
 }
 
+/* Bootstrap's .table-light variant hardcodes its own light --bs-table-bg/color
+   (used for the appointment detail Services/Products table headers and totals
+   rows), which the dark theme vars above don't touch — left them glaring white. */
+.table-light {
+    --bs-table-bg: var(--hh-surface-alt);
+    --bs-table-color: var(--hh-jade-pale);
+    --bs-table-border-color: var(--hh-border);
+    background-color: var(--hh-surface-alt);
+    color: var(--hh-jade-pale);
+}
+
 /* ── Form controls ── */
 .form-control, .form-select {
     background-color: var(--hh-surface);
@@ -551,38 +569,44 @@ footer {
 
 .fc-list-event:hover td { background-color: var(--hh-surface-alt) !important; }
 
-/* ── Choices.js dark theming (appointment form patient/therapist pickers) ── */
+/* ── Choices.js dark theming (appointment form patient/therapist pickers) ──
+   !important throughout: every page using Choices.js loads choices.min.css
+   *after* this stylesheet (it's a page-specific <link>, added below the
+   shared layout head fragment), so at equal selector specificity Choices'
+   own stock (light) rules win on source order and silently undo these —
+   that's what left the searchable dropdowns white while the rest of the
+   dark theme applied. !important makes these win regardless of load order. */
 .choices__inner {
-    background-color: var(--hh-surface);
-    border-color: var(--hh-border);
-    color: var(--hh-text);
+    background-color: var(--hh-surface) !important;
+    border-color: var(--hh-border) !important;
+    color: var(--hh-text) !important;
 }
 
 .choices__list--dropdown, .choices__list[aria-expanded] {
-    background-color: var(--hh-surface-raised);
-    border-color: var(--hh-border);
-    color: var(--hh-text);
+    background-color: var(--hh-surface-raised) !important;
+    border-color: var(--hh-border) !important;
+    color: var(--hh-text) !important;
 }
 
 .choices__list--dropdown .choices__item--selectable.is-highlighted,
 .choices__list[aria-expanded] .choices__item--selectable.is-highlighted {
-    background-color: var(--hh-jade-mid);
-    color: var(--hh-white);
+    background-color: var(--hh-jade-mid) !important;
+    color: var(--hh-white) !important;
 }
 
 .choices__input {
-    background-color: transparent;
-    color: var(--hh-text);
+    background-color: transparent !important;
+    color: var(--hh-text) !important;
 }
 
 .choices__list--single .choices__item {
-    color: var(--hh-text);
+    color: var(--hh-text) !important;
 }
 
-.choices__placeholder { color: var(--hh-text-muted); opacity: 1; }
+.choices__placeholder { color: var(--hh-text-muted) !important; opacity: 1; }
 
 .choices[data-type*='select-one'] .choices__inner { padding-bottom: 7.5px; }
 
 .choices__list--dropdown .choices__item--selectable:not(.is-highlighted) {
-    color: var(--hh-text);
+    color: var(--hh-text) !important;
 }

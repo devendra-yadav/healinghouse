@@ -13,13 +13,8 @@
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <h4 class="section-header mb-0">Dashboard</h4>
         <div class="d-flex align-items-center gap-3">
-            <a th:if="${@perm.currentTherapistId() == null}" href="/calendar" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
-            </a>
-            <a th:if="${@perm.currentTherapistId() != null}"
-               th:href="@{/therapists/{id}/calendar(id=${@perm.currentTherapistId()})}"
-               class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-calendar3 me-1"></i>My Calendar
+            <a href="/calendar" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-calendar3 me-1"></i>Clinic Calendar
             </a>
             <small class="text-muted" th:text="${#temporals.format(#temporals.createNow(), 'EEEE, dd MMMM yyyy')}"></small>
         </div>
