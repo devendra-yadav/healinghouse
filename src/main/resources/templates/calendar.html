@@ -413,6 +413,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const calendarEl = document.getElementById('allTherapistsCalendar');
     const startMobile = isMobileCalendar();
+    let wasMobile = startMobile;
 
     calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'timeGridDay',
@@ -430,14 +431,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const mobile = isMobileCalendar();
             calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
             calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
-            // timeGridDay is the default/safe view on any screen size. Only the 7-column views
-            // (timeGridWeek, dayGridMonth) don't fit a phone screen, so resizing into mobile only
-            // needs to steer away from those — listWeek stays available (footer switcher) but
-            // isn't forced anymore, since timeGridDay fits mobile fine on its own.
-            if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
-                calendar.changeView('timeGridDay');
-            } else if (!mobile && calendar.view.type === 'listWeek') {
-                calendar.changeView('timeGridDay');
+            // Mobile browsers fire a resize event on ordinary scroll/touch (address bar
+            // collapsing/expanding changes viewport height), not just on an actual breakpoint
+            // crossing. Gate the view-steering on a real mobile/desktop transition (wasMobile
+            // vs. mobile) so scrolling/touching while already on mobile never clobbers a
+            // manually-selected Week/Month view.
+            if (mobile !== wasMobile) {
+                // timeGridDay is the default/safe view on any screen size. Only the 7-column views
+                // (timeGridWeek, dayGridMonth) don't fit a phone screen, so entering mobile only
+                // needs to steer away from those — listWeek stays available (footer switcher) but
+                // isn't forced anymore, since timeGridDay fits mobile fine on its own.
+                if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
+                    calendar.changeView('timeGridDay');
+                } else if (!mobile && calendar.view.type === 'listWeek') {
+                    calendar.changeView('timeGridDay');
+                }
+                wasMobile = mobile;
             }
         },
         events: function (fetchInfo, successCallback, failureCallback) {
