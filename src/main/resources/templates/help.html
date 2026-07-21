@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
     <style>
         #helpToc { position: sticky; top: 1rem; }
-        #helpToc .nav-link { color: #2c3e50; padding: .4rem .7rem; border-radius: 6px; font-size: .92rem; }
-        #helpToc .nav-link:hover { background: var(--hh-green-pale); color: var(--hh-green-dark); }
+        #helpToc .nav-link { color: var(--hh-text); padding: .4rem .7rem; border-radius: 6px; font-size: .92rem; }
+        #helpToc .nav-link:hover { background: var(--hh-green-pale); color: var(--hh-blue-pale); }
         #helpToc .nav-link.active { background: var(--hh-green-mid); color: #fff; }
         .help-section { scroll-margin-top: 1rem; }
-        .help-shot { border: 2px dashed var(--hh-green-light); border-radius: 12px; background: #f0faf4;
-                     color: #667; text-align: center; padding: 1.4rem 1rem; margin: 1rem 0; }
+        .help-shot { border: 2px dashed var(--hh-green-light); border-radius: 12px; background: var(--hh-surface-alt);
+                     color: var(--hh-text-muted); text-align: center; padding: 1.4rem 1rem; margin: 1rem 0; }
         .help-shot .cap { font-size: .85rem; font-style: italic; margin-top: .4rem; }
         ol.help-steps { counter-reset: helpstep; list-style: none; padding-left: 0; margin: 0 0 1rem; }
         ol.help-steps li { counter-increment: helpstep; position: relative; padding-left: 2.4rem; margin: .55rem 0; }

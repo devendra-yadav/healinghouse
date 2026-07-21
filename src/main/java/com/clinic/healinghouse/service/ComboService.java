@@ -111,6 +111,13 @@ public class ComboService {
     }
 
     public Combo save(ComboForm form) {
+        // Combo.name is @NotBlank, so a blank submission would otherwise fail JPA's flush-time
+        // validation as a ConstraintViolationException — saveAndRedirect only catches
+        // IllegalArgumentException, so that exception escaped to the generic error page with all
+        // entered data lost (Bug_Report_v4.md #10). Checked here, before anything is persisted.
+        if (!StringUtils.hasText(form.getName())) {
+            throw new IllegalArgumentException("Name is required.");
+        }
         Combo combo = form.getId() != null ? getById(form.getId()) : Combo.builder().build();
         boolean isNew = combo.getId() == null;
 
@@ -157,6 +164,19 @@ public class ComboService {
         }
 
         DiscountType type = resolveDiscountType(form.getDiscountType());
+        if (type != DiscountType.NONE) {
+            // A null value here would otherwise be stored as-is and defer the failure from combo-save
+            // time to appointment-booking time (computeDiscountAmount silently treats null as "no
+            // discount," which isn't the same as the negative-surprise this is meant to catch —
+            // Bug_Report_v4.md #11). A negative value would otherwise pass through unrejected and
+            // become a de-facto surcharge once applyComboDiscount/distributeDiscount consume it.
+            if (form.getDiscountValue() == null) {
+                throw new IllegalArgumentException("A discount value is required when a discount type is selected.");
+            }
+            if (form.getDiscountValue().signum() < 0) {
+                throw new IllegalArgumentException("Discount value cannot be negative.");
+            }
+        }
         if (type == DiscountType.PERCENTAGE && form.getDiscountValue() != null
                 && form.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new IllegalArgumentException("Percentage discount cannot exceed 100%.");

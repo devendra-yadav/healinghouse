@@ -7,12 +7,17 @@ import com.clinic.healinghouse.dto.RescheduleRequestDTO;
 import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.*;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.SafeRedirectUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -39,8 +44,10 @@ public class AppointmentController {
     private final ProductService     productService;
     private final ComboService       comboService;
     private final PaginationUtil     paginationUtil;
+    private final PermissionService  permissionService;
 
     // ── List ──────────────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String status,
                        @RequestParam(required = false) Long therapistId,
@@ -60,6 +67,8 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
 
+        // THERAPIST can browse/filter every appointment, same as any other role holding
+        // APPOINTMENTS,VIEW — only editing is scoped to "own" (see enforceOwnAppointmentForTherapist).
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
         var appointments = appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName,
@@ -78,6 +87,7 @@ public class AppointmentController {
     }
 
     // ── New form ──────────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(@RequestParam(required = false) Long therapistId,
                           @RequestParam(required = false) Long patientId,
@@ -98,15 +108,21 @@ public class AppointmentController {
     }
 
     // ── Calendar feed (JSON, consumed by therapists/calendar.html) ───────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
     @GetMapping("/calendar-feed")
     @ResponseBody
     public List<CalendarEventDTO> calendarFeed(@RequestParam Long therapistId,
                                                @RequestParam String start,
                                                @RequestParam String end) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId != null && !ownTherapistId.equals(therapistId)) {
+            throw new AccessDeniedException("You can only view your own calendar.");
+        }
         return appointmentService.findCalendarEvents(therapistId, parseCalendarBound(start), parseCalendarBound(end));
     }
 
     // ── Calendar feed, overlaid across selected therapists (JSON, consumed by calendar.html) ──
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
     @GetMapping("/calendar-feed-multi")
     @ResponseBody
     public List<CalendarEventDTO> calendarFeedMulti(@RequestParam List<Long> therapistIds,
@@ -130,9 +146,11 @@ public class AppointmentController {
     }
 
     // ── Reschedule (drag/resize on the therapist calendar) ──────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @PostMapping("/{id}/reschedule")
     @ResponseBody
     public RescheduleResponseDTO reschedule(@PathVariable Long id, @RequestBody RescheduleRequestDTO req) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             return appointmentService.rescheduleAppointment(
                     id, req.appointmentDateTime(), req.durationMinutes(), req.forceSave());
@@ -143,9 +161,11 @@ public class AppointmentController {
     }
 
     // ── Cancel from the therapist calendar (JSON, no page navigation) ────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/cancel-from-calendar")
     @ResponseBody
     public CalendarActionResponseDTO cancelFromCalendar(@PathVariable Long id) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             appointmentService.cancelAppointment(id, "Cancelled via calendar");
             return new CalendarActionResponseDTO(true, "Appointment cancelled.");
@@ -156,6 +176,7 @@ public class AppointmentController {
     }
 
     // ── Save (create) ─────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.CREATE)
     @PostMapping("/save")
     public String save(@ModelAttribute("form") AppointmentForm form,
                        @RequestParam(defaultValue = "false") boolean forceSave,
@@ -186,18 +207,23 @@ public class AppointmentController {
     }
 
     // ── Detail ────────────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id,
                          @RequestParam(required = false) String returnUrl,
                          Model model, RedirectAttributes ra) {
         try {
             Appointment appt = appointmentService.getById(id);
+            // THERAPIST can view any appointment's detail page (view-all) — only editing/status
+            // changes are scoped to "own" (see enforceOwnAppointmentForTherapist elsewhere).
             model.addAttribute("appointment", appt);
             model.addAttribute("therapists", therapistService.findAll());
             model.addAttribute("walletBalance", walletService.getBalance(appt.getPatient().getId()));
-            model.addAttribute("returnUrl", returnUrl);
+            model.addAttribute("returnUrl", SafeRedirectUtil.sanitize(returnUrl, null));
             model.addAttribute("pageTitle", "Appointment Details");
             return "appointments/detail";
+        } catch (AccessDeniedException e) {
+            throw e;
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage",
                     "Could not load appointment: " + (e.getMessage() != null ? e.getMessage() : "not found"));
@@ -206,10 +232,13 @@ public class AppointmentController {
     }
 
     // ── Edit form ─────────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id,
                            @RequestParam(required = false) String returnUrl,
                            Model model, RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
+        returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         try {
             Appointment appt = appointmentService.getById(id);
             populateFormModel(model);
@@ -255,6 +284,7 @@ public class AppointmentController {
     }
 
     // ── Update (edit save) ────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @PostMapping("/{id}/update")
     public String update(@PathVariable Long id,
                          @ModelAttribute("form") AppointmentForm form,
@@ -262,6 +292,8 @@ public class AppointmentController {
                          @RequestParam(defaultValue = "false") boolean forceSave,
                          Model model,
                          RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
+        returnUrl = SafeRedirectUtil.sanitize(returnUrl, null);
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
@@ -289,44 +321,50 @@ public class AppointmentController {
     }
 
     // ── Status transitions ────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/complete")
     public String complete(@PathVariable Long id,
                            @RequestParam(defaultValue = "") String returnUrl,
                            RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             appointmentService.markAsCompleted(id);
             ra.addFlashAttribute("successMessage", "Appointment marked as completed.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/cancel")
     public String cancel(@PathVariable Long id,
                          @RequestParam(defaultValue = "") String cancelReason,
                          @RequestParam(defaultValue = "") String returnUrl,
                          RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             appointmentService.cancelAppointment(id, cancelReason);
             ra.addFlashAttribute("successMessage", "Appointment cancelled.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/no-show")
     public String noShow(@PathVariable Long id,
                          @RequestParam(defaultValue = "") String returnUrl,
                          RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             appointmentService.markAsNoShow(id);
             ra.addFlashAttribute("successMessage", "Appointment marked as no-show.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
-        return "redirect:" + (returnUrl.isBlank() ? "/appointments/" + id : returnUrl);
+        return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
     // ── Per-line therapist reassignment (allowed on any status) ──────────────
@@ -334,6 +372,7 @@ public class AppointmentController {
     // new therapist is already busy elsewhere during this appointment's window, the reassignment
     // is NOT applied and the conflict is flashed back for the detail page's warning banner to show,
     // with a "Reassign Anyway" action that resubmits the same request with forceReassign=true.
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @PostMapping("/{id}/service-lines/{lineId}/reassign-therapist")
     public String reassignServiceLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
@@ -341,6 +380,7 @@ public class AppointmentController {
                                                @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             List<TherapistConflictDTO> conflicts =
                     appointmentService.reassignServiceLineTherapist(id, lineId, therapistId, forceReassign);
@@ -355,6 +395,7 @@ public class AppointmentController {
         return "redirect:/appointments/" + id + returnUrlSuffix(returnUrl);
     }
 
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @PostMapping("/{id}/product-lines/{lineId}/reassign-therapist")
     public String reassignProductLineTherapist(@PathVariable Long id,
                                                @PathVariable Long lineId,
@@ -362,6 +403,7 @@ public class AppointmentController {
                                                @RequestParam(defaultValue = "false") boolean forceReassign,
                                                @RequestParam(required = false) String returnUrl,
                                                RedirectAttributes ra) {
+        enforceOwnAppointmentForTherapist(id);
         try {
             List<TherapistConflictDTO> conflicts =
                     appointmentService.reassignProductLineTherapist(id, lineId, therapistId, forceReassign);
@@ -387,9 +429,21 @@ public class AppointmentController {
     }
 
     private String returnUrlSuffix(String returnUrl) {
-        return (returnUrl != null && !returnUrl.isBlank())
-                ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
+        String safe = SafeRedirectUtil.sanitize(returnUrl, null);
+        return safe != null
+                ? "?returnUrl=" + java.net.URLEncoder.encode(safe, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
+    }
+
+    // ── Phase C data-scoping helpers ─────────────────────────────────────────
+
+    /** Throws if the logged-in user is a THERAPIST who isn't the main therapist or a
+     *  reassigned-line therapist on this appointment (requirements/Security_RBAC_Requirements_v1.md §7). */
+    private void enforceOwnAppointmentForTherapist(Long appointmentId) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId != null && !appointmentService.involvesTherapist(appointmentId, ownTherapistId)) {
+            throw new AccessDeniedException("You don't have access to this appointment.");
+        }
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

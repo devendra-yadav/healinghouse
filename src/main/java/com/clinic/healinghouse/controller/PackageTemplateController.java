@@ -1,9 +1,12 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.dto.PackageTemplateForm;
+import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PackageTemplate;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.PackageTemplateService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,7 @@ public class PackageTemplateController {
     private final ProductRepository productRepository;
     private final PaginationUtil paginationUtil;
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(defaultValue = "false") boolean showInactive,
@@ -44,6 +48,7 @@ public class PackageTemplateController {
         return "package-templates/list";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("templateForm", new PackageTemplateForm());
@@ -52,6 +57,17 @@ public class PackageTemplateController {
         return "package-templates/form";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        PackageTemplate template = packageTemplateService.getById(id);
+        model.addAttribute("template", template);
+        model.addAttribute("packageTemplateService", packageTemplateService); // for computeOriginalPrice/computeSuggestedPrice in the template
+        model.addAttribute("pageTitle", template.getName());
+        return "package-templates/detail";
+    }
+
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         PackageTemplate template = packageTemplateService.getById(id);
@@ -61,11 +77,13 @@ public class PackageTemplateController {
         return "package-templates/form";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.CREATE)
     @PostMapping
     public String create(@ModelAttribute("templateForm") PackageTemplateForm form, Model model, RedirectAttributes ra) {
         return saveAndRedirect(form, model, ra);
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.EDIT)
     @PostMapping("/{id}")
     public String update(@PathVariable Long id, @ModelAttribute("templateForm") PackageTemplateForm form,
                          Model model, RedirectAttributes ra) {
@@ -86,6 +104,7 @@ public class PackageTemplateController {
         return "redirect:/package-templates";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.DELETE)
     @PostMapping("/{id}/deactivate")
     public String deactivate(@PathVariable Long id, RedirectAttributes ra) {
         packageTemplateService.deactivate(id);
@@ -93,11 +112,24 @@ public class PackageTemplateController {
         return "redirect:/package-templates";
     }
 
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         packageTemplateService.activate(id);
         ra.addFlashAttribute("successMessage", "Package template reactivated successfully.");
         return "redirect:/package-templates";
+    }
+
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.APPROVE)
+    @PostMapping("/{id}/delete-permanent")
+    public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            packageTemplateService.permanentlyDelete(id);
+            ra.addFlashAttribute("successMessage", "Package template permanently deleted.");
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/package-templates?showInactive=true";
     }
 
     private void populateCatalogModel(Model model) {

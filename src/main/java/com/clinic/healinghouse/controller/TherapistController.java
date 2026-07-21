@@ -1,7 +1,11 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.entity.AppointmentStatus;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Therapist;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.CommissionCalculator;
 import com.clinic.healinghouse.service.TherapistService;
@@ -11,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -28,12 +33,20 @@ public class TherapistController {
     private final AppointmentService appointmentService;
     private final CommissionCalculator commissionCalculator;
     private final PaginationUtil paginationUtil;
+    private final PermissionService permissionService;
 
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
+        // THERAPIST role: matrix scopes THERAPISTS to "own profile only" — no full roster.
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId != null) {
+            return "redirect:/therapists/" + ownTherapistId;
+        }
+
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
         model.addAttribute("therapists", showInactive
@@ -45,6 +58,7 @@ public class TherapistController {
     }
 
     // ── Detail (profile + period earnings summary + filterable appointment history) ──
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.VIEW)
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id,
                          @RequestParam(required = false) String status,
@@ -55,6 +69,7 @@ public class TherapistController {
                          @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                          @RequestParam(defaultValue = "0") int page,
                          Model model, RedirectAttributes ra) {
+        enforceOwnTherapist(id);
         try {
             Therapist therapist = therapistService.getById(id);
             page = paginationUtil.clampPage(page);
@@ -107,8 +122,10 @@ public class TherapistController {
     }
 
     // ── Calendar (read-only day/week/month schedule view) ─────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
     @GetMapping("/{id}/calendar")
     public String calendar(@PathVariable Long id, Model model, RedirectAttributes ra) {
+        enforceOwnTherapist(id);
         try {
             Therapist therapist = therapistService.getById(id);
             model.addAttribute("therapist",  therapist);
@@ -122,6 +139,7 @@ public class TherapistController {
         }
     }
 
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("therapist", Therapist.builder().build());
@@ -129,6 +147,7 @@ public class TherapistController {
         return "therapists/form";
     }
 
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         model.addAttribute("therapist", therapistService.getById(id));
@@ -141,6 +160,7 @@ public class TherapistController {
                        BindingResult result,
                        Model model,
                        RedirectAttributes ra) {
+        permissionService.require(Module.THERAPISTS, therapist.getId() == null ? PermissionAction.CREATE : PermissionAction.EDIT);
         if (result.hasErrors()) {
             model.addAttribute("pageTitle", therapist.getId() == null ? "New Therapist" : "Edit Therapist");
             return "therapists/form";
@@ -150,6 +170,7 @@ public class TherapistController {
         return "redirect:/therapists";
     }
 
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         therapistService.deactivate(id);
@@ -157,10 +178,19 @@ public class TherapistController {
         return "redirect:/therapists";
     }
 
+    @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         therapistService.activate(id);
         ra.addFlashAttribute("successMessage", "Therapist reactivated successfully.");
         return "redirect:/therapists/" + id;
+    }
+
+    /** THERAPIST role is scoped to their own profile only (requirements/Security_RBAC_Requirements_v1.md §4). */
+    private void enforceOwnTherapist(Long id) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId != null && !ownTherapistId.equals(id)) {
+            throw new AccessDeniedException("You can only view your own therapist profile.");
+        }
     }
 }

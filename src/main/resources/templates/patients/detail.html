@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
     <!-- Choices.js: searchable select dropdowns for the sell-package modal's item rows -->
@@ -31,7 +31,7 @@
             </span>
         </div>
         <div class="d-flex gap-2">
-            <a th:href="@{/patients/{id}/edit(id=${patient.id})}" class="btn btn-sm btn-outline-primary">
+            <a th:if="${@perm.has('PATIENTS','EDIT')}" th:href="@{/patients/{id}/edit(id=${patient.id})}" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-pencil me-1"></i>Edit Patient
             </a>
             <a th:href="@{/patients}" class="btn btn-sm btn-outline-secondary">
@@ -224,7 +224,7 @@
                 <button type="button" class="btn btn-sm btn-hh" data-bs-toggle="modal" data-bs-target="#topUpModal">
                     <i class="bi bi-plus-lg me-1"></i>Top Up
                 </button>
-                <button type="button" class="btn btn-sm btn-outline-secondary"
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="walletRefundBtn"
                         th:disabled="${walletBalance.signum() == 0}"
                         data-bs-toggle="modal" data-bs-target="#refundModal">
                     <i class="bi bi-arrow-return-left me-1"></i>Refund
@@ -232,7 +232,7 @@
             </div>
         </div>
         <div class="card-body">
-            <div class="fs-4 fw-bold mb-3" th:text="|₹ ${#numbers.formatDecimal(walletBalance, 1, 2)}|"></div>
+            <div class="fs-4 fw-bold mb-3" id="walletBalanceCard" th:text="|₹ ${#numbers.formatDecimal(walletBalance, 1, 2)}|"></div>
             <div class="table-responsive">
                 <table class="table table-sm table-hover mb-0">
                     <thead>
@@ -603,6 +603,9 @@
     </div>
 </main>
 
+<!-- Floating toast used to confirm the AJAX wallet refund's outcome. -->
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;" id="actionToastContainer"></div>
+
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
@@ -653,20 +656,20 @@ function addPkgServiceItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center pkg-service-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm pkg-si-select"
                     name="serviceItems[${i}].itemId" onchange="updatePkgPreview()">
                 <option value="">— Service —</option>
                 ${pkgBuildOptions(ALL_SERVICES)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm pkg-si-sessions"
                    name="serviceItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
          </div>
-         <div class="col-2 text-end pkg-si-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold pkg-si-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end pkg-si-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold pkg-si-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removePkgRow(this,'pkg-service-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -688,20 +691,20 @@ function addPkgProductItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center pkg-product-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm pkg-pi-select"
                     name="productItems[${i}].itemId" onchange="updatePkgPreview()">
                 <option value="">— Product —</option>
                 ${pkgBuildOptions(ALL_PRODUCTS)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm pkg-pi-sessions"
                    name="productItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
          </div>
-         <div class="col-2 text-end pkg-pi-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold pkg-pi-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end pkg-pi-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold pkg-pi-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removePkgRow(this,'pkg-product-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -728,9 +731,9 @@ function togglePkgUI() {
     const hasServices = document.querySelectorAll('.pkg-service-item-row').length > 0;
     const hasProducts = document.querySelectorAll('.pkg-product-item-row').length > 0;
     document.getElementById('pkgServiceItemsEmpty').classList.toggle('d-none', hasServices);
-    document.getElementById('pkgServiceItemsHeader').classList.toggle('d-none', !hasServices);
+    document.getElementById('pkgServiceItemsHeader').classList.toggle('has-items', hasServices);
     document.getElementById('pkgProductItemsEmpty').classList.toggle('d-none', hasProducts);
-    document.getElementById('pkgProductItemsHeader').classList.toggle('d-none', !hasProducts);
+    document.getElementById('pkgProductItemsHeader').classList.toggle('has-items', hasProducts);
 }
 
 // Raw (undiscounted) sum of current rows — a typing convenience hint, not a resolved price;
@@ -807,6 +810,21 @@ document.getElementById('sellPackageModal').addEventListener('show.bs.modal', fu
     pkgTotalPriceManuallyEdited = false;
 });
 
+// Cancel (dismiss without submitting) never reloads the page, so the item rows/name/price from an
+// abandoned attempt would otherwise still be there on reopen — reopening for a genuinely new sale
+// would show stale rows, and adding fresh ones on top would sum old+new into the auto-filled total
+// price (Bug_Report_v4.md #15). A successful submit does reload the page, so this only ever needs
+// to cover the Cancel/dismiss path.
+document.getElementById('sellPackageModal').addEventListener('hidden.bs.modal', function () {
+    document.querySelectorAll('.pkg-service-item-row').forEach(r => r.remove());
+    document.querySelectorAll('.pkg-product-item-row').forEach(r => r.remove());
+    document.getElementById('pkgNameInput').value = '';
+    document.getElementById('pkgTotalPriceInput').value = '';
+    pkgTotalPriceManuallyEdited = false;
+    togglePkgUI();
+    updatePkgPreview();
+});
+
 document.getElementById('pkgTotalPriceInput').addEventListener('input', function () {
     pkgTotalPriceManuallyEdited = true;
 });
@@ -856,6 +874,76 @@ document.getElementById('packageRefundModal').addEventListener('show.bs.modal', 
     amountInput.max = refundable;
     amountInput.value = refundable.toFixed(2);
 });
+
+// Small floating Bootstrap toast confirming an AJAX action's outcome.
+function showActionToast(success, message) {
+    const container = document.getElementById('actionToastContainer');
+    if (!container) return;
+    const toastEl = document.createElement('div');
+    toastEl.className = 'toast align-items-center text-white border-0 ' + (success ? 'bg-success' : 'bg-danger');
+    toastEl.setAttribute('role', 'alert');
+    toastEl.setAttribute('aria-live', 'assertive');
+    toastEl.setAttribute('aria-atomic', 'true');
+
+    const flex = document.createElement('div');
+    flex.className = 'd-flex';
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close btn-close-white me-2 m-auto';
+    closeBtn.setAttribute('data-bs-dismiss', 'toast');
+    flex.append(body, closeBtn);
+    toastEl.appendChild(flex);
+    container.appendChild(toastEl);
+
+    const toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+    toast.show();
+    toastEl.addEventListener('hidden.bs.toast', () => toastEl.remove());
+}
+
+// Wallet refund is submitted via AJAX — updates the balance card/refund button in place and
+// pops a toast with the outcome, instead of a full page reload. The wallet transaction ledger
+// table below only picks up the new REFUND row on the next natural page load.
+(function initRefundModalAjax() {
+    const modalEl = document.getElementById('refundModal');
+    const form = document.getElementById('refundModalForm');
+    const submitBtn = document.getElementById('refundModalSubmitBtn');
+    if (!modalEl || !form) return;
+
+    modalEl.addEventListener('show.bs.modal', function () {
+        form.reset();
+    });
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        submitBtn.disabled = true;
+        const url = form.action + (form.action.includes('?') ? '&' : '?') + 'ajax=true';
+        fetch(url, { method: 'POST', body: new URLSearchParams(new FormData(form)) })
+            .then(r => r.json().then(data => ({ ok: r.ok, data })))
+            .then(({ ok, data }) => {
+                submitBtn.disabled = false;
+                if (ok && data.success) {
+                    const balanceText = pkgFmt(data.balance);
+                    document.getElementById('walletBalanceCard').textContent = balanceText;
+                    const refundModalBalance = document.getElementById('refundModalCurrentBalance');
+                    if (refundModalBalance) refundModalBalance.textContent = balanceText;
+                    const amountInput = document.getElementById('refundModalAmount');
+                    if (amountInput) amountInput.max = data.balance;
+                    document.getElementById('walletRefundBtn').disabled = Number(data.balance) === 0;
+                    bootstrap.Modal.getInstance(modalEl).hide();
+                    showActionToast(true, 'Wallet balance refunded. New balance: ' + balanceText);
+                } else {
+                    showActionToast(false, data.message || 'Refund failed.');
+                }
+            })
+            .catch(() => {
+                submitBtn.disabled = false;
+                showActionToast(false, 'Refund failed. Please try again.');
+            });
+    });
+})();
 </script>
 </body>
 </html>

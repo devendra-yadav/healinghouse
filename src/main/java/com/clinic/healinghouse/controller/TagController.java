@@ -1,7 +1,10 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Tag;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +25,7 @@ public class TagController {
     private final HealingHouseProperties properties;
     private final PaginationUtil paginationUtil;
 
+    @RequiresPermission(module = Module.TAGS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
@@ -35,15 +39,16 @@ public class TagController {
     }
 
     /** JSON autocomplete endpoint backing the tag chip input on Service/Product forms. */
+    @RequiresPermission(module = Module.TAGS, action = PermissionAction.VIEW)
     @GetMapping("/search")
     @ResponseBody
     public List<String> search(@RequestParam(required = false) String q) {
-        return tagService.search(q).stream()
+        return tagService.search(q, properties.getAutocomplete().getTagMaxSuggestions()).stream()
                 .map(Tag::getName)
-                .limit(properties.getAutocomplete().getTagMaxSuggestions())
                 .toList();
     }
 
+    @RequiresPermission(module = Module.TAGS, action = PermissionAction.EDIT)
     @PostMapping("/{id}/rename")
     public String rename(@PathVariable Long id, @RequestParam String name, RedirectAttributes ra) {
         try {
@@ -55,6 +60,7 @@ public class TagController {
         return "redirect:/tags";
     }
 
+    @RequiresPermission(module = Module.TAGS, action = PermissionAction.EDIT)
     @PostMapping("/merge")
     public String merge(@RequestParam Long sourceId, @RequestParam Long targetId, RedirectAttributes ra) {
         try {
@@ -66,6 +72,7 @@ public class TagController {
         return "redirect:/tags";
     }
 
+    @RequiresPermission(module = Module.TAGS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         try {

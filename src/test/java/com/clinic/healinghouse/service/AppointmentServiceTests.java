@@ -736,11 +736,12 @@ class AppointmentServiceTests {
                 .build());
         when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
         when(appointmentRepository.findWithProductLinesById(10L)).thenReturn(Optional.of(existing));
+        when(productRepository.decrementStockIfAvailable(1L, 3)).thenReturn(1); // atomic UPDATE affected 1 row
 
         Appointment saved = appointmentService.markAsCompleted(10L);
 
         assertThat(saved.getStatus()).isEqualTo(AppointmentStatus.COMPLETED);
-        assertThat(product.getStockQuantity()).isEqualTo(2);
+        verify(productRepository).decrementStockIfAvailable(1L, 3);
         verify(appointmentRepository).saveAndFlush(existing); // saveWithConflictCheck, not plain save()
     }
 

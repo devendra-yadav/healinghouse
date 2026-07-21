@@ -4,6 +4,8 @@ import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
 import com.clinic.healinghouse.repository.ComboRepository;
+import com.clinic.healinghouse.repository.PackageTemplateRepository;
+import com.clinic.healinghouse.repository.PatientPackageProductItemRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class ProductService {
     private final AppointmentProductLineRepository appointmentProductLineRepository;
     private final ComboRepository comboRepository;
     private final ComboService comboService;
+    private final PackageTemplateRepository packageTemplateRepository;
+    private final PatientPackageProductItemRepository patientPackageProductItemRepository;
 
     @Transactional(readOnly = true)
     public List<Product> findAll() {
@@ -133,6 +137,16 @@ public class ProductService {
         if (comboRepository.existsByProductItems_Product_Id(id)) {
             throw new IllegalArgumentException("Cannot permanently delete \"" + product.getName()
                     + "\" — it is part of one or more combos.");
+        }
+        // See TreatmentService.permanentlyDelete's matching comment — same non-nullable-FK gap,
+        // Bug_Report_v4.md #12.
+        if (packageTemplateRepository.existsByProductItems_Product_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + product.getName()
+                    + "\" — it is part of one or more package templates.");
+        }
+        if (patientPackageProductItemRepository.existsByProduct_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + product.getName()
+                    + "\" — it is part of one or more sold patient packages.");
         }
         productRepository.delete(product);
         log.info("Permanently deleted product id={} name='{}'", id, product.getName());

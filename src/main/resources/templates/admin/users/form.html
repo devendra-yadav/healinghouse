@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('UserManagement')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/admin/users}">User Management</a></li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8 col-xl-6">
+
+            <div th:if="${errorMessage}" class="alert alert-danger py-2 mb-3">
+                <i class="bi bi-exclamation-triangle me-2"></i><span th:text="${errorMessage}"></span>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0" th:text="${pageTitle}"></h5>
+                </div>
+                <div class="card-body">
+                    <form th:action="@{/admin/users/save}" th:object="${userForm}" method="post">
+                        <input type="hidden" th:field="*{id}"/>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Username <span class="text-danger">*</span></label>
+                            <input type="text" th:field="*{username}" class="form-control"
+                                   th:classappend="${#fields.hasErrors('username')} ? 'is-invalid'"
+                                   autocomplete="off"/>
+                            <div class="invalid-feedback" th:errors="*{username}"></div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Full Name</label>
+                            <input type="text" th:field="*{fullName}" class="form-control"/>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Role <span class="text-danger">*</span></label>
+                            <select id="roleSelect" th:field="*{role}" class="form-select"
+                                    th:classappend="${#fields.hasErrors('role')} ? 'is-invalid'">
+                                <option value="">— Select role —</option>
+                                <option th:each="r : ${roles}" th:value="${r}" th:text="${r}"></option>
+                            </select>
+                            <div class="invalid-feedback" th:errors="*{role}"></div>
+                        </div>
+
+                        <div class="mb-3" id="therapistLinkGroup">
+                            <label class="form-label fw-semibold">Linked Therapist <span class="text-danger">*</span></label>
+                            <select th:field="*{therapistId}" class="form-select">
+                                <option value="">— Select therapist —</option>
+                                <option th:each="t : ${availableTherapists}" th:value="${t.id}" th:text="${t.fullName}"></option>
+                            </select>
+                            <div class="form-text">
+                                Only active therapists not already linked to another account are shown.
+                                Required for the THERAPIST role — "my schedule/earnings" scoping resolves off this link.
+                            </div>
+                        </div>
+
+                        <div class="mb-4" th:if="${isNew}">
+                            <label class="form-label fw-semibold">Temporary Password <span class="text-danger">*</span></label>
+                            <input type="password" th:field="*{password}" class="form-control" minlength="8" required
+                                   placeholder="At least 8 characters"/>
+                            <div class="form-text">The user must change this password on their first login.</div>
+                        </div>
+                        <div class="mb-4" th:unless="${isNew}">
+                            <div class="alert alert-info py-2 mb-0">
+                                <i class="bi bi-info-circle me-2"></i>
+                                Password isn't changed here — use "Reset Password" from the user list.
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">
+                            <a th:href="@{/admin/users}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-hh">
+                                <i class="bi bi-check-lg me-1"></i>Save User
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    // The therapist link is only meaningful (and only required) for the THERAPIST role — hidden
+    // for every other role rather than just disabled, so its "required"-looking label doesn't
+    // confuse someone creating an ADMIN/RECEPTIONIST account.
+    const roleSelect = document.getElementById('roleSelect');
+    const therapistGroup = document.getElementById('therapistLinkGroup');
+    function toggleTherapistGroup() {
+        therapistGroup.style.display = roleSelect.value === 'THERAPIST' ? '' : 'none';
+    }
+    roleSelect.addEventListener('change', toggleTherapistGroup);
+    toggleTherapistGroup();
+</script>
+</body>
+</html>

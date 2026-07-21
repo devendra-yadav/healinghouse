@@ -26,6 +26,7 @@ public class HealingHouseProperties {
     private final Owner owner = new Owner();
     private final Currency currency = new Currency();
     private final Export export = new Export();
+    private final Security security = new Security();
 
     @Getter
     @Setter
@@ -88,5 +89,24 @@ public class HealingHouseProperties {
         private String rowDateTimeFormat = "dd MMM, hh:mm a";
         private String csvDateFormat = "yyyy-MM-dd";
         private String csvDateTimeFormat = "yyyy-MM-dd HH:mm";
+    }
+
+    /**
+     * Owner-password has no default on purpose — it must come from the HEALING_HOUSE_OWNER_PASSWORD
+     * env var (see application.yml), in every profile including dev, so SecuritySeeder can fail
+     * loudly at startup rather than seed a guessable literal (Security_RBAC_Requirements_v1.md §7, §11).
+     */
+    @Getter
+    @Setter
+    public static class Security {
+        private String ownerUsername = "owner";
+        private String ownerPassword;
+        private int maxFailedLoginAttempts = 5;
+        private int lockoutMinutes = 15;
+        /** Per-IP throttle on POST /login, independent of account lockout (Bug_Report_v5.md #3) —
+         *  counts every attempt regardless of which username is targeted or whether it succeeds,
+         *  so it also covers an attacker spreading guesses across many usernames from one IP. */
+        private int maxLoginAttemptsPerIp = 10;
+        private int loginRateLimitWindowMinutes = 15;
     }
 }

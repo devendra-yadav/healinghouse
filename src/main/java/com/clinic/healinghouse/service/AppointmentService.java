@@ -102,6 +102,28 @@ public class AppointmentService {
     }
 
     /**
+     * True if {@code therapistId} is the main therapist OR performed/sold any service/product line
+     * on this appointment — the same "busy"/"own" definition {@link AppointmentSpec#hasTherapistId}
+     * uses for list queries, but evaluated in-memory against an already-loaded entity for the
+     * detail/action endpoints that only have one appointment in hand, not a query root
+     * (requirements/Security_RBAC_Requirements_v1.md §7, §12 Phase C).
+     */
+    public boolean involvesTherapist(Appointment appt, Long therapistId) {
+        if (therapistId == null) return false;
+        if (appt.getTherapist() != null && therapistId.equals(appt.getTherapist().getId())) return true;
+        boolean onServiceLine = appt.getServiceLines().stream()
+                .anyMatch(sl -> sl.getTherapist() != null && therapistId.equals(sl.getTherapist().getId()));
+        if (onServiceLine) return true;
+        return appt.getProductLines().stream()
+                .anyMatch(pl -> pl.getTherapist() != null && therapistId.equals(pl.getTherapist().getId()));
+    }
+
+    @Transactional(readOnly = true)
+    public boolean involvesTherapist(Long appointmentId, Long therapistId) {
+        return involvesTherapist(getById(appointmentId), therapistId);
+    }
+
+    /**
      * Filtered list — all parameters are optional (null = no filter).
      * Uses JPA Specifications so each filter is independently optional.
      * Patient and therapist are JOIN FETCHed to avoid N+1 on the list page.
@@ -314,7 +336,7 @@ public class AppointmentService {
                 .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
 
         return appointmentRepository.findAll(spec).stream()
-                .map(a -> toCalendarEvent(a, therapistId, statusColor(a.getStatus())))
+                .map(a -> toCalendarEvent(a, therapistId, statusColor(a.getStatus()), false))
                 .toList();
     }
 
@@ -337,7 +359,7 @@ public class AppointmentService {
         return appointments.stream()
                 .flatMap(a -> therapistIds.stream()
                         .filter(tid -> isTherapistInvolved(a, tid))
-                        .map(tid -> toCalendarEvent(a, tid, TherapistColorUtil.colorFor(tid))))
+                        .map(tid -> toCalendarEvent(a, tid, TherapistColorUtil.colorFor(tid), true)))
                 .toList();
     }
 
@@ -350,9 +372,39 @@ public class AppointmentService {
                 .anyMatch(pl -> pl.getTherapist().getId().equals(therapistId));
     }
 
-    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId, String color) {
+    /** Name of whichever therapist (main, or a reassigned service/product line) matches therapistId. */
+    private String resolveTherapistName(Appointment appointment, Long therapistId) {
+        if (appointment.getTherapist().getId().equals(therapistId)) {
+            return appointment.getTherapist().getFullName();
+        }
+        return appointment.getServiceLines().stream()
+                .filter(sl -> sl.getTherapist() != null && sl.getTherapist().getId().equals(therapistId))
+                .map(sl -> sl.getTherapist().getFullName())
+                .findFirst()
+                .or(() -> appointment.getProductLines().stream()
+                        .filter(pl -> pl.getTherapist() != null && pl.getTherapist().getId().equals(therapistId))
+                        .map(pl -> pl.getTherapist().getFullName())
+                        .findFirst())
+                .orElse(appointment.getTherapist().getFullName());
+    }
+
+    /**
+     * @param includeTherapistName true on the all-therapists overlay calendar, where several
+     *                             differently-colored entries for the same appointment can be
+     *                             on screen at once (§5.2) — the therapist's own name is spelled
+     *                             out in the title so entries are readable without color-matching.
+     *                             False on the single-therapist calendar, where every event is
+     *                             already known to be "this page's therapist" and the old
+     *                             "(with mainTherapist)" hint (shown only when a reassigned line
+     *                             therapist differs from the appointment's main therapist) is
+     *                             kept as-is.
+     */
+    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId, String color,
+                                              boolean includeTherapistName) {
         String title = appointment.getPatient().getFullName();
-        if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
+        if (includeTherapistName) {
+            title = title + " — " + resolveTherapistName(appointment, viewedTherapistId);
+        } else if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
             title = title + " (with " + appointment.getTherapist().getFullName() + ")";
         }
         return new CalendarEventDTO(
@@ -362,7 +414,9 @@ public class AppointmentService {
                 appointment.getEndDateTime().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
                 color,
                 appointment.getStatus().name(),
-                viewedTherapistId);
+                viewedTherapistId,
+                appointment.getAmountPaid(),
+                appointment.getTherapist().getId().equals(viewedTherapistId));
     }
 
     // ── Reschedule (drag/resize on the therapist calendar) ──────────────────
@@ -445,6 +499,14 @@ public class AppointmentService {
         }
 
         validateDuration(form.getDurationMinutes());
+        // Mirrors the same signum() < 0 guard in updateAppointment (prepaidBase/newPayment) — without
+        // it, a negative amountPaid here overstates getBalanceDue(), falls through getPaymentStatus()
+        // to "PARTIAL" instead of "UNPAID", and silently corrupts the Actual Revenue report's
+        // Collected figure (Bug_Report_v4.md #14).
+        BigDecimal newPaymentAmount = form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO;
+        if (newPaymentAmount.signum() < 0) {
+            throw new IllegalArgumentException("Amount paid cannot be negative.");
+        }
         Appointment appointment = Appointment.builder()
                 .patient(patient)
                 .therapist(therapist)
@@ -453,7 +515,7 @@ public class AppointmentService {
                         ? form.getDurationMinutes() : 60)
                 .notes(form.getNotes())
                 .paymentMethod(paymentMethod)
-                .amountPaid(form.getNewPaymentAmount() != null ? form.getNewPaymentAmount() : BigDecimal.ZERO)
+                .amountPaid(newPaymentAmount)
                 .build();
 
         // 3b. Combo groups — one unsaved AppointmentCombo per selection, re-resolved from the live
@@ -467,7 +529,11 @@ public class AppointmentService {
             ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Service not found: " + slf.getServiceId()));
-            int qty = Math.max(1, slf.getQuantity());
+            // A package session covers exactly 1 unit of the line regardless of what the client
+            // sends — consumeServiceItem always decrements sessionsUsed by 1, so an unclamped
+            // quantity here would credit packageAmountApplied with N× the line's value while only
+            // 1 session is actually deducted from the patient's package.
+            int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
             BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
@@ -497,7 +563,7 @@ public class AppointmentService {
         BigDecimal totalProductAmount = BigDecimal.ZERO;
         for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
             if (plf == null || plf.getProductId() == null) continue;
-            int qty = Math.max(1, plf.getQuantity());
+            int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
 
             Product product = productRepository.findById(plf.getProductId())
                     .orElseThrow(() -> new EntityNotFoundException(
@@ -625,11 +691,21 @@ public class AppointmentService {
             }
         }
 
+        // Decrement via an atomic conditional UPDATE (stockQuantity >= qty checked and applied in
+        // the same DB statement), not a read-modify-write on the Java-side value above — that read
+        // is just a fast-fail for the common case; this loop is what's actually race-safe against a
+        // second markAsCompleted racing the same product to zero. A 0-row result means availability
+        // changed since the check above (lost the race), so the whole completion rolls back.
         for (AppointmentProductLine pl : appt.getProductLines()) {
             Product product = pl.getProduct();
-            product.setStockQuantity(product.getStockQuantity() - pl.getQuantity());
-            log.info("Stock decremented for product id={} name='{}' by {} (remaining={})",
-                    product.getId(), product.getName(), pl.getQuantity(), product.getStockQuantity());
+            int updated = productRepository.decrementStockIfAvailable(product.getId(), pl.getQuantity());
+            if (updated == 0) {
+                throw new IllegalArgumentException(
+                        "Insufficient stock for '" + product.getName()
+                        + "'. Availability changed — please retry.");
+            }
+            log.info("Stock decremented for product id={} name='{}' by {}",
+                    product.getId(), product.getName(), pl.getQuantity());
         }
         appt.setStatus(AppointmentStatus.COMPLETED);
         appt.setCompletedAt(LocalDateTime.now());
@@ -812,7 +888,7 @@ public class AppointmentService {
             for (AppointmentForm.ServiceLineForm slf : rawServices) {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
-                int qty = Math.max(1, slf.getQuantity());
+                int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
                 BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
 
@@ -845,7 +921,7 @@ public class AppointmentService {
             BigDecimal totalProductAmount = BigDecimal.ZERO;
             for (AppointmentForm.ProductLineForm plf : form.getProductLines()) {
                 if (plf == null || plf.getProductId() == null) continue;
-                int qty = Math.max(1, plf.getQuantity());
+                int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
                 BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));

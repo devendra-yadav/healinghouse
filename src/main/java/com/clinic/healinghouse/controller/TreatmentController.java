@@ -1,7 +1,11 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Tag;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TreatmentService;
 import com.clinic.healinghouse.util.PaginationUtil;
@@ -28,7 +32,9 @@ public class TreatmentController {
     private final TreatmentService treatmentService;
     private final TagService tagService;
     private final PaginationUtil paginationUtil;
+    private final PermissionService permissionService;
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(required = false) String tag,
@@ -50,6 +56,7 @@ public class TreatmentController {
         return "services/list";
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("service", ClinicService.builder().build());
@@ -58,6 +65,16 @@ public class TreatmentController {
         return "services/form";
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        ClinicService service = treatmentService.getById(id);
+        model.addAttribute("service", service);
+        model.addAttribute("pageTitle", service.getName());
+        return "services/detail";
+    }
+
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         ClinicService service = treatmentService.getById(id);
@@ -73,6 +90,7 @@ public class TreatmentController {
                        @RequestParam(required = false) String tagNames,
                        Model model,
                        RedirectAttributes ra) {
+        permissionService.require(Module.SERVICES, service.getId() == null ? PermissionAction.CREATE : PermissionAction.EDIT);
         if (result.hasErrors()) {
             model.addAttribute("existingTagNames", tagNames);
             model.addAttribute("pageTitle", service.getId() == null ? "New Service" : "Edit Service");
@@ -95,6 +113,7 @@ public class TreatmentController {
         return tags.stream().map(Tag::getName).collect(Collectors.joining(", "));
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         var comboImpact = treatmentService.deactivate(id);
@@ -102,6 +121,7 @@ public class TreatmentController {
         return "redirect:/services";
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         treatmentService.activate(id);
@@ -109,6 +129,7 @@ public class TreatmentController {
         return "redirect:/services";
     }
 
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/delete-permanent")
     public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
         try {

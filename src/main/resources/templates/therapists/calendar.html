@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
     <!-- FullCalendar v6: single bundle, no separate CSS file needed -->
@@ -29,6 +29,16 @@
             .fc .fc-daygrid-day-number { font-size: .78rem; }
         }
 
+        /* Month view renders timed events as a dot + plain title (.fc-daygrid-dot-event), not a
+           filled block — text sits on the dark page background, not on the event's own status
+           color, so the JS-computed contrast text color (picked against the *fill*) can land as
+           dark-on-dark and disappear for light status colors (e.g. NO_SHOW gold). Force the normal
+           theme text color for dot-style events specifically. */
+        .fc-daygrid-dot-event .fc-event-title,
+        .fc-daygrid-dot-event .fc-event-time {
+            color: var(--hh-text) !important;
+        }
+
         .fc-event-delete-btn {
             position: absolute; top: 1px; right: 2px; z-index: 5;
             width: 15px; height: 15px; line-height: 15px; text-align: center;
@@ -36,6 +46,21 @@
             background: rgba(255,255,255,.85); color: #b02a37; cursor: pointer;
         }
         .fc-event-delete-btn:hover { background: #fff; }
+
+        /* Green "paid" flag: shown only on events that carry a prepaid/paid amount > 0.
+           Sits top-right so it never covers the event's time text (top-left). When a
+           cancel (×) button is also present (SCHEDULED events), the flag shifts left via
+           .fc-event-paid-flag--with-delete so the two never overlap. */
+        .fc-event-paid-flag {
+            position: absolute; top: 1px; right: 2px; z-index: 5;
+            display: inline-flex; align-items: center; gap: 2px;
+            max-width: calc(100% - 20px); padding: 0 4px; height: 15px; line-height: 15px;
+            font-size: .62rem; font-weight: 700; border-radius: 3px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+            background: #198754; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+        .fc-event-paid-flag i { font-size: .62rem; flex: 0 0 auto; }
+        .fc-event-paid-flag--with-delete { right: 19px; }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -50,15 +75,17 @@
             <i class="bi bi-calendar3 me-1"></i>Calendar — <span th:text="${therapist.fullName}"></span>
         </h4>
         <div class="d-flex flex-wrap align-items-center gap-2">
-            <label for="therapistSwitcher" class="form-label fw-semibold mb-0">Therapist:</label>
-            <select id="therapistSwitcher" class="form-select form-select-sm"
-                    onchange="window.location.href = '/therapists/' + this.value + '/calendar'">
-                <option th:each="t : ${therapists}"
-                        th:value="${t.id}"
-                        th:text="${t.fullName}"
-                        th:selected="${t.id == therapist.id}">
-                </option>
-            </select>
+            <th:block th:if="${@perm.currentTherapistId() == null}">
+                <label for="therapistSwitcher" class="form-label fw-semibold mb-0">Therapist:</label>
+                <select id="therapistSwitcher" class="form-select form-select-sm"
+                        onchange="window.location.href = '/therapists/' + this.value + '/calendar'">
+                    <option th:each="t : ${therapists}"
+                            th:value="${t.id}"
+                            th:text="${t.fullName}"
+                            th:selected="${t.id == therapist.id}">
+                    </option>
+                </select>
+            </th:block>
             <a th:href="@{/therapists/{id}(id=${therapist.id})}" class="btn btn-sm btn-outline-secondary">
                 <i class="bi bi-arrow-left me-1"></i>Back
             </a>
@@ -113,6 +140,9 @@ const THERAPIST_ID = /*[[${therapist.id}]]*/ 0;
 /*]]>*/
 </script>
 <script>
+const CSRF_TOKEN = document.querySelector('meta[name="_csrf"]').content;
+const CSRF_HEADER = document.querySelector('meta[name="_csrf_header"]').content;
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
 // Local-time "yyyy-MM-ddTHH:mm" matching the appointment form's datetime-local input.
@@ -128,6 +158,35 @@ function toIsoLocal(date) {
 
 function minutesBetween(start, end) {
     return Math.round((end.getTime() - start.getTime()) / 60000);
+}
+
+function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+}
+
+// Per-event text color, chosen for contrast rather than assumed white — the NO_SHOW status
+// color (gold) is too light for white event text to stay readable against it. Picks whichever
+// of white / dark ink actually contrasts better against the event's own background, per the
+// WCAG relative-luminance formula, so any current or future status color stays legible without
+// hand-tuning a per-color exception.
+const DARK_INK = '#1a1a1a';
+function relativeLuminance(hex) {
+    const n = hex.replace('#', '');
+    const r = parseInt(n.substring(0, 2), 16) / 255;
+    const g = parseInt(n.substring(2, 4), 16) / 255;
+    const b = parseInt(n.substring(4, 6), 16) / 255;
+    const lin = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+const DARK_INK_LUMINANCE = relativeLuminance(DARK_INK);
+function eventTextColor(bgHex) {
+    if (!bgHex) return '#ffffff';
+    const bgL = relativeLuminance(bgHex);
+    const contrastWhite = 1.05 / (bgL + 0.05);
+    const contrastDark = (bgL + 0.05) / (DARK_INK_LUMINANCE + 0.05);
+    return contrastDark > contrastWhite ? DARK_INK : '#ffffff';
 }
 
 function hideCalendarAlert() {
@@ -190,7 +249,7 @@ function submitReschedule(info, forceSave) {
 
     fetch('/appointments/' + ev.id + '/reschedule', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
         body: JSON.stringify({
             appointmentDateTime: toIsoLocal(start),
             durationMinutes: duration,
@@ -226,17 +285,54 @@ function requestCancel(eventObj) {
     new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
 }
 
+// timeGridDay is the default view at every width, including mobile. Below 576px the header's
+// dayGridMonth/timeGridWeek/timeGridDay switcher is relocated to a footer toolbar instead (those
+// two 7-column views don't fit a phone screen), keeping the header down to prev/next/today/title.
+function isMobileCalendar() { return window.matchMedia('(max-width: 576px)').matches; }
+
+function mobileHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: '' }; }
+function desktopHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }; }
+function mobileFooterToolbar() { return { right: 'listWeek,timeGridDay,timeGridWeek,dayGridMonth' }; }
+
 document.addEventListener('DOMContentLoaded', function () {
     const calendarEl = document.getElementById('therapistCalendar');
+    const startMobile = isMobileCalendar();
+    let wasMobile = startMobile;
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'timeGridDay',
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-        footerToolbar: false,
+        headerToolbar: startMobile ? mobileHeaderToolbar() : desktopHeaderToolbar(),
+        footerToolbar: startMobile ? mobileFooterToolbar() : false,
         height: 'auto',
         nowIndicator: true,
         editable: true,
         snapDuration: '00:15:00',
+        // Default true renders same-time events as a cascade, each one covering most of the
+        // previous — hides details like the paid flag. False lays them out in full, non-overlapping
+        // side-by-side columns instead.
+        slotEventOverlap: false,
+        windowResize: function () {
+            const mobile = isMobileCalendar();
+            calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
+            calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
+            // Mobile browsers fire a resize event on ordinary scroll/touch (address bar
+            // collapsing/expanding changes viewport height), not just on an actual breakpoint
+            // crossing. Gate the view-steering on a real mobile/desktop transition (wasMobile
+            // vs. mobile) so scrolling/touching while already on mobile never clobbers a
+            // manually-selected Week/Month view.
+            if (mobile !== wasMobile) {
+                // timeGridDay is the default/safe view on any screen size. Only the 7-column views
+                // (timeGridWeek, dayGridMonth) don't fit a phone screen, so entering mobile only
+                // needs to steer away from those — listWeek stays available (footer switcher) but
+                // isn't forced anymore, since timeGridDay fits mobile fine on its own.
+                if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
+                    calendar.changeView('timeGridDay');
+                } else if (!mobile && calendar.view.type === 'listWeek') {
+                    calendar.changeView('timeGridDay');
+                }
+                wasMobile = mobile;
+            }
+        },
         events: function (fetchInfo, successCallback, failureCallback) {
             fetch('/appointments/calendar-feed?therapistId=' + THERAPIST_ID
                     + '&start=' + encodeURIComponent(fetchInfo.startStr)
@@ -256,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            extendedProps: { status: ev.status }
+                            extendedProps: { status: ev.status, amountPaid: ev.amountPaid, bgColor: ev.color }
                         };
                     }));
                 })
@@ -272,7 +368,19 @@ document.addEventListener('DOMContentLoaded', function () {
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
         eventDidMount: function (info) {
-            if (info.event.extendedProps.status !== 'SCHEDULED') return;
+            info.el.style.setProperty('--fc-event-text-color', eventTextColor(info.event.extendedProps.bgColor));
+
+            const isScheduled = info.event.extendedProps.status === 'SCHEDULED';
+            const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
+            if (amountPaid > 0) {
+                const flag = document.createElement('span');
+                flag.className = 'fc-event-paid-flag' + (isScheduled ? ' fc-event-paid-flag--with-delete' : '');
+                flag.title = 'Paid: ' + fmt(amountPaid);
+                flag.innerHTML = '<i class="bi bi-flag-fill"></i>' + fmt(amountPaid);
+                info.el.appendChild(flag);
+            }
+
+            if (!isScheduled) return;
             const btn = document.createElement('span');
             btn.className = 'fc-event-delete-btn';
             btn.title = 'Cancel appointment';
@@ -282,7 +390,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
                 requestCancel(info.event);
             });
-            info.el.style.position = 'relative';
             info.el.appendChild(btn);
         }
     });
@@ -291,7 +398,10 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('confirmCancelBtn').addEventListener('click', function () {
         if (!pendingCancelEvent) return;
         const ev = pendingCancelEvent;
-        fetch('/appointments/' + ev.id + '/cancel-from-calendar', { method: 'POST' })
+        fetch('/appointments/' + ev.id + '/cancel-from-calendar', {
+            method: 'POST',
+            headers: { [CSRF_HEADER]: CSRF_TOKEN }
+        })
             .then(function (res) { return res.json(); })
             .then(function (result) {
                 if (result.success) {

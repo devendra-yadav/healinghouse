@@ -3,7 +3,10 @@ package com.clinic.healinghouse.controller;
 import com.clinic.healinghouse.dto.PackageAvailabilityDTO;
 import com.clinic.healinghouse.dto.PackageRefundForm;
 import com.clinic.healinghouse.dto.PackageSaleForm;
+import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
+import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.PackageService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
@@ -19,6 +22,7 @@ public class PackageController {
 
     private final PackageService packageService;
 
+    @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.CREATE)
     @PostMapping
     public String sell(@PathVariable Long patientId, PackageSaleForm form, RedirectAttributes ra) {
         form.setPatientId(patientId);
@@ -31,11 +35,12 @@ public class PackageController {
         return "redirect:/patients/" + patientId;
     }
 
+    @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.APPROVE)
     @PostMapping("/{packageId}/refund")
     public String refund(@PathVariable Long patientId, @PathVariable Long packageId,
                          PackageRefundForm form, RedirectAttributes ra) {
         try {
-            packageService.refund(packageId, form.getAmount(), parsePaymentMethod(form.getPaymentMethod()), form.getNote());
+            packageService.refund(patientId, packageId, form.getAmount(), parsePaymentMethod(form.getPaymentMethod()), form.getNote());
             ra.addFlashAttribute("successMessage", "Package refunded successfully.");
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", e.getMessage());
@@ -44,6 +49,7 @@ public class PackageController {
     }
 
     /** JSON endpoint backing the appointment form's "Already Paid" section. */
+    @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.VIEW)
     @GetMapping("/available")
     @ResponseBody
     public List<PackageAvailabilityDTO> available(@PathVariable Long patientId) {

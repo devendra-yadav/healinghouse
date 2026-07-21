@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -40,7 +41,7 @@ public class GlobalExceptionHandler {
     public String handleNotFound(EntityNotFoundException ex, HttpServletRequest request,
                                   HttpServletResponse response, HandlerMethod handlerMethod,
                                   RedirectAttributes ra) throws IOException {
-        log.warn("Entity not found: {}", ex.getMessage());
+        log.warn("Entity not found: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
         String message = "The record you were looking for doesn't exist or was already removed.";
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.NOT_FOUND, message);
@@ -54,7 +55,7 @@ public class GlobalExceptionHandler {
     public String handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request,
                                                 HttpServletResponse response, HandlerMethod handlerMethod,
                                                 RedirectAttributes ra) throws IOException {
-        log.warn("Data integrity violation: {}", ex.getMessage());
+        log.warn("Data integrity violation: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
         String message = "This action conflicts with existing data (e.g. a duplicate value). Please review and try again.";
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.CONFLICT, message);
@@ -64,10 +65,24 @@ public class GlobalExceptionHandler {
         return "redirect:" + fallbackUrl(request);
     }
 
+    @ExceptionHandler(AccessDeniedException.class)
+    public String handleAccessDenied(AccessDeniedException ex, HttpServletRequest request,
+                                      HttpServletResponse response, HandlerMethod handlerMethod,
+                                      RedirectAttributes ra) throws IOException {
+        log.warn("Access denied: {} [{} {}]", ex.getMessage(), request.getMethod(), request.getRequestURI());
+        String message = "You don't have permission to perform this action.";
+        if (expectsJson(handlerMethod)) {
+            writeJsonError(response, HttpStatus.FORBIDDEN, message);
+            return null;
+        }
+        ra.addFlashAttribute("errorMessage", message);
+        return "redirect:" + fallbackUrl(request);
+    }
+
     @ExceptionHandler(Exception.class)
-    public String handleUnexpected(Exception ex, HttpServletResponse response,
+    public String handleUnexpected(Exception ex, HttpServletRequest request, HttpServletResponse response,
                                     HandlerMethod handlerMethod, Model model) throws IOException {
-        log.error("Unhandled exception", ex);
+        log.error("Unhandled exception [{} {}]", request.getMethod(), request.getRequestURI(), ex);
         if (expectsJson(handlerMethod)) {
             writeJsonError(response, HttpStatus.INTERNAL_SERVER_ERROR, "Something went wrong. Please try again.");
             return null;
@@ -91,8 +106,26 @@ public class GlobalExceptionHandler {
         response.getWriter().write(objectMapper.writeValueAsString(Map.of("error", message)));
     }
 
+    /** Only honors Referer when it's same-origin — an attacker-controlled cross-origin value falls back to "/". */
     private static String fallbackUrl(HttpServletRequest request) {
         String referer = request.getHeader("Referer");
-        return (referer != null && !referer.isBlank()) ? referer : "/";
+        if (referer == null || referer.isBlank()) {
+            return "/";
+        }
+        if (referer.startsWith("/") && !referer.startsWith("//")) {
+            return referer;
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(referer);
+            if (uri.getHost() != null
+                    && uri.getHost().equalsIgnoreCase(request.getServerName())
+                    && uri.getScheme() != null
+                    && uri.getScheme().equalsIgnoreCase(request.getScheme())) {
+                return referer;
+            }
+        } catch (IllegalArgumentException ignored) {
+            // malformed Referer — fall through to "/"
+        }
+        return "/";
     }
 }

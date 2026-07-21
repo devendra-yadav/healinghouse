@@ -9,6 +9,8 @@ import com.clinic.healinghouse.entity.PackageTemplate;
 import com.clinic.healinghouse.entity.PackageTemplateProductItem;
 import com.clinic.healinghouse.entity.PackageTemplateServiceItem;
 import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
+import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.PackageTemplateRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
@@ -28,9 +30,8 @@ import java.util.List;
 
 /**
  * Manages the (optional, staff-managed) PackageTemplate catalog — mirrors ComboService closely:
- * same soft-delete-only lifecycle (no permanent delete, since a template is pure sale-flow
- * convenience with no appointment-history references to guard against), same "suggested price is
- * always computed live from current catalog prices, never stored" philosophy.
+ * same soft-delete/permanent-delete lifecycle, same "suggested price is always computed live from
+ * current catalog prices, never stored" philosophy.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,6 +42,8 @@ public class PackageTemplateService {
     private final PackageTemplateRepository packageTemplateRepository;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final AppointmentServiceLineRepository appointmentServiceLineRepository;
+    private final AppointmentProductLineRepository appointmentProductLineRepository;
 
     @Transactional(readOnly = true)
     public List<PackageTemplate> findAllActive() {
@@ -71,6 +74,12 @@ public class PackageTemplateService {
     }
 
     public PackageTemplate save(PackageTemplateForm form) {
+        // PackageTemplate.name is @NotBlank — checked here (not left to JPA's flush-time validation)
+        // so saveAndRedirect's IllegalArgumentException catch handles it with a friendly re-render
+        // instead of a ConstraintViolationException reaching the generic error page (Bug_Report_v4.md #10).
+        if (!StringUtils.hasText(form.getName())) {
+            throw new IllegalArgumentException("Name is required.");
+        }
         PackageTemplate template = form.getId() != null ? getById(form.getId()) : PackageTemplate.builder().build();
         boolean isNew = template.getId() == null;
 
@@ -115,6 +124,14 @@ public class PackageTemplateService {
         }
 
         DiscountType type = resolveDiscountType(form.getDiscountType());
+        if (type != DiscountType.NONE) {
+            if (form.getDiscountValue() == null) {
+                throw new IllegalArgumentException("A discount value is required when a discount type is selected.");
+            }
+            if (form.getDiscountValue().signum() < 0) {
+                throw new IllegalArgumentException("Discount value cannot be negative.");
+            }
+        }
         if (type == DiscountType.PERCENTAGE && form.getDiscountValue() != null
                 && form.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
             throw new IllegalArgumentException("Percentage discount cannot exceed 100%.");
@@ -139,6 +156,26 @@ public class PackageTemplateService {
         template.setActive(true);
         packageTemplateRepository.save(template);
         log.info("Reactivated package template id={} name='{}'", template.getId(), template.getName());
+    }
+
+    /**
+     * Only allowed once deactivated, and only if no package sold from this template has ever been
+     * consumed in an appointment — checked via the AppointmentServiceLine/ProductLine ->
+     * PatientPackageServiceItem/ProductItem -> PatientPackage.sourceTemplate chain, mirroring
+     * ComboService.permanentlyDelete's "unreferenced by appointment history" guard.
+     */
+    public void permanentlyDelete(Long id) {
+        PackageTemplate template = getById(id);
+        if (template.isActive()) {
+            throw new IllegalArgumentException("Deactivate this package template before permanently deleting it.");
+        }
+        if (appointmentServiceLineRepository.existsByPackageServiceItem_PatientPackage_SourceTemplate_Id(id)
+                || appointmentProductLineRepository.existsByPackageProductItem_PatientPackage_SourceTemplate_Id(id)) {
+            throw new IllegalArgumentException("Cannot permanently delete \"" + template.getName()
+                    + "\" — a package sold from it has been used in one or more appointments.");
+        }
+        packageTemplateRepository.delete(template);
+        log.info("Permanently deleted package template id={} name='{}'", id, template.getName());
     }
 
     /** Live sum of current catalog prices x session count across every item — never stored. */

@@ -18,4 +18,8 @@ public interface PatientPackageProductItemRepository extends JpaRepository<Patie
            "AND i.sessionsUsed < i.sessionsTotal " +
            "ORDER BY i.patientPackage.purchasedAt ASC")
     List<PatientPackageProductItem> findEligibleForPatient(@Param("patientId") Long patientId, @Param("today") LocalDate today);
+
+    /** Blocks permanent deletion of a Product still referenced by a sold patient package
+     *  (non-nullable FK) — Bug_Report_v4.md #12. */
+    boolean existsByProduct_Id(Long productId);
 }

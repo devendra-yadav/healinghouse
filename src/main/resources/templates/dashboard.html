@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -11,10 +11,10 @@
 
     <!-- Page heading -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-        <h4 class="section-header mb-0">Dashboard</h4>
+        <h4 class="section-header mb-0">Home</h4>
         <div class="d-flex align-items-center gap-3">
             <a href="/calendar" class="btn btn-sm btn-outline-primary">
-                <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
+                <i class="bi bi-calendar3 me-1"></i>Clinic Calendar
             </a>
             <small class="text-muted" th:text="${#temporals.format(#temporals.createNow(), 'EEEE, dd MMMM yyyy')}"></small>
         </div>
@@ -33,7 +33,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-12 col-sm-6 col-lg-3">
+        <div class="col-12 col-sm-6 col-lg-3" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <div class="card card-kpi p-3 bg-white">
                 <div class="d-flex align-items-center gap-3">
                     <span class="card-icon text-primary"><i class="bi bi-currency-rupee"></i></span>
@@ -79,7 +79,7 @@
             <a th:href="@{/patients/new}" class="btn btn-hh">
                 <i class="bi bi-person-plus me-1"></i>New Patient
             </a>
-            <a th:href="@{/reports}" class="btn btn-outline-success">
+            <a th:href="@{/reports}" class="btn btn-outline-success" th:if="${@perm.has('REPORTS_STANDARD','VIEW')}">
                 <i class="bi bi-bar-chart-line me-1"></i>View Reports
             </a>
         </div>
@@ -178,7 +178,7 @@
         </div>
 
         <!-- Revenue trend -->
-        <div class="col-12 col-lg-6">
+        <div class="col-12 col-lg-6" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <h6 class="section-header mb-3">Revenue Trend (Last 7 Days)</h6>
             <div class="card shadow-sm p-3">
                 <canvas id="revenueTrendChart" height="220"></canvas>
@@ -186,7 +186,7 @@
         </div>
 
         <!-- Tag revenue breakdown -->
-        <div class="col-12 col-lg-6">
+        <div class="col-12 col-lg-6" th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
             <h6 class="section-header mb-3">Revenue by Tag (Last 30 Days)</h6>
             <div th:if="${tagRevenueBreakdown.empty}" class="coming-soon-card">
                 <i class="bi bi-pie-chart fs-2 text-secondary mb-2 d-block"></i>
@@ -206,14 +206,19 @@
                                                                        'Therapists|/therapists|bi-person-badge',
                                                                        'Services|/services|bi-clipboard2-heart',
                                                                        'Products|/products|bi-bag-heart',
-                                                                       'Appointments|/appointments|bi-calendar2-check',
-                                                                       'Reports|/reports|bi-bar-chart-line'} }">
+                                                                       'Appointments|/appointments|bi-calendar2-check'} }">
                 <th:block th:with="parts=${#strings.arraySplit(item,'|')}">
                     <a th:href="@{${parts[1]}}" class="card card-kpi p-3 bg-white text-center text-decoration-none h-100 d-flex flex-column align-items-center justify-content-center gap-1">
                         <i th:class="'bi ' + ${parts[2]} + ' fs-3 text-success'"></i>
                         <small class="fw-semibold text-dark" th:text="${parts[0]}"></small>
                     </a>
                 </th:block>
+            </div>
+            <div class="col-6 col-md-4 col-lg-2" th:if="${@perm.has('REPORTS_STANDARD','VIEW')}">
+                <a th:href="@{/reports}" class="card card-kpi p-3 bg-white text-center text-decoration-none h-100 d-flex flex-column align-items-center justify-content-center gap-1">
+                    <i class="bi bi-bar-chart-line fs-3 text-success"></i>
+                    <small class="fw-semibold text-dark">Reports</small>
+                </a>
             </div>
         </div>
     </div>
@@ -223,8 +228,12 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 
 <th:block th:replace="~{fragments/layout :: scripts}"/>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script th:inline="javascript">
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}">
+    Chart.defaults.color = '#ad9fa4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+</script>
+<script th:if="${@perm.has('REPORTS_REVENUE','VIEW')}" th:inline="javascript">
     const trendLabels = /*[[${revenueTrend.labels}]]*/ [];
     const trendValues = /*[[${revenueTrend.values}]]*/ [];
 
@@ -235,8 +244,8 @@
             datasets: [{
                 label: 'Revenue (₹)',
                 data: trendValues,
-                borderColor: '#40916c',
-                backgroundColor: 'rgba(64, 145, 108, 0.15)',
+                borderColor: '#4fae82',
+                backgroundColor: 'rgba(79, 174, 130, 0.15)',
                 tension: 0.3,
                 fill: true,
                 pointRadius: 3
@@ -260,7 +269,7 @@
             labels: tagLabels,
             datasets: [{
                 data: tagValues,
-                backgroundColor: ['#2d6a4f', '#40916c', '#74c69d', '#95d5b2', '#b7e4c7', '#d8f3dc', '#1b4332', '#52796f']
+                backgroundColor: ['#4fae82', '#e3a0b5', '#c9a15c', '#8fd6b3', '#c97b95', '#e6c78a', '#2f6e50', '#a5677d']
             }]
         },
         options: {

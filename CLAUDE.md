@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Healing House Clinic Management System** — a Spring Boot + Thymeleaf + MySQL web application for managing clinic operations, appointments, patients, therapists, services, and products. Designed as an internal admin tool (no authentication in current phase).
+**Healing House Clinic Management System** — a Spring Boot + Thymeleaf + MySQL web application for managing clinic operations, appointments, patients, therapists, services, and products. Session-based login + role-based access control (Spring Security) gate every page — see the Authentication & Authorization (RBAC) business rule below.
 
 ## Commands
 
@@ -34,9 +34,11 @@ Application runs at `http://localhost:8080` (default profile).
 ### Deployment (Linux)
 
 `src/main/linux/` holds ops scripts packaged into the assembly zip:
-- `bin/start_healinghouse_app.bash <env>` — `env` must be `test`, `preprod`, or `prod`; requires `HEALING_HOUSE_DB_PASSWORD` env var; launches with `--spring.profiles.active=<env>` and a dedicated `logback-spring.xml`
+- `bin/start_healinghouse_app.bash <env>` — `env` must be `test`, `preprod`, or `prod`; requires `HEALING_HOUSE_DB_PASSWORD` **and** `HEALING_HOUSE_OWNER_PASSWORD` env vars (both blank-checked before launch, both passed through as `-D` system properties); launches with `--spring.profiles.active=<env>` and a dedicated `logback-spring.xml`
 - `bin/stop_healinghouse_app.bash` — stops the running jar
 - `conf/logback-spring.xml` — logging config used in deployed environments
+
+`HEALING_HOUSE_OWNER_PASSWORD` is required in **every** profile including dev (`HealingHouseProperties.Security.ownerPassword` has no default) — `SecuritySeeder` fails loudly at startup if unset, seeding the bootstrap `OWNER` account (`mustChangePassword=true`, forced change on first login) from it.
 
 ## Database Setup
 
@@ -64,9 +66,10 @@ repository/   Spring Data JPA repositories
 service/      Business logic (transactions live here)
 controller/   Spring MVC — return Thymeleaf view names
 dto/          Form-binding + report DTOs (e.g. AppointmentForm, DailyReportDTO, TherapistEarningsDTO)
-config/       DataSeeder
+config/       DataSeeder, SecuritySeeder, SecurityConfig, HealingHouseProperties, OwnerFlagBackfill
+security/     Spring Security — AppUserDetailsService, UserPrincipal, PermissionService/PermissionView, @RequiresPermission + PermissionAspect, LoginAttemptListener, LoginRateLimitFilter, MustChangePasswordFilter
 exception/    @ControllerAdvice global error handling
-util/         Date/currency formatters, CsvExportUtil, PdfExportUtil (opencsv / iText), ProportionalAllocator
+util/         Date/currency formatters, CsvExportUtil, PdfExportUtil (opencsv / iText), ProportionalAllocator, SafeRedirectUtil
 ```
 
 **Note on naming:** the `/services` URL space (ClinicService CRUD) is served by `TreatmentController` / `TreatmentService`, not a `ServiceController` — avoids clashing with the Spring `service` package/term.
@@ -115,6 +118,10 @@ PatientPackage ──< PatientPackageServiceItem >── ClinicService
 AppointmentServiceLine >── PatientPackageServiceItem (nullable — null for a normally-paid line)
 AppointmentProductLine >── PatientPackageProductItem (nullable — null for a normally-paid line)
 PackageTransaction >── Appointment (nullable — set for USAGE/REVERSAL only)
+
+User (app_user) ── AppRole (OWNER/ADMIN/RECEPTIONIST/THERAPIST, enum column, not a table)
+User >── Therapist (nullable therapist_id — set iff role == THERAPIST, at most one User per Therapist)
+RolePermission (role, module, action, granted) — no FK to User; keyed by the AppRole enum itself
 ```
 
 **Key design decisions:**
@@ -181,7 +188,7 @@ Revenue/count inputs are attributed **per line-item therapist**, not just the ap
 - See `requirements/Combos_Requirements_v1.md` for the full spec.
 
 **Packages** — multi-appointment prepaid session bundles (e.g. "10x Back Massage"), distinct from a Combo (consumed entirely within one appointment) and from Wallet (an open ₹ balance for any amount toward any appointment):
-- Staff-managed catalog (`/package-templates`): `PackageTemplate` + `PackageTemplateServiceItem`/`ProductItem` (item + session count) — optional convenience only, mirrors `Combo`'s soft-delete-only lifecycle (no permanent delete; a template is pure sale-flow convenience with no appointment-history references to guard). `PackageTemplateService.computeSuggestedPrice` is always live-computed from current catalog prices, never stored — same philosophy as `ComboService.computeComboPrice`.
+- Staff-managed catalog (`/package-templates`): `PackageTemplate` + `PackageTemplateServiceItem`/`ProductItem` (item + session count) — optional convenience only, mirrors `Combo`'s soft-delete + permanent-delete lifecycle: `PackageTemplateService.permanentlyDelete` requires the template already deactivated and rejects if any package sold from it (`PatientPackage.sourceTemplate`) has a service/product item consumed by an `AppointmentServiceLine`/`AppointmentProductLine` (`AppointmentServiceLineRepository.existsByPackageServiceItem_PatientPackage_SourceTemplate_Id` / the product-line equivalent), gated by a `PACKAGE_TEMPLATES`/`APPROVE` permission (same as `COMBOS`/`APPROVE`) — `SecuritySeeder.backfillPackageTemplateApprovePermission` grants it retroactively for OWNER/ADMIN on databases seeded before this row existed, mirroring `OwnerFlagBackfill`'s always-on idempotent fix-up pattern. `PackageTemplateService.computeSuggestedPrice` is always live-computed from current catalog prices, never stored — same philosophy as `ComboService.computeComboPrice`.
 - Selling a package (`POST /patients/{id}/packages`, from the patient detail page's "Sell Package" modal) creates a `PatientPackage` — the actual purchased instance, `status` ACTIVE/COMPLETED/EXPIRED/CANCELLED (a real stored column, not derived, since the pooled-availability query needs to filter/index on it) — either from a template (`sourceTemplate`, informational-only backlink, never re-read after sale) or fully custom. `PackageService.sellPackage` splits the staff-entered `totalPrice` across `PatientPackageServiceItem`/`ProductItem` rows' `priceAllocated` via `ProportionalAllocator`, proportional to each item's `(catalogPrice × sessionCount)` share — same allocator Combo/discount distribution uses. A `PURCHASE` `PackageTransaction` records the sale (cash-reconciliation event, never revenue — see below).
 - **Pooling and FIFO**: the appointment form's "Already Paid" section (`GET /patients/{id}/packages/available`, `PackageService.getPooledAvailability`) sums `sessionsRemaining` for a given service/product across every one of a patient's `ACTIVE`, unexpired packages into one pooled number, and resolves `nextItemId` — the specific item FIFO would draw from right now (oldest `purchasedAt` first) — which the client round-trips back as `packageItemId` when "Add" is clicked. The server re-validates this id fresh at save time (`PackageService.resolveServiceItemForConsumption`/`resolveProductItemForConsumption`) — never trusts it blindly, same principle as Combo's live-discount re-resolution.
 - A package-covered line is added standalone (not through the Combo picker — no "package of combos" in this iteration) via `addServiceRow`/`addProductRow`'s existing row-builders in `appointments/form.html`, badged "Package." Unlike a combo group, it's **individually removable** (no group concept) — the service/qty identity is locked (same as a combo line) but the row keeps a normal remove button instead of combo's non-removable link badge.
@@ -225,6 +232,17 @@ Revenue/count inputs are attributed **per line-item therapist**, not just the ap
 - Last-resort safety net for stale "Edit"/"Delete" links on removed master data (`EntityNotFoundException`) and any other uncaught exception, which otherwise surfaced as Spring's Whitelabel stack-trace page. Normal page controllers get a flash-messaged redirect (falls back to the request's `Referer` header, else `/`); a genuinely unexpected exception renders `templates/error.html`.
 - Branches to a small `{"error": "..."}` JSON body instead for any `@ResponseBody` endpoint (the typeahead/autocomplete search endpoints on `PatientController`/`ComboController`/`TagController`) — a redirect or HTML response is meaningless to a `fetch()` caller and previously broke it with a silent JSON-parse failure. Note: this project is on **Jackson 3.x**, so the import is `tools.jackson.databind.ObjectMapper`, not `com.fasterxml.jackson...`.
 
+**Authentication & Authorization (RBAC)** — Spring Security session-based form login, wrapping every pre-existing controller as a pure access layer (no business-logic change). See `requirements/Security_RBAC_Requirements_v1.md`; implemented through Phase D (Phase E, a dedicated `AuditLog` audit trail, is spec'd but **not yet built** — don't assume an audit log table exists).
+- Four fixed roles (`AppRole`: OWNER, ADMIN, RECEPTIONIST, THERAPIST), one `User` per login (`BCryptPasswordEncoder`, `app_user` table). A THERAPIST-role `User` carries a nullable `therapist` FK (validated: must be set iff role==THERAPIST, at most one `User` per `Therapist`) — that link is what all "own data only" scoping resolves against.
+- Permissions are data-driven, not hardcoded: `RolePermission` rows key `(role, module, action)` → `granted`, seeded from the requirements doc's matrix by `SecuritySeeder` (same "only if table empty" gate as `DataSeeder`), cached in-memory (`PermissionService`) and reloaded whenever `/admin/access-matrix` (OWNER-edit / ADMIN-read-only, `AccessMatrixController`/`AccessMatrixService`) saves a change.
+- Enforcement is two-layered: `@RequiresPermission(module=..., action=...)` + `PermissionAspect` (AOP) gates controller methods server-side (denial → `AccessDeniedException` → `GlobalExceptionHandler`'s existing flash-redirect pattern); the `perm` Thymeleaf bean (`PermissionView`) gates nav links/buttons in templates so users don't reach a page just to bounce off a denial.
+- THERAPIST row-level data scoping (beyond the module/action gate) lives inline in controllers, not the aspect — e.g. `AppointmentController`'s `enforceOwnAppointmentForTherapist`, `TherapistController`'s `enforceOwnTherapist`, `ReportController`'s `denyClinicWideReportsForTherapist` — all keyed off `PermissionService.currentTherapistId()`, reusing the existing `AppointmentSpec.hasTherapistId` main-or-reassigned-line definition.
+- `/admin/users` (`UserAdminController`/`UserService`) — OWNER/ADMIN create/edit/disable/reset-password; ADMIN is server-side blocked from touching OWNER-role accounts. Disable (not delete) invalidates the user's active sessions (`UserService.disable`/`invalidateSessionsForUser`). `TherapistService.deactivate()` now cascades into `UserService.disableLinkedToTherapist` — deactivating a therapist also disables and session-invalidates their linked login (fixed per `Bug_Report_v5.md` #1; `activate()` deliberately does **not** auto-restore the login — that's a separate admin decision).
+- Login hardening: `LoginAttemptListener` locks an account after `maxFailedLoginAttempts` (default 5) for `lockoutMinutes` (default 15) — a lock is never *extended* by further attempts while still active (`Bug_Report_v4.md` #3). `LoginRateLimitFilter` (registered before `UsernamePasswordAuthenticationFilter`) adds a separate in-memory per-IP sliding-window throttle on `POST /login` (`maxLoginAttemptsPerIp` default 10 / `loginRateLimitWindowMinutes` default 15) independent of which username is targeted — closes the residual DoS gap where re-locking a known account (e.g. the seeded default `owner`) every 15 minutes indefinitely was otherwise still possible (`Bug_Report_v5.md` #3).
+- `mustChangePassword` (forced on account creation and on any admin password reset) is enforced by `MustChangePasswordFilter`, redirecting to `/account/change-password` (`AccountController`, self-service, ungated by `@RequiresPermission` — every authenticated user can always change their own password) until cleared — previously set but never read (`Bug_Report_v4.md` #9).
+- `util/SafeRedirectUtil.sanitize(url, fallback)` — every client-supplied `returnUrl` (appointment complete/cancel/no-show/reassign-therapist, wallet actions) and `GlobalExceptionHandler`'s `Referer`-based fallback is sanitized through this before use in a `redirect:` prefix or `th:href` (must start with `/`, not `//` or `/\`) — closes an open-redirect phishing vector (`Bug_Report_v5.md` #2, extending the earlier `Bug_Report_v4.md` #18 fix to a separate code path).
+- Bootstrap: `SecuritySeeder` creates one default OWNER account (`HealingHouseProperties.Security.ownerUsername`, default `"owner"`) from the **required** `HEALING_HOUSE_OWNER_PASSWORD` env var (no default — fails startup loudly if unset, in every profile including dev) — see the Deployment (Linux) section above.
+
 ## Phased Implementation (current state)
 
 The `requirements/Healing_House_Clinic_Requirements_v1.md` file is the authoritative spec (v1.2). Phases:
@@ -263,7 +281,12 @@ The `requirements/Healing_House_Clinic_Requirements_v1.md` file is the authorita
 - Packages — multi-appointment prepaid session bundles, sold per-patient and drawn down one session at a time via a new "Already Paid" section on the appointment form; see the Packages business rule above and `requirements/Packages_Requirements_v1.md`. New: `PackageTemplate`/`PackageTemplateServiceItem`/`PackageTemplateProductItem`/`PatientPackage`/`PatientPackageServiceItem`/`PatientPackageProductItem`/`PackageTransaction` entities, `PackageTemplateService`/`PackageTemplateController` (`/package-templates` CRUD), `PackageService`/`PackageController` (`/patients/{id}/packages` sell/refund/available), `templates/package-templates/`, `fragments/package-modals.html`. Extracted `util/ProportionalAllocator` out of `AppointmentService` so the package-sale split and the pre-existing combo/discount splits share one allocator.
 - Permanent delete (in addition to the pre-existing deactivate/reactivate) for `ClinicService`/`Product`/`Combo`, and pagination + "Show Inactive"/search on all three list pages — see the Soft delete / permanent delete business rule above.
 - App-wide `TimeZone.setDefault(Asia/Kolkata)` set explicitly in `HealinghouseApplication.main` (belt-and-suspenders alongside the DB-level timezone setting) so date/time handling is consistent regardless of host JVM default.
-- Optimistic locking (`@Version`) on `Appointment` + a global `@ControllerAdvice` (`GlobalExceptionHandler`) + `templates/error.html` — see the relevant business rules above. Full findings/fixes trail in `requirements/Bug_Report_v1.md` and `requirements/Bug_Report_v2.md` (34/34 tests passing after v2's fixes).
+- Optimistic locking (`@Version`) on `Appointment` + a global `@ControllerAdvice` (`GlobalExceptionHandler`) + `templates/error.html` — see the relevant business rules above.
+- Interactive therapist calendar — drag-to-reschedule and resize-to-change-duration (`POST /appointments/{id}/reschedule`, `AppointmentService.rescheduleAppointment`, reusing `findConflicts`/"Save anyway" semantics unchanged) and a delete-icon that cancels via the existing `cancelAppointment` path, all 15-minute-snapped and revert-on-reject; only `SCHEDULED` events are draggable/resizable/deletable. See `requirements/Therapist_Calendar_Interactive_Requirements_v1.md`.
+- All-therapists overlay calendar (`GET /calendar`, `templates/calendar.html`, `CalendarController`, linked from the dashboard) — every active therapist's appointments on one grid, each therapist a stable deterministic color (`palette[hash(therapistId) % size]`); a therapist checkbox panel (Select All/None) persists its selection in `localStorage`. An appointment involving two *selected* therapists (main + a reassigned line) renders as two overlapping, independently-colored events sharing a composite FullCalendar id (`"{appointmentId}-{therapistId}"`); reschedule/resize/cancel always `refetchEvents()` rather than patching a single event in place, since a "twin" event would otherwise go stale. Fed by `GET /appointments/calendar-feed-multi` (`AppointmentService.findCalendarEventsForTherapists`), separate from the existing single-therapist `/calendar-feed`. `CalendarEventDTO.amountPaid` (added alongside `therapistId`) drives a paid-indicator badge on each event. See `requirements/All_Therapists_Calendar_Requirements_v1.md`.
+- Help page (`GET /help`, `DashboardController`, `templates/help.html`) — static in-app reference, linked from `fragments/layout.html`'s nav.
+- Authentication & Authorization (RBAC) — see the dedicated business rule above and `requirements/Security_RBAC_Requirements_v1.md`.
+- Full bug-report findings/fixes trail: `requirements/Bug_Report_v1.md` through `Bug_Report_v5.md` (all findings through v4 marked FIXED; v5's three RBAC-surface findings — therapist-deactivation/login cascade, `returnUrl` open redirect, login rate limiting — also fixed, `mvnw test` 73/73 passing as of 2026-07-19).
 
 When implementing a specific step, reference it as "Phase X Step X.Y" from the requirements doc. `requirements/PHASE3_IMPLEMENTATION_GUIDE.md` has the detailed Phase 3 implementation notes if similar step-by-step guidance is needed for Phase 4.
 

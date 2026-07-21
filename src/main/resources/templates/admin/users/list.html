@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('UserManagement')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">User Management</h4>
+        <div class="d-flex gap-2">
+            <a th:href="@{/admin/users(showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Disabled' : 'Show Disabled'"></span>
+            </a>
+            <a th:if="${@perm.has('USER_MANAGEMENT','CREATE')}" th:href="@{/admin/users/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-person-plus me-1"></i>New User
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Role</th>
+                            <th>Linked Therapist</th>
+                            <th>Status</th>
+                            <th>Last Login</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${users.empty}">
+                            <td colspan="8" class="text-center text-muted py-4">No users found.</td>
+                        </tr>
+                        <tr th:each="u, stat : ${users}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${u.username}"></span>
+                                <span th:if="${u.id == currentUserId}" class="badge bg-info ms-1">You</span>
+                            </td>
+                            <td th:text="${u.fullName ?: '—'}"></td>
+                            <td><span class="badge bg-secondary" th:text="${u.role}"></span></td>
+                            <td th:text="${u.therapist != null ? u.therapist.fullName : '—'}"></td>
+                            <td>
+                                <span th:if="${u.active}" class="badge bg-success">Active</span>
+                                <span th:unless="${u.active}" class="badge bg-secondary">Disabled</span>
+                                <span th:if="${u.mustChangePassword}" class="badge bg-warning text-dark ms-1" title="Must change password on next login">Temp PW</span>
+                            </td>
+                            <td class="small text-muted"
+                                th:text="${u.lastLoginAt != null ? #temporals.format(u.lastLoginAt, 'dd MMM yyyy, hh:mm a') : 'Never'}">
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:if="${@perm.has('USER_MANAGEMENT','EDIT')}"
+                                   th:href="@{/admin/users/{id}/edit(id=${u.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button th:if="${@perm.has('USER_MANAGEMENT','EDIT')}"
+                                        type="button" class="btn btn-sm btn-outline-secondary me-1" title="Reset Password"
+                                        data-bs-toggle="modal" data-bs-target="#resetPasswordModal"
+                                        th:attr="data-username=${u.username}, data-url=@{/admin/users/{id}/reset-password(id=${u.id})}">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                <form th:if="${@perm.has('USER_MANAGEMENT','DELETE') and !u.active}"
+                                      th:action="@{/admin/users/{id}/enable(id=${u.id})}" method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success me-1" title="Enable">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button th:if="${@perm.has('USER_MANAGEMENT','DELETE') and !u.active}"
+                                        type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-username=${u.username}, data-url=@{/admin/users/{id}/delete(id=${u.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                                <button th:if="${@perm.has('USER_MANAGEMENT','DELETE') and u.active and u.id != currentUserId}"
+                                        type="button" class="btn btn-sm btn-outline-danger" title="Disable"
+                                        data-bs-toggle="modal" data-bs-target="#disableModal"
+                                        th:attr="data-username=${u.username}, data-url=@{/admin/users/{id}/disable(id=${u.id})}">
+                                    <i class="bi bi-person-dash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${users.totalElements} + ' user(s)'"></span>
+            <div th:if="${users.totalPages > 1}" class="btn-group btn-group-sm">
+                <a class="btn btn-outline-secondary"
+                   th:classappend="${!users.hasPrevious()} ? 'disabled'"
+                   th:href="@{/admin/users(page=${users.number - 1},showInactive=${showInactive})}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+                <span class="btn btn-outline-secondary disabled"
+                      th:text="'Page ' + (${users.number} + 1) + ' of ' + ${users.totalPages}"></span>
+                <a class="btn btn-outline-secondary"
+                   th:classappend="${!users.hasNext()} ? 'disabled'"
+                   th:href="@{/admin/users(page=${users.number + 1},showInactive=${showInactive})}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Disable Confirmation Modal -->
+<div class="modal fade" id="disableModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Disable</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="disableModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="disableForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Disable</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div class="modal fade" id="resetPasswordModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="resetPasswordForm" method="post" class="modal-content">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-key text-secondary me-2"></i>Reset Password — <span id="resetPasswordUsername"></span></h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label fw-semibold">New Temporary Password</label>
+                <input type="password" name="newPassword" class="form-control" minlength="8" required
+                       placeholder="At least 8 characters"/>
+                <div class="form-text">The user must change this password on their next login.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-hh">Reset Password</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('disableModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('disableModalBody').textContent =
+            'Disable user "' + btn.dataset.username + '"? They will no longer be able to log in.';
+        document.getElementById('disableForm').action = btn.dataset.url;
+    });
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Permanently delete user "' + btn.dataset.username + '"? This cannot be undone.';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+    document.getElementById('resetPasswordModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('resetPasswordUsername').textContent = btn.dataset.username;
+        document.getElementById('resetPasswordForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

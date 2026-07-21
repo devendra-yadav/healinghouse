@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -15,7 +15,7 @@
             An unexpected error occurred while processing your request. The issue has been logged
             — please try again, and contact support if it keeps happening.
         </p>
-        <a class="btn btn-primary" th:href="@{/}">Back to Dashboard</a>
+        <a class="btn btn-primary" th:href="@{/}">Back to Home</a>
     </div>
 </main>
 

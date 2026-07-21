@@ -1,7 +1,11 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ProductService;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.util.PaginationUtil;
@@ -28,7 +32,9 @@ public class ProductController {
     private final ProductService productService;
     private final TagService tagService;
     private final PaginationUtil paginationUtil;
+    private final PermissionService permissionService;
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(required = false) String tag,
@@ -51,6 +57,7 @@ public class ProductController {
         return "products/list";
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("product", Product.builder().reorderLevel(5).build());
@@ -59,6 +66,16 @@ public class ProductController {
         return "products/form";
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.VIEW)
+    @GetMapping("/{id}")
+    public String detail(@PathVariable Long id, Model model) {
+        Product product = productService.getById(id);
+        model.addAttribute("product", product);
+        model.addAttribute("pageTitle", product.getName());
+        return "products/detail";
+    }
+
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         Product product = productService.getById(id);
@@ -74,6 +91,7 @@ public class ProductController {
                        @RequestParam(required = false) String tagNames,
                        Model model,
                        RedirectAttributes ra) {
+        permissionService.require(Module.PRODUCTS, product.getId() == null ? PermissionAction.CREATE : PermissionAction.EDIT);
         if (result.hasErrors()) {
             model.addAttribute("existingTagNames", tagNames);
             model.addAttribute("pageTitle", product.getId() == null ? "New Product" : "Edit Product");
@@ -96,6 +114,7 @@ public class ProductController {
         return tags.stream().map(Tag::getName).collect(Collectors.joining(", "));
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         var comboImpact = productService.deactivate(id);
@@ -103,6 +122,7 @@ public class ProductController {
         return "redirect:/products";
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         productService.activate(id);
@@ -110,6 +130,7 @@ public class ProductController {
         return "redirect:/products";
     }
 
+    @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.APPROVE)
     @PostMapping("/{id}/delete-permanent")
     public String deletePermanent(@PathVariable Long id, RedirectAttributes ra) {
         try {

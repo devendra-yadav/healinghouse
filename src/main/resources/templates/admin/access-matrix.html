@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('AccessMatrix')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Access Matrix</h4>
+    </div>
+
+    <div class="alert alert-warning py-2 mb-3">
+        <i class="bi bi-exclamation-triangle me-2"></i>
+        Changes apply immediately to every currently logged-in user of that role on their next request — no restart needed.
+    </div>
+
+    <div th:unless="${@perm.has('ACCESS_MATRIX','EDIT')}" class="alert alert-info py-2 mb-3">
+        <i class="bi bi-eye me-2"></i>Read-only — only the Owner can edit the access matrix.
+    </div>
+
+    <form th:action="@{/admin/access-matrix/save}" method="post">
+        <ul class="nav nav-tabs" role="tablist">
+            <li class="nav-item" th:each="role, stat : ${roles}">
+                <button class="nav-link" th:classappend="${stat.first} ? 'active'"
+                        th:id="'tab-' + ${role}" data-bs-toggle="tab"
+                        th:attr="data-bs-target='#pane-' + ${role}" type="button" role="tab"
+                        th:text="${role}">
+                </button>
+            </li>
+        </ul>
+
+        <div class="tab-content border border-top-0 p-3 mb-3">
+            <div class="tab-pane fade" th:classappend="${stat.first} ? 'show active'"
+                 th:each="role, stat : ${roles}" th:id="'pane-' + ${role}" role="tabpanel">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Module</th>
+                                <th class="text-center" th:each="action : ${actions}" th:text="${action}"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="module : ${modules}">
+                                <td class="fw-semibold" th:text="${module}"></td>
+                                <td class="text-center" th:each="action : ${actions}">
+                                    <th:block th:with="rp=${permByKey.get(role + '|' + module + '|' + action)}">
+                                        <span th:if="${rp == null}" class="text-muted">—</span>
+                                        <input th:if="${rp != null}" type="checkbox" class="form-check-input"
+                                               name="grantedIds" th:value="${rp.id}" th:checked="${rp.granted}"
+                                               th:disabled="${!@perm.has('ACCESS_MATRIX','EDIT')}"/>
+                                    </th:block>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div th:if="${@perm.has('ACCESS_MATRIX','EDIT')}" class="d-grid gap-2 d-md-flex justify-content-md-end">
+            <button type="submit" class="btn btn-hh">
+                <i class="bi bi-check-lg me-1"></i>Save Access Matrix
+            </button>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

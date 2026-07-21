@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
     <!-- Choices.js: searchable select dropdowns, same library/pattern as combos/form.html -->
@@ -66,7 +66,7 @@
                                 </button>
                             </div>
                             <div class="card-body pb-1">
-                                <div id="serviceItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                <div id="serviceItemsHeader" class="row g-2 mb-1 item-row-header small text-muted fw-semibold px-1">
                                     <div class="col-5">Service</div>
                                     <div class="col-2 text-center">Sessions</div>
                                     <div class="col-2 text-end">Rate</div>
@@ -89,7 +89,7 @@
                                 </button>
                             </div>
                             <div class="card-body pb-1">
-                                <div id="productItemsHeader" class="row g-2 mb-1 d-none small text-muted fw-semibold px-1">
+                                <div id="productItemsHeader" class="row g-2 mb-1 item-row-header small text-muted fw-semibold px-1">
                                     <div class="col-5">Product</div>
                                     <div class="col-2 text-center">Quantity</div>
                                     <div class="col-2 text-end">Rate</div>
@@ -200,20 +200,20 @@ function addServiceItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center service-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm si-select"
                     name="serviceItems[${i}].itemId" onchange="updatePricePreview()">
                 <option value="">— Service —</option>
                 ${buildOptions(ALL_SERVICES)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm si-sessions"
                    name="serviceItems[${i}].sessionCount" value="1" min="1" oninput="updatePricePreview()">
          </div>
-         <div class="col-2 text-end si-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold si-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end si-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold si-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'service-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -235,20 +235,20 @@ function addProductItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center product-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm pi-select"
                     name="productItems[${i}].itemId" onchange="updatePricePreview()">
                 <option value="">— Product —</option>
                 ${buildOptions(ALL_PRODUCTS)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm pi-sessions"
                    name="productItems[${i}].sessionCount" value="1" min="1" oninput="updatePricePreview()">
          </div>
-         <div class="col-2 text-end pi-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold pi-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end pi-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold pi-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removeRow(this,'product-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -275,9 +275,9 @@ function toggleUI() {
     const hasServices = document.querySelectorAll('.service-item-row').length > 0;
     const hasProducts = document.querySelectorAll('.product-item-row').length > 0;
     document.getElementById('serviceItemsEmpty').classList.toggle('d-none', hasServices);
-    document.getElementById('serviceItemsHeader').classList.toggle('d-none', !hasServices);
+    document.getElementById('serviceItemsHeader').classList.toggle('has-items', hasServices);
     document.getElementById('productItemsEmpty').classList.toggle('d-none', hasProducts);
-    document.getElementById('productItemsHeader').classList.toggle('d-none', !hasProducts);
+    document.getElementById('productItemsHeader').classList.toggle('has-items', hasProducts);
 }
 
 function onDiscountTypeChange() {

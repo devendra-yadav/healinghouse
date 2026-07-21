@@ -47,6 +47,15 @@ public class TagService {
         return tagRepository.findByNameContainingIgnoreCaseOrderByNameAsc(partial.trim());
     }
 
+    /** Autocomplete variant — caps a non-blank query at the DB level instead of loading every match into memory. */
+    @Transactional(readOnly = true)
+    public List<Tag> search(String partial, int limit) {
+        if (!StringUtils.hasText(partial)) {
+            return findAll().stream().limit(limit).toList();
+        }
+        return tagRepository.findByNameContainingIgnoreCaseOrderByNameAsc(partial.trim(), org.springframework.data.domain.PageRequest.of(0, limit));
+    }
+
     @Transactional(readOnly = true)
     public List<TagUsage> findAllWithUsage() {
         return findAll().stream()

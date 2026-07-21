@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
     <!-- FullCalendar v6: single bundle, no separate CSS file needed -->
@@ -23,6 +23,19 @@
         .fc-event.fc-event-inactive .fc-event-time {
             color: #1a1a1a !important;
             font-weight: 600;
+        }
+
+        /* Month view renders events as a dot + plain title (.fc-daygrid-dot-event), not a filled
+           block — text sits directly on the dark page background, not on the event's own color, so
+           both the dark-ink override above (for inactive events) and the JS-computed contrast color
+           below (for scheduled events, picked against the *fill* color) can land as dark-on-dark and
+           disappear. Force the normal theme text color for dot-style events specifically; must come
+           after the rule above to win the !important vs !important tie via source order. */
+        .fc-daygrid-dot-event.fc-event-inactive .fc-event-title,
+        .fc-daygrid-dot-event.fc-event-inactive .fc-event-time,
+        .fc-daygrid-dot-event .fc-event-title,
+        .fc-daygrid-dot-event .fc-event-time {
+            color: var(--hh-text) !important;
         }
 
         #therapistPanel { max-height: 260px; overflow-y: auto; min-width: 220px; }
@@ -52,21 +65,79 @@
             background: rgba(255,255,255,.85); color: #b02a37; cursor: pointer;
         }
         .fc-event-delete-btn:hover { background: #fff; }
+
+        /* Green "paid" flag: shown only on events that carry a prepaid/paid amount > 0.
+           Sits top-right so it never covers the event's time text (top-left). When a
+           cancel (×) button is also present (SCHEDULED events), the flag shifts left via
+           .fc-event-paid-flag--with-delete so the two never overlap. */
+        .fc-event-paid-flag {
+            position: absolute; top: 1px; right: 2px; z-index: 5;
+            display: inline-flex; align-items: center; gap: 2px;
+            max-width: calc(100% - 20px); padding: 0 4px; height: 15px; line-height: 15px;
+            font-size: .62rem; font-weight: 700; border-radius: 3px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis;
+            background: #198754; color: #fff; box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+        .fc-event-paid-flag i { font-size: .62rem; flex: 0 0 auto; }
+        .fc-event-paid-flag--with-delete { right: 19px; }
+
+        /* Status flag for non-SCHEDULED events: this calendar colors by therapist identity, not
+           status, so the hatch pattern alone (.fc-event-inactive) only says "not scheduled" —
+           doesn't distinguish completed/cancelled/no-show. Bottom-right icon badge fills that gap. */
+        .fc-event-status-flag {
+            position: absolute; bottom: 1px; right: 2px; z-index: 5;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 3px; font-size: .65rem;
+            box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+        .fc-event-status-flag.status-completed { background: #198754; color: #fff; }
+        .fc-event-status-flag.status-cancelled { background: #dc3545; color: #fff; }
+        .fc-event-status-flag.status-no-show { background: #ffc107; color: #1a1a1a; }
+
+        /* Linked-appointment cue: an appointment involving more than one *selected* therapist
+           renders as one bar per therapist (§5.2) — this bottom-left badge marks every such bar
+           so it doesn't read as a separate booking, and its tooltip names the other therapist(s).
+           Bottom-left is the one corner not already claimed by the paid flag/delete button
+           (top-right) or the status flag (bottom-right). */
+        .fc-event-linked-flag {
+            position: absolute; bottom: 1px; left: 2px; z-index: 5;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 3px; font-size: .65rem;
+            background: rgba(255,255,255,.85); color: #1a1a1a;
+            box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+
+        /* Same matching dashed white border on every twin bar of a multi-therapist appointment,
+           so the group reads as one unit at a glance. A real `border` (not box-shadow —
+           FullCalendar wraps timed events in a `.fc-scroller-harness` with overflow:hidden, which
+           silently clips a shadow's spread outside the event's own box). White + dashed rather
+           than a solid accent color, since TherapistColorUtil's 10-color palette (this calendar
+           fills events by therapist identity) already covers most of the hue wheel — a neutral
+           dashed outline can't be mistaken for any therapist's own color. `!important` is
+           required: FullCalendar sets each event's own border-color via inline style (per its
+           `color` property), which otherwise outranks a same-specificity class rule. In day/week
+           view the bars sit flush against each other, so the touching border edges read as one
+           continuous outline; in month/list view the bars aren't adjacent, so the same border on
+           each is what visually ties them together instead. */
+        .fc-event-linked {
+            border: 3px dashed #ffffff !important;
+            border-radius: 4px !important;
+        }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
 
-<nav th:replace="~{fragments/layout :: navbar('Calendar')}"></nav>
+<nav th:replace="~{fragments/layout :: navbar('ClinicCalendar')}"></nav>
 
 <main class="container-fluid px-4 py-4 flex-grow-1">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
         <h4 class="section-header mb-0">
-            <i class="bi bi-calendar3 me-1"></i>All-Therapists Calendar
+            <i class="bi bi-calendar3 me-1"></i>Clinic Calendar
         </h4>
         <a href="/" class="btn btn-sm btn-outline-secondary">
-            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            <i class="bi bi-arrow-left me-1"></i>Back to Home
         </a>
     </div>
 
@@ -111,7 +182,9 @@
                 <i class="bi bi-info-circle me-1"></i>
                 Click an appointment to open it, or click an empty slot to start a new booking. Scheduled
                 appointments can be dragged to reschedule, resized to change duration, or removed with the
-                <i class="bi bi-x-circle"></i> icon. Faded/hatched events are completed, cancelled, or no-show.
+                <i class="bi bi-x-circle"></i> icon. Hatched events are completed, cancelled, or no-show —
+                the badge in the bottom-right corner (<i class="bi bi-check-lg"></i> completed,
+                <i class="bi bi-x-lg"></i> cancelled, <i class="bi bi-person-x-fill"></i> no-show) shows which.
             </p>
         </div>
     </div>
@@ -147,6 +220,9 @@ const ALL_THERAPIST_IDS = /*[[${therapistOptions.![id]}]]*/ [];
 <script>
 const STORAGE_KEY = 'hh.calendar.selectedTherapistIds';
 
+const CSRF_TOKEN = document.querySelector('meta[name="_csrf"]').content;
+const CSRF_HEADER = document.querySelector('meta[name="_csrf_header"]').content;
+
 function pad(n) { return String(n).padStart(2, '0'); }
 
 function toDateTimeParam(date) {
@@ -160,6 +236,35 @@ function toIsoLocal(date) {
 
 function minutesBetween(start, end) {
     return Math.round((end.getTime() - start.getTime()) / 60000);
+}
+
+function fmt(n) {
+    return '₹' + Number(n).toLocaleString('en-IN', {
+        minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+}
+
+// Per-event text color, chosen for contrast rather than assumed white — some therapist palette
+// colors (cyan, teal, amber) and the NO_SHOW status gold are too light for white event text to
+// stay readable. Picks whichever of white / dark ink actually contrasts better against the
+// event's own background, per the WCAG relative-luminance formula, so any current or future
+// palette/status color stays legible without hand-tuning a per-color exception.
+const DARK_INK = '#1a1a1a';
+function relativeLuminance(hex) {
+    const n = hex.replace('#', '');
+    const r = parseInt(n.substring(0, 2), 16) / 255;
+    const g = parseInt(n.substring(2, 4), 16) / 255;
+    const b = parseInt(n.substring(4, 6), 16) / 255;
+    const lin = function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+const DARK_INK_LUMINANCE = relativeLuminance(DARK_INK);
+function eventTextColor(bgHex) {
+    if (!bgHex) return '#ffffff';
+    const bgL = relativeLuminance(bgHex);
+    const contrastWhite = 1.05 / (bgL + 0.05);
+    const contrastDark = (bgL + 0.05) / (DARK_INK_LUMINANCE + 0.05);
+    return contrastDark > contrastWhite ? DARK_INK : '#ffffff';
 }
 
 function loadSelectedIds() {
@@ -254,7 +359,7 @@ function submitReschedule(info, forceSave) {
 
     fetch('/appointments/' + appointmentId + '/reschedule', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: CSRF_TOKEN },
         body: JSON.stringify({
             appointmentDateTime: toIsoLocal(start),
             durationMinutes: duration,
@@ -294,19 +399,56 @@ function requestCancel(eventObj) {
     new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
 }
 
+// timeGridDay is the default view at every width, including mobile. Below 576px the header's
+// dayGridMonth/timeGridWeek/timeGridDay switcher is relocated to a footer toolbar instead (those
+// two 7-column views don't fit a phone screen), keeping the header down to prev/next/today/title.
+function isMobileCalendar() { return window.matchMedia('(max-width: 576px)').matches; }
+
+function mobileHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: '' }; }
+function desktopHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }; }
+function mobileFooterToolbar() { return { right: 'listWeek,timeGridDay,timeGridWeek,dayGridMonth' }; }
+
 document.addEventListener('DOMContentLoaded', function () {
     applyCheckedState(loadSelectedIds());
 
     const calendarEl = document.getElementById('allTherapistsCalendar');
+    const startMobile = isMobileCalendar();
+    let wasMobile = startMobile;
 
     calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'timeGridDay',
-        headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' },
-        footerToolbar: false,
+        headerToolbar: startMobile ? mobileHeaderToolbar() : desktopHeaderToolbar(),
+        footerToolbar: startMobile ? mobileFooterToolbar() : false,
         height: 'auto',
         nowIndicator: true,
         editable: true,
         snapDuration: '00:15:00',
+        // Default true renders same-time events as a cascade, each one covering most of the
+        // previous — hides details like the paid flag. False lays them out in full, non-overlapping
+        // side-by-side columns instead.
+        slotEventOverlap: false,
+        windowResize: function () {
+            const mobile = isMobileCalendar();
+            calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
+            calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
+            // Mobile browsers fire a resize event on ordinary scroll/touch (address bar
+            // collapsing/expanding changes viewport height), not just on an actual breakpoint
+            // crossing. Gate the view-steering on a real mobile/desktop transition (wasMobile
+            // vs. mobile) so scrolling/touching while already on mobile never clobbers a
+            // manually-selected Week/Month view.
+            if (mobile !== wasMobile) {
+                // timeGridDay is the default/safe view on any screen size. Only the 7-column views
+                // (timeGridWeek, dayGridMonth) don't fit a phone screen, so entering mobile only
+                // needs to steer away from those — listWeek stays available (footer switcher) but
+                // isn't forced anymore, since timeGridDay fits mobile fine on its own.
+                if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
+                    calendar.changeView('timeGridDay');
+                } else if (!mobile && calendar.view.type === 'listWeek') {
+                    calendar.changeView('timeGridDay');
+                }
+                wasMobile = mobile;
+            }
+        },
         events: function (fetchInfo, successCallback, failureCallback) {
             const ids = getCheckedIds();
             if (ids.length === 0) {
@@ -318,8 +460,42 @@ document.addEventListener('DOMContentLoaded', function () {
                     + '&end=' + encodeURIComponent(fetchInfo.endStr))
                 .then(function (res) { return res.json(); })
                 .then(function (events) {
+                    // An appointment involving 2+ selected therapists (main + a reassigned line)
+                    // arrives here as one twin event per therapist, same time slot (§5.2). Group
+                    // by appointment id so only one twin shows the paid flag (it's one payment,
+                    // not one per bar) and every twin gets a "linked" cue instead of looking like
+                    // separate bookings.
+                    const byAppointment = {};
+                    events.forEach(function (ev) {
+                        (byAppointment[ev.id] = byAppointment[ev.id] || []).push(ev);
+                    });
+
                     successCallback(events.map(function (ev) {
                         const isScheduled = ev.status === 'SCHEDULED';
+                        const group = byAppointment[ev.id];
+                        const isTwin = group.length > 1;
+                        let showPaidFlag = true;
+                        let otherTherapistNames = [];
+                        if (isTwin) {
+                            // Prefer the main therapist's bar for the paid flag. If the main
+                            // therapist isn't among the selected/checked therapists (so isn't in
+                            // this group at all), fall back to the lowest therapistId so exactly
+                            // one bar still shows it.
+                            const mainInGroup = group.some(function (sib) { return sib.mainTherapist; });
+                            if (mainInGroup) {
+                                showPaidFlag = !!ev.mainTherapist;
+                            } else {
+                                const sorted = group.slice().sort(function (a, b) { return a.therapistId - b.therapistId; });
+                                showPaidFlag = sorted[0].therapistId === ev.therapistId;
+                            }
+                            otherTherapistNames = group
+                                .filter(function (sib) { return sib.therapistId !== ev.therapistId; })
+                                .map(function (sib) { return sib.title.split(' — ').pop(); });
+                        }
+                        const classNames = [];
+                        if (!isScheduled) classNames.push('fc-event-inactive');
+                        if (isTwin) classNames.push('fc-event-linked');
+
                         return {
                             id: ev.id + '-' + ev.therapistId,
                             title: ev.title,
@@ -329,8 +505,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            classNames: isScheduled ? [] : ['fc-event-inactive'],
-                            extendedProps: { status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId }
+                            classNames: classNames,
+                            extendedProps: {
+                                status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId,
+                                amountPaid: ev.amountPaid, bgColor: ev.color,
+                                showPaidFlag: showPaidFlag, linked: isTwin, otherTherapistNames: otherTherapistNames
+                            }
                         };
                     }));
                 })
@@ -345,7 +525,45 @@ document.addEventListener('DOMContentLoaded', function () {
         eventDrop: function (info) { submitReschedule(info, false); },
         eventResize: function (info) { submitReschedule(info, false); },
         eventDidMount: function (info) {
-            if (info.event.extendedProps.status !== 'SCHEDULED') return;
+            // .fc-event-inactive (below) hardcodes dark ink via !important for non-SCHEDULED
+            // events, so this only visibly changes SCHEDULED events — but is left unconditional
+            // since it's harmless either way and keeps this single code path in sync.
+            info.el.style.setProperty('--fc-event-text-color', eventTextColor(info.event.extendedProps.bgColor));
+
+            const isScheduled = info.event.extendedProps.status === 'SCHEDULED';
+            const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
+            if (amountPaid > 0 && info.event.extendedProps.showPaidFlag !== false) {
+                const flag = document.createElement('span');
+                flag.className = 'fc-event-paid-flag' + (isScheduled ? ' fc-event-paid-flag--with-delete' : '');
+                flag.title = 'Paid: ' + fmt(amountPaid);
+                flag.innerHTML = '<i class="bi bi-flag-fill"></i>' + fmt(amountPaid);
+                info.el.appendChild(flag);
+            }
+
+            if (info.event.extendedProps.linked) {
+                const otherNames = (info.event.extendedProps.otherTherapistNames || []).join(', ');
+                const linkedFlag = document.createElement('span');
+                linkedFlag.className = 'fc-event-linked-flag';
+                linkedFlag.title = 'Same appointment — also booked with: ' + otherNames;
+                linkedFlag.innerHTML = '<i class="bi bi-link-45deg"></i>';
+                info.el.appendChild(linkedFlag);
+            }
+
+            if (!isScheduled) {
+                const statusMeta = {
+                    COMPLETED: { cls: 'status-completed', icon: 'bi-check-lg', title: 'Completed' },
+                    CANCELLED: { cls: 'status-cancelled', icon: 'bi-x-lg', title: 'Cancelled' },
+                    NO_SHOW: { cls: 'status-no-show', icon: 'bi-person-x-fill', title: 'No-show' }
+                }[info.event.extendedProps.status];
+                if (statusMeta) {
+                    const statusFlag = document.createElement('span');
+                    statusFlag.className = 'fc-event-status-flag ' + statusMeta.cls;
+                    statusFlag.title = statusMeta.title;
+                    statusFlag.innerHTML = '<i class="bi ' + statusMeta.icon + '"></i>';
+                    info.el.appendChild(statusFlag);
+                }
+                return;
+            }
             const btn = document.createElement('span');
             btn.className = 'fc-event-delete-btn';
             btn.title = 'Cancel appointment';
@@ -355,7 +573,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 e.preventDefault();
                 requestCancel(info.event);
             });
-            info.el.style.position = 'relative';
             info.el.appendChild(btn);
         }
     });
@@ -382,7 +599,10 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('confirmCancelBtn').addEventListener('click', function () {
         if (!pendingCancelEvent) return;
         const appointmentId = pendingCancelEvent.extendedProps.appointmentId;
-        fetch('/appointments/' + appointmentId + '/cancel-from-calendar', { method: 'POST' })
+        fetch('/appointments/' + appointmentId + '/cancel-from-calendar', {
+            method: 'POST',
+            headers: { [CSRF_HEADER]: CSRF_TOKEN }
+        })
             .then(function (res) { return res.json(); })
             .then(function (result) {
                 if (result.success) {

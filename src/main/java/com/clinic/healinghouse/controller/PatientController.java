@@ -4,9 +4,13 @@ import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import com.clinic.healinghouse.security.PermissionService;
+import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.PackageService;
 import com.clinic.healinghouse.service.PackageTemplateService;
@@ -46,7 +50,9 @@ public class PatientController {
     private final ProductRepository     productRepository;
     private final HealingHouseProperties properties;
     private final PaginationUtil        paginationUtil;
+    private final PermissionService     permissionService;
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping
     public String list(@RequestParam(required = false) String q,
                        @RequestParam(defaultValue = "false") boolean showInactive,
@@ -65,17 +71,18 @@ public class PatientController {
     }
 
     /** JSON autocomplete endpoint backing the name/phone search box on the patients list. */
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping("/search")
     @ResponseBody
     public List<PatientSuggestionDTO> search(@RequestParam(required = false) String q) {
         if (q == null || q.isBlank()) return List.of();
-        return patientService.search(q).stream()
-                .limit(properties.getAutocomplete().getPatientMaxSuggestions())
+        return patientService.search(q, properties.getAutocomplete().getPatientMaxSuggestions()).stream()
                 .map(p -> new PatientSuggestionDTO(p.getId(), p.getFullName(), p.getPhone()))
                 .toList();
     }
 
     // ── Detail (profile + summary stats + filterable appointment history) ──
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping("/{id}")
     public String detail(@PathVariable Long id,
                          @RequestParam(required = false) String status,
@@ -134,6 +141,7 @@ public class PatientController {
         }
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
         model.addAttribute("patient", Patient.builder().build());
@@ -142,6 +150,7 @@ public class PatientController {
         return "patients/form";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
     public String editForm(@PathVariable Long id, Model model) {
         model.addAttribute("patient", patientService.getById(id));
@@ -150,11 +159,14 @@ public class PatientController {
         return "patients/form";
     }
 
+    // Shared create+edit handler — can't express "CREATE if new, EDIT if existing" with one
+    // @RequiresPermission, so the check is inline based on whether an id was submitted.
     @PostMapping("/save")
     public String save(@Valid @ModelAttribute("patient") Patient patient,
                        BindingResult result,
                        Model model,
                        RedirectAttributes ra) {
+        permissionService.require(Module.PATIENTS, patient.getId() == null ? PermissionAction.CREATE : PermissionAction.EDIT);
         if (result.hasErrors()) {
             model.addAttribute("genders", Gender.values());
             model.addAttribute("pageTitle", patient.getId() == null ? "New Patient" : "Edit Patient");
@@ -172,6 +184,7 @@ public class PatientController {
         return "redirect:/patients";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
         patientService.deactivate(id);
@@ -179,6 +192,7 @@ public class PatientController {
         return "redirect:/patients";
     }
 
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/activate")
     public String activate(@PathVariable Long id, RedirectAttributes ra) {
         patientService.activate(id);

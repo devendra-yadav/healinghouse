@@ -28,6 +28,7 @@ import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,7 @@ class ReportServiceTests {
     @Mock private AppointmentProductLineRepository productLineRepository;
     @Mock private ClinicServiceRepository clinicServiceRepository;
     @Mock private ProductRepository productRepository;
+    @Mock private PermissionService permissionService;
 
     private ReportService reportService;
 
@@ -66,9 +68,14 @@ class ReportServiceTests {
 
     @BeforeEach
     void setUp() {
+        // Every report method now consults currentTherapistId() to decide whether to scope its
+        // results; explicitly stubbing null (rather than relying on Mockito's default, which
+        // returns 0 for a boxed Long) keeps every existing test here exercising the unscoped
+        // OWNER/ADMIN/RECEPTIONIST view.
+        when(permissionService.currentTherapistId()).thenReturn(null);
         reportService = new ReportService(reportAggregator, revenueReportAggregator, dashboardService, therapistRepository,
                 appointmentRepository, serviceLineRepository, productLineRepository,
-                clinicServiceRepository, productRepository, new HealingHouseProperties());
+                clinicServiceRepository, productRepository, new HealingHouseProperties(), permissionService);
     }
 
     private Therapist therapist(long id, String name) {

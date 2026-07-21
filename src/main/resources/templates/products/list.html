@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -12,7 +12,7 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Products</h4>
-        <a th:href="@{/products/new}" class="btn btn-hh btn-sm">
+        <a th:if="${@perm.has('PRODUCTS','CREATE')}" th:href="@{/products/new}" class="btn btn-hh btn-sm">
             <i class="bi bi-plus-lg me-1"></i>New Product
         </a>
     </div>
@@ -82,7 +82,7 @@
                             </td>
                             <td>
                                 <span th:each="t : ${p.sortedTags}"
-                                      class="badge rounded-pill bg-info text-dark me-1"
+                                      class="badge rounded-pill bg-success bg-opacity-75 me-1"
                                       th:text="${t.name}"></span>
                                 <span th:if="${p.sortedTags.empty}" class="text-muted">—</span>
                             </td>
@@ -95,22 +95,26 @@
                             </td>
                             <td class="text-center text-muted" th:text="${p.reorderLevel}"></td>
                             <td class="text-center text-nowrap">
-                                <a th:href="@{/products/{id}/edit(id=${p.id})}"
+                                <a th:href="@{/products/{id}(id=${p.id})}"
+                                   class="btn btn-sm btn-outline-secondary me-1" title="View">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a th:if="${@perm.has('PRODUCTS','EDIT')}" th:href="@{/products/{id}/edit(id=${p.id})}"
                                    class="btn btn-sm btn-outline-primary me-1">
                                     <i class="bi bi-pencil"></i>
                                 </a>
-                                <form th:if="${!p.active}" th:action="@{/products/{id}/activate(id=${p.id})}"
+                                <form th:if="${!p.active and @perm.has('PRODUCTS','DELETE')}" th:action="@{/products/{id}/activate(id=${p.id})}"
                                       method="post" class="d-inline">
                                     <button type="submit" class="btn btn-sm btn-outline-success">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
-                                <button th:if="${!p.active}" type="button" class="btn btn-sm btn-outline-danger"
+                                <button th:if="${!p.active and @perm.has('PRODUCTS','APPROVE')}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
                                         th:attr="data-name=${p.name}, data-url=@{/products/{id}/delete-permanent(id=${p.id})}">
                                     <i class="bi bi-trash3-fill"></i>
                                 </button>
-                                <button th:if="${p.active}" type="button" class="btn btn-sm btn-outline-danger"
+                                <button th:if="${p.active and @perm.has('PRODUCTS','DELETE')}" type="button" class="btn btn-sm btn-outline-danger"
                                         data-bs-toggle="modal" data-bs-target="#deleteModal"
                                         th:attr="data-name=${p.name}, data-url=@{/products/{id}/delete(id=${p.id})}">
                                     <i class="bi bi-trash"></i>
@@ -170,6 +174,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form id="deleteForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                     <button type="submit" class="btn btn-danger">Deactivate</button>
                 </form>
             </div>
@@ -189,6 +194,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <form id="deletePermanentForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
                     <button type="submit" class="btn btn-danger">Delete Permanently</button>
                 </form>
             </div>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
 <head>
     <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
 </head>
@@ -83,19 +83,23 @@
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="number" th:field="*{fixedMonthlySalary}"
+                                           th:errorclass="is-invalid"
                                            class="form-control" step="0.01" min="0"
                                            placeholder="e.g. 15000"/>
                                 </div>
+                                <div class="invalid-feedback" th:errors="*{fixedMonthlySalary}"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Commission Rate</label>
                                 <div class="input-group">
                                     <input type="number" th:field="*{commissionRate}"
+                                           th:errorclass="is-invalid"
                                            class="form-control" step="0.0001" min="0" max="1"
                                            placeholder="e.g. 0.10"/>
                                     <span class="input-group-text">decimal</span>
                                 </div>
                                 <div class="form-text">Enter as decimal — e.g. <code>0.10</code> = 10%</div>
+                                <div class="invalid-feedback" th:errors="*{commissionRate}"></div>
                             </div>
                         </div>
 
@@ -105,19 +109,23 @@
                                 <label class="form-label fw-semibold">Performance Bonus Threshold</label>
                                 <div class="input-group">
                                     <input type="number" th:field="*{performanceBonusThreshold}"
+                                           th:errorclass="is-invalid"
                                            class="form-control" min="1"
                                            placeholder="e.g. 100"/>
                                     <span class="input-group-text">services/month</span>
                                 </div>
+                                <div class="invalid-feedback" th:errors="*{performanceBonusThreshold}"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Performance Bonus Amount (₹)</label>
                                 <div class="input-group">
                                     <span class="input-group-text">₹</span>
                                     <input type="number" th:field="*{performanceBonusAmount}"
+                                           th:errorclass="is-invalid"
                                            class="form-control" step="0.01" min="0"
                                            placeholder="e.g. 5000"/>
                                 </div>
+                                <div class="invalid-feedback" th:errors="*{performanceBonusAmount}"></div>
                             </div>
                         </div>
 
