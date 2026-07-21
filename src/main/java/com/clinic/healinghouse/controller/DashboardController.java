@@ -26,7 +26,7 @@ public class DashboardController {
         int trendDays = properties.getDashboard().getTrendDays();
         int tagBreakdownDays = properties.getDashboard().getTagBreakdownDays();
 
-        model.addAttribute("pageTitle", "Dashboard");
+        model.addAttribute("pageTitle", "Home");
         model.addAttribute("kpis", dashboardService.getTodayKPIs());
         model.addAttribute("todayAppointments", dashboardService.getTodayAppointments());
         model.addAttribute("lowStockAlerts", dashboardService.getLowStockAlerts());
