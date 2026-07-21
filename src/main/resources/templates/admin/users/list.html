@@ -75,10 +75,16 @@
                                 </button>
                                 <form th:if="${@perm.has('USER_MANAGEMENT','DELETE') and !u.active}"
                                       th:action="@{/admin/users/{id}/enable(id=${u.id})}" method="post" class="d-inline">
-                                    <button type="submit" class="btn btn-sm btn-outline-success" title="Enable">
+                                    <button type="submit" class="btn btn-sm btn-outline-success me-1" title="Enable">
                                         <i class="bi bi-arrow-counterclockwise"></i>
                                     </button>
                                 </form>
+                                <button th:if="${@perm.has('USER_MANAGEMENT','DELETE') and !u.active}"
+                                        type="button" class="btn btn-sm btn-outline-danger" title="Delete"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-username=${u.username}, data-url=@{/admin/users/{id}/delete(id=${u.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                                 <button th:if="${@perm.has('USER_MANAGEMENT','DELETE') and u.active and u.id != currentUserId}"
                                         type="button" class="btn btn-sm btn-outline-danger" title="Disable"
                                         data-bs-toggle="modal" data-bs-target="#disableModal"
@@ -131,6 +137,26 @@
     </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Reset Password Modal -->
 <div class="modal fade" id="resetPasswordModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
@@ -162,6 +188,12 @@
         document.getElementById('disableModalBody').textContent =
             'Disable user "' + btn.dataset.username + '"? They will no longer be able to log in.';
         document.getElementById('disableForm').action = btn.dataset.url;
+    });
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Permanently delete user "' + btn.dataset.username + '"? This cannot be undone.';
+        document.getElementById('deleteForm').action = btn.dataset.url;
     });
     document.getElementById('resetPasswordModal').addEventListener('show.bs.modal', function (e) {
         const btn = e.relatedTarget;

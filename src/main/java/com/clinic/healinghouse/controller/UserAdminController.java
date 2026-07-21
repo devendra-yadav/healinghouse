@@ -135,6 +135,18 @@ public class UserAdminController {
         return "redirect:/admin/users";
     }
 
+    @RequiresPermission(module = Module.USER_MANAGEMENT, action = PermissionAction.DELETE)
+    @PostMapping("/{id}/delete")
+    public String delete(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            userService.delete(id);
+            ra.addFlashAttribute("successMessage", "User account deleted.");
+        } catch (IllegalArgumentException e) {
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+        }
+        return "redirect:/admin/users";
+    }
+
     @RequiresPermission(module = Module.USER_MANAGEMENT, action = PermissionAction.EDIT)
     @PostMapping("/{id}/reset-password")
     public String resetPassword(@PathVariable Long id, PasswordResetForm form, RedirectAttributes ra) {

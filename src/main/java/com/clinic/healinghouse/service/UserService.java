@@ -160,6 +160,23 @@ public class UserService {
         log.info("Re-enabled user id={} username='{}'", user.getId(), user.getUsername());
     }
 
+    /** Permanent delete — only allowed once the account is already disabled (mirrors the
+     *  deactivate-then-permanently-delete lifecycle used by {@code ClinicService}/{@code Product}/
+     *  {@code Combo}). No FK from any other entity to {@code User}, so this is a plain row removal,
+     *  no referenced-elsewhere check needed. */
+    public void delete(Long id) {
+        User user = getById(id);
+        requireCanManage(user.getRole());
+        if (user.isActive()) {
+            throw new IllegalArgumentException("Only a disabled user account can be deleted.");
+        }
+        if (user.getId().equals(currentUserIdOrNull())) {
+            throw new IllegalArgumentException("You can't delete your own account.");
+        }
+        userRepository.delete(user);
+        log.info("Deleted user id={} username='{}'", user.getId(), user.getUsername());
+    }
+
     public void resetPassword(Long id, String newPassword) {
         User user = getById(id);
         requireCanManage(user.getRole());
