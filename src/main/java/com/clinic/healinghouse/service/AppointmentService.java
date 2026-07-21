@@ -336,7 +336,7 @@ public class AppointmentService {
                 .and(AppointmentSpec.betweenDates(start.minusDays(1), end.plusDays(1)));
 
         return appointmentRepository.findAll(spec).stream()
-                .map(a -> toCalendarEvent(a, therapistId, statusColor(a.getStatus())))
+                .map(a -> toCalendarEvent(a, therapistId, statusColor(a.getStatus()), false))
                 .toList();
     }
 
@@ -359,7 +359,7 @@ public class AppointmentService {
         return appointments.stream()
                 .flatMap(a -> therapistIds.stream()
                         .filter(tid -> isTherapistInvolved(a, tid))
-                        .map(tid -> toCalendarEvent(a, tid, TherapistColorUtil.colorFor(tid))))
+                        .map(tid -> toCalendarEvent(a, tid, TherapistColorUtil.colorFor(tid), true)))
                 .toList();
     }
 
@@ -372,9 +372,39 @@ public class AppointmentService {
                 .anyMatch(pl -> pl.getTherapist().getId().equals(therapistId));
     }
 
-    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId, String color) {
+    /** Name of whichever therapist (main, or a reassigned service/product line) matches therapistId. */
+    private String resolveTherapistName(Appointment appointment, Long therapistId) {
+        if (appointment.getTherapist().getId().equals(therapistId)) {
+            return appointment.getTherapist().getFullName();
+        }
+        return appointment.getServiceLines().stream()
+                .filter(sl -> sl.getTherapist() != null && sl.getTherapist().getId().equals(therapistId))
+                .map(sl -> sl.getTherapist().getFullName())
+                .findFirst()
+                .or(() -> appointment.getProductLines().stream()
+                        .filter(pl -> pl.getTherapist() != null && pl.getTherapist().getId().equals(therapistId))
+                        .map(pl -> pl.getTherapist().getFullName())
+                        .findFirst())
+                .orElse(appointment.getTherapist().getFullName());
+    }
+
+    /**
+     * @param includeTherapistName true on the all-therapists overlay calendar, where several
+     *                             differently-colored entries for the same appointment can be
+     *                             on screen at once (§5.2) — the therapist's own name is spelled
+     *                             out in the title so entries are readable without color-matching.
+     *                             False on the single-therapist calendar, where every event is
+     *                             already known to be "this page's therapist" and the old
+     *                             "(with mainTherapist)" hint (shown only when a reassigned line
+     *                             therapist differs from the appointment's main therapist) is
+     *                             kept as-is.
+     */
+    private CalendarEventDTO toCalendarEvent(Appointment appointment, Long viewedTherapistId, String color,
+                                              boolean includeTherapistName) {
         String title = appointment.getPatient().getFullName();
-        if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
+        if (includeTherapistName) {
+            title = title + " — " + resolveTherapistName(appointment, viewedTherapistId);
+        } else if (!appointment.getTherapist().getId().equals(viewedTherapistId)) {
             title = title + " (with " + appointment.getTherapist().getFullName() + ")";
         }
         return new CalendarEventDTO(
@@ -385,7 +415,8 @@ public class AppointmentService {
                 color,
                 appointment.getStatus().name(),
                 viewedTherapistId,
-                appointment.getAmountPaid());
+                appointment.getAmountPaid(),
+                appointment.getTherapist().getId().equals(viewedTherapistId));
     }
 
     // ── Reschedule (drag/resize on the therapist calendar) ──────────────────

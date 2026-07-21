@@ -656,20 +656,20 @@ function addPkgServiceItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center pkg-service-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm pkg-si-select"
                     name="serviceItems[${i}].itemId" onchange="updatePkgPreview()">
                 <option value="">— Service —</option>
                 ${pkgBuildOptions(ALL_SERVICES)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm pkg-si-sessions"
                    name="serviceItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
          </div>
-         <div class="col-2 text-end pkg-si-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold pkg-si-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end pkg-si-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold pkg-si-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removePkgRow(this,'pkg-service-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -691,20 +691,20 @@ function addPkgProductItemRow(preselectId, preselectSessions) {
     const row = document.createElement('div');
     row.className = 'row g-2 mb-2 align-items-center pkg-product-item-row';
     row.innerHTML =
-        `<div class="col-5">
+        `<div class="col-12 col-md-5">
             <select class="form-select form-select-sm pkg-pi-select"
                     name="productItems[${i}].itemId" onchange="updatePkgPreview()">
                 <option value="">— Product —</option>
                 ${pkgBuildOptions(ALL_PRODUCTS)}
             </select>
          </div>
-         <div class="col-2">
+         <div class="col-12 col-md-2">
             <input type="number" class="form-control form-control-sm pkg-pi-sessions"
                    name="productItems[${i}].sessionCount" value="1" min="1" oninput="updatePkgPreview()">
          </div>
-         <div class="col-2 text-end pkg-pi-rate">₹0.00</div>
-         <div class="col-2 text-end fw-semibold pkg-pi-total">₹0.00</div>
-         <div class="col-1 text-center">
+         <div class="col-12 col-md-2 text-md-end pkg-pi-rate">₹0.00</div>
+         <div class="col-12 col-md-2 text-md-end fw-semibold pkg-pi-total">₹0.00</div>
+         <div class="col-12 col-md-1 text-center">
             <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2"
                     onclick="removePkgRow(this,'pkg-product-item-row')">
                 <i class="bi bi-x-lg"></i>
@@ -731,9 +731,9 @@ function togglePkgUI() {
     const hasServices = document.querySelectorAll('.pkg-service-item-row').length > 0;
     const hasProducts = document.querySelectorAll('.pkg-product-item-row').length > 0;
     document.getElementById('pkgServiceItemsEmpty').classList.toggle('d-none', hasServices);
-    document.getElementById('pkgServiceItemsHeader').classList.toggle('d-none', !hasServices);
+    document.getElementById('pkgServiceItemsHeader').classList.toggle('has-items', hasServices);
     document.getElementById('pkgProductItemsEmpty').classList.toggle('d-none', hasProducts);
-    document.getElementById('pkgProductItemsHeader').classList.toggle('d-none', !hasProducts);
+    document.getElementById('pkgProductItemsHeader').classList.toggle('has-items', hasProducts);
 }
 
 // Raw (undiscounted) sum of current rows — a typing convenience hint, not a resolved price;

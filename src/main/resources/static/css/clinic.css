@@ -610,3 +610,14 @@ footer {
 .choices__list--dropdown .choices__item--selectable:not(.is-highlighted) {
     color: var(--hh-text) !important;
 }
+
+/* ── Responsive item-row headers (combo / package-template / sell-package item builders) ──
+   These column-header rows only read correctly once the row layout below them is horizontal,
+   which only happens at md+ (the rows themselves stack full-width below md). Bootstrap's .row
+   is display:flex at every breakpoint, so a plain d-none/d-md-flex pairing can't also express
+   "hidden while the list is empty" without one rule clobbering the other — this class owns
+   both conditions instead. JS toggles .has-items; the >=768px cutoff is CSS-only. */
+.item-row-header { display: none; }
+@media (min-width: 768px) {
+    .item-row-header.has-items { display: flex; }
+}

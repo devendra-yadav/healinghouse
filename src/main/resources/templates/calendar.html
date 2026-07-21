@@ -93,6 +93,36 @@
         .fc-event-status-flag.status-completed { background: #198754; color: #fff; }
         .fc-event-status-flag.status-cancelled { background: #dc3545; color: #fff; }
         .fc-event-status-flag.status-no-show { background: #ffc107; color: #1a1a1a; }
+
+        /* Linked-appointment cue: an appointment involving more than one *selected* therapist
+           renders as one bar per therapist (§5.2) — this bottom-left badge marks every such bar
+           so it doesn't read as a separate booking, and its tooltip names the other therapist(s).
+           Bottom-left is the one corner not already claimed by the paid flag/delete button
+           (top-right) or the status flag (bottom-right). */
+        .fc-event-linked-flag {
+            position: absolute; bottom: 1px; left: 2px; z-index: 5;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 16px; height: 16px; border-radius: 3px; font-size: .65rem;
+            background: rgba(255,255,255,.85); color: #1a1a1a;
+            box-shadow: 0 0 0 1px rgba(255,255,255,.65);
+        }
+
+        /* Same matching dashed white border on every twin bar of a multi-therapist appointment,
+           so the group reads as one unit at a glance. A real `border` (not box-shadow —
+           FullCalendar wraps timed events in a `.fc-scroller-harness` with overflow:hidden, which
+           silently clips a shadow's spread outside the event's own box). White + dashed rather
+           than a solid accent color, since TherapistColorUtil's 10-color palette (this calendar
+           fills events by therapist identity) already covers most of the hue wheel — a neutral
+           dashed outline can't be mistaken for any therapist's own color. `!important` is
+           required: FullCalendar sets each event's own border-color via inline style (per its
+           `color` property), which otherwise outranks a same-specificity class rule. In day/week
+           view the bars sit flush against each other, so the touching border edges read as one
+           continuous outline; in month/list view the bars aren't adjacent, so the same border on
+           each is what visually ties them together instead. */
+        .fc-event-linked {
+            border: 3px dashed #ffffff !important;
+            border-radius: 4px !important;
+        }
     </style>
 </head>
 <body class="d-flex flex-column min-vh-100">
@@ -369,9 +399,9 @@ function requestCancel(eventObj) {
     new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
 }
 
-// Below 576px the 7-column time grid doesn't fit a phone screen, so the calendar opens in a
-// listWeek agenda view instead, with the view-switcher relocated to a footer toolbar so the header
-// stays down to just prev/next/today/title (§ mobile calendar requirements).
+// timeGridDay is the default view at every width, including mobile. Below 576px the header's
+// dayGridMonth/timeGridWeek/timeGridDay switcher is relocated to a footer toolbar instead (those
+// two 7-column views don't fit a phone screen), keeping the header down to prev/next/today/title.
 function isMobileCalendar() { return window.matchMedia('(max-width: 576px)').matches; }
 
 function mobileHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: '' }; }
@@ -385,7 +415,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const startMobile = isMobileCalendar();
 
     calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: startMobile ? 'listWeek' : 'timeGridDay',
+        initialView: 'timeGridDay',
         headerToolbar: startMobile ? mobileHeaderToolbar() : desktopHeaderToolbar(),
         footerToolbar: startMobile ? mobileFooterToolbar() : false,
         height: 'auto',
@@ -400,8 +430,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const mobile = isMobileCalendar();
             calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
             calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
-            if (mobile && calendar.view.type !== 'listWeek') {
-                calendar.changeView('listWeek');
+            // timeGridDay is the default/safe view on any screen size. Only the 7-column views
+            // (timeGridWeek, dayGridMonth) don't fit a phone screen, so resizing into mobile only
+            // needs to steer away from those — listWeek stays available (footer switcher) but
+            // isn't forced anymore, since timeGridDay fits mobile fine on its own.
+            if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
+                calendar.changeView('timeGridDay');
             } else if (!mobile && calendar.view.type === 'listWeek') {
                 calendar.changeView('timeGridDay');
             }
@@ -417,8 +451,42 @@ document.addEventListener('DOMContentLoaded', function () {
                     + '&end=' + encodeURIComponent(fetchInfo.endStr))
                 .then(function (res) { return res.json(); })
                 .then(function (events) {
+                    // An appointment involving 2+ selected therapists (main + a reassigned line)
+                    // arrives here as one twin event per therapist, same time slot (§5.2). Group
+                    // by appointment id so only one twin shows the paid flag (it's one payment,
+                    // not one per bar) and every twin gets a "linked" cue instead of looking like
+                    // separate bookings.
+                    const byAppointment = {};
+                    events.forEach(function (ev) {
+                        (byAppointment[ev.id] = byAppointment[ev.id] || []).push(ev);
+                    });
+
                     successCallback(events.map(function (ev) {
                         const isScheduled = ev.status === 'SCHEDULED';
+                        const group = byAppointment[ev.id];
+                        const isTwin = group.length > 1;
+                        let showPaidFlag = true;
+                        let otherTherapistNames = [];
+                        if (isTwin) {
+                            // Prefer the main therapist's bar for the paid flag. If the main
+                            // therapist isn't among the selected/checked therapists (so isn't in
+                            // this group at all), fall back to the lowest therapistId so exactly
+                            // one bar still shows it.
+                            const mainInGroup = group.some(function (sib) { return sib.mainTherapist; });
+                            if (mainInGroup) {
+                                showPaidFlag = !!ev.mainTherapist;
+                            } else {
+                                const sorted = group.slice().sort(function (a, b) { return a.therapistId - b.therapistId; });
+                                showPaidFlag = sorted[0].therapistId === ev.therapistId;
+                            }
+                            otherTherapistNames = group
+                                .filter(function (sib) { return sib.therapistId !== ev.therapistId; })
+                                .map(function (sib) { return sib.title.split(' — ').pop(); });
+                        }
+                        const classNames = [];
+                        if (!isScheduled) classNames.push('fc-event-inactive');
+                        if (isTwin) classNames.push('fc-event-linked');
+
                         return {
                             id: ev.id + '-' + ev.therapistId,
                             title: ev.title,
@@ -428,8 +496,12 @@ document.addEventListener('DOMContentLoaded', function () {
                             editable: isScheduled,
                             startEditable: isScheduled,
                             durationEditable: isScheduled,
-                            classNames: isScheduled ? [] : ['fc-event-inactive'],
-                            extendedProps: { status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId, amountPaid: ev.amountPaid, bgColor: ev.color }
+                            classNames: classNames,
+                            extendedProps: {
+                                status: ev.status, appointmentId: ev.id, therapistId: ev.therapistId,
+                                amountPaid: ev.amountPaid, bgColor: ev.color,
+                                showPaidFlag: showPaidFlag, linked: isTwin, otherTherapistNames: otherTherapistNames
+                            }
                         };
                     }));
                 })
@@ -451,12 +523,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const isScheduled = info.event.extendedProps.status === 'SCHEDULED';
             const amountPaid = Number(info.event.extendedProps.amountPaid || 0);
-            if (amountPaid > 0) {
+            if (amountPaid > 0 && info.event.extendedProps.showPaidFlag !== false) {
                 const flag = document.createElement('span');
                 flag.className = 'fc-event-paid-flag' + (isScheduled ? ' fc-event-paid-flag--with-delete' : '');
                 flag.title = 'Paid: ' + fmt(amountPaid);
                 flag.innerHTML = '<i class="bi bi-flag-fill"></i>' + fmt(amountPaid);
                 info.el.appendChild(flag);
+            }
+
+            if (info.event.extendedProps.linked) {
+                const otherNames = (info.event.extendedProps.otherTherapistNames || []).join(', ');
+                const linkedFlag = document.createElement('span');
+                linkedFlag.className = 'fc-event-linked-flag';
+                linkedFlag.title = 'Same appointment — also booked with: ' + otherNames;
+                linkedFlag.innerHTML = '<i class="bi bi-link-45deg"></i>';
+                info.el.appendChild(linkedFlag);
             }
 
             if (!isScheduled) {

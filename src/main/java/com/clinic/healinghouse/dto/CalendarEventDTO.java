@@ -11,6 +11,7 @@ public record CalendarEventDTO(
         String color,
         String status,
         Long therapistId,
-        BigDecimal amountPaid
+        BigDecimal amountPaid,
+        boolean mainTherapist
 ) {
 }

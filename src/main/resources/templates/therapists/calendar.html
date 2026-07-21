@@ -285,9 +285,9 @@ function requestCancel(eventObj) {
     new bootstrap.Modal(document.getElementById('cancelConfirmModal')).show();
 }
 
-// Below 576px the 7-column time grid doesn't fit a phone screen, so the calendar opens in a
-// listWeek agenda view instead, with the view-switcher relocated to a footer toolbar so the header
-// stays down to just prev/next/today/title (§ mobile calendar requirements).
+// timeGridDay is the default view at every width, including mobile. Below 576px the header's
+// dayGridMonth/timeGridWeek/timeGridDay switcher is relocated to a footer toolbar instead (those
+// two 7-column views don't fit a phone screen), keeping the header down to prev/next/today/title.
 function isMobileCalendar() { return window.matchMedia('(max-width: 576px)').matches; }
 
 function mobileHeaderToolbar() { return { left: 'prev,next today', center: 'title', right: '' }; }
@@ -299,7 +299,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const startMobile = isMobileCalendar();
 
     const calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: startMobile ? 'listWeek' : 'timeGridDay',
+        initialView: 'timeGridDay',
         headerToolbar: startMobile ? mobileHeaderToolbar() : desktopHeaderToolbar(),
         footerToolbar: startMobile ? mobileFooterToolbar() : false,
         height: 'auto',
@@ -314,8 +314,12 @@ document.addEventListener('DOMContentLoaded', function () {
             const mobile = isMobileCalendar();
             calendar.setOption('headerToolbar', mobile ? mobileHeaderToolbar() : desktopHeaderToolbar());
             calendar.setOption('footerToolbar', mobile ? mobileFooterToolbar() : false);
-            if (mobile && calendar.view.type !== 'listWeek') {
-                calendar.changeView('listWeek');
+            // timeGridDay is the default/safe view on any screen size. Only the 7-column views
+            // (timeGridWeek, dayGridMonth) don't fit a phone screen, so resizing into mobile only
+            // needs to steer away from those — listWeek stays available (footer switcher) but
+            // isn't forced anymore, since timeGridDay fits mobile fine on its own.
+            if (mobile && (calendar.view.type === 'timeGridWeek' || calendar.view.type === 'dayGridMonth')) {
+                calendar.changeView('timeGridDay');
             } else if (!mobile && calendar.view.type === 'listWeek') {
                 calendar.changeView('timeGridDay');
             }
