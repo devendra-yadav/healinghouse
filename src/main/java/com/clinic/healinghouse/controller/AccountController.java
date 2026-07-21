@@ -55,7 +55,12 @@ class AccountController {
         if (auth != null && auth.getPrincipal() instanceof UserPrincipal principal) {
             principal.getUser().setMustChangePassword(false);
         }
-        ra.addFlashAttribute("successMessage", "Password changed successfully.");
-        return "redirect:/";
+        // Rendered directly on this page (rather than a flash-redirect to "/") so the confirmation
+        // is guaranteed visible right where the user just acted, instead of depending on them
+        // noticing a banner on whatever page they land on next.
+        model.addAttribute("changePasswordForm", new ChangePasswordForm());
+        model.addAttribute("successMessage", "Password changed successfully.");
+        model.addAttribute("pageTitle", "Change Password");
+        return "auth/change-password";
     }
 }
