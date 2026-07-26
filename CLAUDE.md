@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Healing House Clinic Management System** — a Spring Boot + Thymeleaf + MySQL web application for managing clinic operations, appointments, patients, therapists, services, and products. Session-based login + role-based access control (Spring Security) gate every page — see the Authentication & Authorization (RBAC) business rule below.
 
+See `README.md` for the human-facing onboarding doc (architecture/domain/workflow diagrams, setup steps) — this file is the deeper, business-rule-level reference for making changes; keep both in sync when a change affects what either one describes.
+
 ## Commands
 
 ```bash

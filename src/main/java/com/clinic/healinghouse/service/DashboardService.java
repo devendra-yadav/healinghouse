@@ -37,6 +37,7 @@ public class DashboardService {
     private final AppointmentServiceLineRepository serviceLineRepository;
     private final AppointmentProductLineRepository productLineRepository;
     private final HealingHouseProperties properties;
+    private final ProfitLossReportAggregator profitLossReportAggregator;
 
     public DashboardKpiDTO getTodayKPIs() {
         LocalDate today = LocalDate.now();
@@ -47,7 +48,10 @@ public class DashboardService {
         long lowStockCount = productRepository.findLowStockProducts().size();
         long activeTherapistsCount = therapistRepository.countByActiveTrue();
 
-        return new DashboardKpiDTO(appointmentsCount, revenue, lowStockCount, activeTherapistsCount);
+        var profitLoss = profitLossReportAggregator.getProfitLossReport(today.withDayOfMonth(1), today);
+
+        return new DashboardKpiDTO(appointmentsCount, revenue, lowStockCount, activeTherapistsCount,
+                profitLoss.totalExpenses(), profitLoss.netProfit());
     }
 
     public List<Appointment> getTodayAppointments() {

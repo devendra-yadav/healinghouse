@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.dto.ProfitLossReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportFilter;
 import com.clinic.healinghouse.entity.AppointmentStatus;
@@ -10,6 +11,7 @@ import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ProductService;
+import com.clinic.healinghouse.service.ProfitLossReportAggregator;
 import com.clinic.healinghouse.service.ReportService;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TherapistService;
@@ -49,6 +51,7 @@ public class ReportController {
     private final ProductService productService;
     private final TagService tagService;
     private final PermissionService permissionService;
+    private final ProfitLossReportAggregator profitLossReportAggregator;
 
     /** Daily/period/comparison/patients/performance are clinic-wide aggregates — every therapist's
      *  revenue and commission, not just the caller's own. THERAPIST no longer holds REPORTS_STANDARD
@@ -472,6 +475,62 @@ public class ReportController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                     "attachment;filename=revenue-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @RequiresPermission(module = Module.REPORTS_PROFIT_LOSS, action = PermissionAction.VIEW)
+    @GetMapping("/profit-loss")
+    public String profitLoss(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                             Model model) {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
+
+        model.addAttribute("pageTitle", "Profit & Loss");
+        model.addAttribute("selectedDateFrom", from);
+        model.addAttribute("selectedDateTo", to);
+        model.addAttribute("report", report);
+        return "reports/profit-loss";
+    }
+
+    @RequiresPermission(module = Module.REPORTS_PROFIT_LOSS, action = PermissionAction.EXPORT)
+    @GetMapping("/profit-loss/export-csv")
+    public ResponseEntity<byte[]> exportProfitLossReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
+        String csv = csvExportUtil.generateProfitLossReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=profit-loss-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.REPORTS_PROFIT_LOSS, action = PermissionAction.EXPORT)
+    @GetMapping("/profit-loss/export-pdf")
+    public ResponseEntity<byte[]> exportProfitLossReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
+        byte[] pdf = pdfExportUtil.generateProfitLossReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=profit-loss-report-" + from + "-to-" + to + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
                 .body(pdf);
     }

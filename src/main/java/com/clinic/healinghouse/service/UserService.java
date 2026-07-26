@@ -251,7 +251,7 @@ public class UserService {
     }
 
     private void validateTherapistLinkage(AppRole role, Long therapistId, Long excludingUserId) {
-        if (role == AppRole.THERAPIST) {
+        if (role == AppRole.THERAPIST || role == AppRole.THERAPIST_PLUS) {
             if (therapistId == null) {
                 throw new IllegalArgumentException("A Therapist-role user must be linked to a therapist record.");
             }

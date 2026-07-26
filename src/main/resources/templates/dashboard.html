@@ -67,6 +67,32 @@
                 </div>
             </div>
         </div>
+        <div class="col-12 col-sm-6 col-lg-3" th:if="${@perm.has('REPORTS_PROFIT_LOSS','VIEW')}">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-danger"><i class="bi bi-receipt"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(kpis.monthExpenses, 1, 2)}|">—</div>
+                        <small class="text-muted">Expenses (This Month)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3" th:if="${@perm.has('REPORTS_PROFIT_LOSS','VIEW')}">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span th:class="${kpis.monthNetProfit.signum() lt 0} ? 'card-icon text-danger' : 'card-icon text-success'">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </span>
+                    <div>
+                        <div class="fw-semibold fs-4"
+                             th:text="|₹ ${#numbers.formatDecimal(kpis.monthNetProfit, 1, 2)}|">—</div>
+                        <small class="text-muted">Net Profit (This Month)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ── Quick Actions ── -->

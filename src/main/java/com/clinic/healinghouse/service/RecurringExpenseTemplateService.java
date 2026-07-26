@@ -1,0 +1,178 @@
+package com.clinic.healinghouse.service;
+
+import com.clinic.healinghouse.dto.RecurringExpenseTemplateForm;
+import com.clinic.healinghouse.entity.Expense;
+import com.clinic.healinghouse.entity.ExpenseCategory;
+import com.clinic.healinghouse.entity.ExpenseStatus;
+import com.clinic.healinghouse.entity.RecurringExpenseTemplate;
+import com.clinic.healinghouse.entity.User;
+import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
+import com.clinic.healinghouse.repository.ExpenseRepository;
+import com.clinic.healinghouse.repository.RecurringExpenseTemplateRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
+import java.time.LocalDate;
+import java.util.List;
+
+/**
+ * Manages recurring expense templates and the actual generation logic (requirements/Expenses_
+ * Requirements_v1.md §3.3, §5.3) — shared by both the daily {@link RecurringExpenseScheduler} and
+ * the manual "Generate Now" button, so both trigger paths behave identically.
+ */
+@Service
+@RequiredArgsConstructor
+@Transactional
+@Slf4j
+public class RecurringExpenseTemplateService {
+
+    private final RecurringExpenseTemplateRepository recurringExpenseTemplateRepository;
+    private final ExpenseCategoryRepository expenseCategoryRepository;
+    private final ExpenseRepository expenseRepository;
+
+    @Transactional(readOnly = true)
+    public List<RecurringExpenseTemplate> findAllActive() {
+        return recurringExpenseTemplateRepository.findByActiveTrueOrderByLabelAsc();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RecurringExpenseTemplate> findAll() {
+        return recurringExpenseTemplateRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
+    public RecurringExpenseTemplate getById(Long id) {
+        return recurringExpenseTemplateRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Recurring expense template not found: " + id));
+    }
+
+    public RecurringExpenseTemplate create(RecurringExpenseTemplateForm form, User createdBy) {
+        RecurringExpenseTemplate template = RecurringExpenseTemplate.builder().createdBy(createdBy).build();
+        applyForm(template, form);
+        RecurringExpenseTemplate saved = recurringExpenseTemplateRepository.save(template);
+        log.info("Created recurring expense template id={} label='{}'", saved.getId(), saved.getLabel());
+        return saved;
+    }
+
+    public RecurringExpenseTemplate update(Long id, RecurringExpenseTemplateForm form) {
+        RecurringExpenseTemplate template = getById(id);
+        applyForm(template, form);
+        RecurringExpenseTemplate saved = recurringExpenseTemplateRepository.save(template);
+        log.info("Updated recurring expense template id={}", saved.getId());
+        return saved;
+    }
+
+    public void pause(Long id) {
+        RecurringExpenseTemplate template = getById(id);
+        template.setActive(false);
+        recurringExpenseTemplateRepository.save(template);
+        log.info("Paused recurring expense template id={}", id);
+    }
+
+    public void resume(Long id) {
+        RecurringExpenseTemplate template = getById(id);
+        template.setActive(true);
+        recurringExpenseTemplateRepository.save(template);
+        log.info("Resumed recurring expense template id={}", id);
+    }
+
+    private void applyForm(RecurringExpenseTemplate template, RecurringExpenseTemplateForm form) {
+        if (!StringUtils.hasText(form.getLabel())) {
+            throw new IllegalArgumentException("Label is required.");
+        }
+        if (form.getCategoryId() == null) {
+            throw new IllegalArgumentException("Category is required.");
+        }
+        if (form.getDefaultAmount() == null || form.getDefaultAmount().signum() <= 0) {
+            throw new IllegalArgumentException("Default amount must be greater than zero.");
+        }
+        if (form.getFrequency() == null) {
+            throw new IllegalArgumentException("Frequency is required.");
+        }
+        if (form.getStartDate() == null) {
+            throw new IllegalArgumentException("Start date is required.");
+        }
+        ExpenseCategory category = expenseCategoryRepository.findById(form.getCategoryId())
+                .orElseThrow(() -> new EntityNotFoundException("Expense category not found: " + form.getCategoryId()));
+
+        template.setCategory(category);
+        template.setLabel(form.getLabel().trim());
+        template.setDefaultAmount(form.getDefaultAmount());
+        template.setVendorName(form.getVendorName());
+        template.setPaymentMethod(form.getPaymentMethod());
+        template.setFrequency(form.getFrequency());
+        template.setStartDate(form.getStartDate());
+        template.setEndDate(form.getEndDate());
+        template.setActive(form.isActive());
+        // nextDueDate only (re)seeds from startDate on create — an edit never rewinds an
+        // already-advancing cursor, so mid-life edits (e.g. correcting the amount) don't
+        // accidentally trigger an extra generation.
+        if (template.getId() == null) {
+            template.setNextDueDate(form.getStartDate());
+        }
+    }
+
+    /**
+     * Generates one Expense per due, active template (§5.3) — called daily by
+     * {@link RecurringExpenseScheduler} and on-demand by the "Generate Now" button. Idempotent:
+     * a template's {@code nextDueDate} only advances once per call, so re-running against the
+     * same {@code asOf} date after a template has already been brought current is a no-op.
+     */
+    public int generateDueExpenses(LocalDate asOf) {
+        List<RecurringExpenseTemplate> due = recurringExpenseTemplateRepository.findByActiveTrueAndNextDueDateLessThanEqual(asOf);
+        int generated = 0;
+        for (RecurringExpenseTemplate template : due) {
+            generateOne(template);
+            generated++;
+        }
+        return generated;
+    }
+
+    /** Generates (and advances) a single template regardless of due date — backs the per-row
+     *  "Generate Now" button. A no-op if the template is inactive. */
+    public int generateNow(Long templateId) {
+        RecurringExpenseTemplate template = getById(templateId);
+        if (!template.isActive()) {
+            return 0;
+        }
+        generateOne(template);
+        return 1;
+    }
+
+    private void generateOne(RecurringExpenseTemplate template) {
+        Expense expense = Expense.builder()
+                .category(template.getCategory())
+                .expenseDate(template.getNextDueDate())
+                .amount(template.getDefaultAmount())
+                .vendorName(template.getVendorName())
+                .paymentMethod(template.getPaymentMethod())
+                .status(ExpenseStatus.ACTIVE)
+                .sourceTemplate(template)
+                .recordedBy(template.getCreatedBy())
+                .build();
+        expenseRepository.save(expense);
+
+        LocalDate nextDue = advance(template.getNextDueDate(), template.getFrequency());
+        template.setNextDueDate(nextDue);
+        if (template.getEndDate() != null && nextDue.isAfter(template.getEndDate())) {
+            template.setActive(false);
+            log.info("Auto-deactivated recurring expense template id={} label='{}' — past end date",
+                    template.getId(), template.getLabel());
+        }
+        recurringExpenseTemplateRepository.save(template);
+        log.info("Generated expense from recurring template id={} label='{}' amount={} date={}",
+                template.getId(), template.getLabel(), expense.getAmount(), expense.getExpenseDate());
+    }
+
+    private LocalDate advance(LocalDate date, com.clinic.healinghouse.entity.RecurrenceFrequency frequency) {
+        return switch (frequency) {
+            case MONTHLY -> date.plusMonths(1);
+            case QUARTERLY -> date.plusMonths(3);
+            case YEARLY -> date.plusYears(1);
+        };
+    }
+}

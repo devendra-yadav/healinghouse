@@ -99,6 +99,30 @@ class UserServiceTests {
         assertThat(saved.isActive()).isTrue();
     }
 
+    // ── THERAPIST_PLUS requires the same therapist linkage as THERAPIST (requirements/
+    // Expenses_Requirements_v1.md §3.4) ──
+
+    @Test
+    void createThrowsWhenTherapistPlusRoleHasNoLinkedTherapist() {
+        assertThatThrownBy(() -> userService.create(formFor(AppRole.THERAPIST_PLUS, null, "password1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be linked to a therapist");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createSucceedsWithValidTherapistLinkageForTherapistPlus() {
+        when(userRepository.findByTherapistId(5L)).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameIgnoreCase("priya")).thenReturn(Optional.empty());
+        when(therapistRepository.findById(5L)).thenReturn(Optional.of(therapist(5L)));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        User saved = userService.create(formFor(AppRole.THERAPIST_PLUS, 5L, "password1"));
+
+        assertThat(saved.getRole()).isEqualTo(AppRole.THERAPIST_PLUS);
+        assertThat(saved.getTherapist().getId()).isEqualTo(5L);
+    }
+
     // ── Create: duplicate username / weak password ──
 
     @Test

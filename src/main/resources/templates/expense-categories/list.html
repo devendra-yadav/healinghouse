@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('ExpenseCategories')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Expense Categories</h4>
+        <div class="d-flex gap-2">
+            <a th:href="@{/expense-categories(q=${q},showInactive=${!showInactive})}"
+               th:classappend="${showInactive} ? 'btn-secondary' : 'btn-outline-secondary'"
+               class="btn btn-sm">
+                <i class="bi bi-eye-slash me-1"></i><span th:text="${showInactive} ? 'Showing Inactive' : 'Show Inactive'"></span>
+            </a>
+            <a th:if="${@perm.has('EXPENSE_CATEGORIES','CREATE')}" th:href="@{/expense-categories/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Category
+            </a>
+        </div>
+    </div>
+
+    <div class="mb-3" style="max-width:400px;">
+        <form th:action="@{/expense-categories}" method="get" class="input-group">
+            <input type="text" name="q" th:value="${q}" class="form-control"
+                   placeholder="Search categories by name…"/>
+            <button class="btn btn-outline-secondary" type="submit"><i class="bi bi-search"></i></button>
+        </form>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Category Name</th>
+                            <th class="text-center">Restricted</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${categories.empty}">
+                            <td colspan="4" class="text-center text-muted py-4">No expense categories found.</td>
+                        </tr>
+                        <tr th:each="c, stat : ${categories}">
+                            <td class="text-muted" th:text="${stat.count}"></td>
+                            <td>
+                                <span class="fw-semibold" th:text="${c.name}"></span>
+                                <span th:unless="${c.active}" class="badge bg-secondary">Inactive</span>
+                            </td>
+                            <td class="text-center">
+                                <span th:if="${c.restrictedVisibility}" class="badge bg-warning text-dark"
+                                      title="Hidden from Therapist+ users">Restricted</span>
+                                <span th:unless="${c.restrictedVisibility}" class="text-muted">—</span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:if="${@perm.has('EXPENSE_CATEGORIES','EDIT')}" th:href="@{/expense-categories/{id}/edit(id=${c.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form th:if="${!c.active and @perm.has('EXPENSE_CATEGORIES','DELETE')}" th:action="@{/expense-categories/{id}/activate(id=${c.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success">
+                                        <i class="bi bi-arrow-counterclockwise"></i>
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${!c.active and @perm.has('EXPENSE_CATEGORIES','APPROVE')}"
+                                        data-bs-toggle="modal" data-bs-target="#deletePermanentModal"
+                                        th:attr="data-name=${c.name}, data-url=@{/expense-categories/{id}/delete-permanent(id=${c.id})}">
+                                    <i class="bi bi-trash3-fill"></i>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${c.active and @perm.has('EXPENSE_CATEGORIES','DELETE')}"
+                                        data-bs-toggle="modal" data-bs-target="#deleteModal"
+                                        th:attr="data-name=${c.name}, data-url=@{/expense-categories/{id}/deactivate(id=${c.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${categories.totalElements} + ' categor' + (${categories.totalElements == 1} ? 'y' : 'ies')"></span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/expense-categories(q=${q},size=${s},page=0,showInactive=${showInactive})}"
+                            th:selected="${s == categories.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${categories.totalPages > 1}" class="text-muted small"
+                      th:text="'Page ' + (${categories.number} + 1) + ' of ' + ${categories.totalPages}">
+                </span>
+                <div th:if="${categories.totalPages > 1}" class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!categories.hasPrevious()} ? 'disabled'"
+                       th:href="@{/expense-categories(q=${q},size=${categories.size},page=${categories.number - 1},showInactive=${showInactive})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!categories.hasNext()} ? 'disabled'"
+                       th:href="@{/expense-categories(q=${q},size=${categories.size},page=${categories.number + 1},showInactive=${showInactive})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Deactivate Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Deactivate</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deleteModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Deactivate</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Permanent Delete Confirmation Modal -->
+<div class="modal fade" id="deletePermanentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Permanently Delete</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="deletePermanentModalBody">Are you sure?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deletePermanentForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Delete Permanently</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('deleteModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deleteModalBody').textContent =
+            'Deactivate expense category "' + btn.dataset.name + '"?';
+        document.getElementById('deleteForm').action = btn.dataset.url;
+    });
+    document.getElementById('deletePermanentModal').addEventListener('show.bs.modal', function (e) {
+        const btn = e.relatedTarget;
+        document.getElementById('deletePermanentModalBody').textContent =
+            'Permanently delete expense category "' + btn.dataset.name + '"? This cannot be undone.';
+        document.getElementById('deletePermanentForm').action = btn.dataset.url;
+    });
+</script>
+</body>
+</html>

@@ -62,6 +62,7 @@ public class PdfExportUtil {
     private static final Color ROW_SHADE = new DeviceRgb(0xF8, 0xEF, 0xEE);
     private static final Color BORDER_COLOR = new DeviceRgb(0xDD, 0xDD, 0xDD);
     private static final Color POSITIVE = new DeviceRgb(0x2E, 0x7D, 0x32);
+    private static final Color NEGATIVE = new DeviceRgb(0xC6, 0x28, 0x28);
 
     private static final float MARGIN_TOP = 30f;
     private static final float MARGIN_SIDE = 28f;
@@ -258,6 +259,28 @@ public class PdfExportUtil {
 
             if (report.appointments() != null && !report.appointments().getContent().isEmpty()) {
                 addSection(document, "Appointments", buildAppointmentRevenueRowsTable(report.appointments().getContent()));
+            }
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateProfitLossReportPdf(ProfitLossReportDTO report) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Profit & Loss Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addProfitLossSummaryTable(document, report);
+
+            if (report.expensesByCategory() != null && !report.expensesByCategory().isEmpty()) {
+                addSection(document, "Expenses by Category", buildExpenseCategoryBreakdownTable(report.expensesByCategory()));
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                addSection(document, "Trend", buildProfitLossTrendTable(report.trend()));
             }
         } finally {
             finish(document, pdfDoc);
@@ -599,6 +622,63 @@ public class PdfExportUtil {
         addDataCell(table, formatCurrency(summary.advanceReceived()), TextAlignment.RIGHT, false);
 
         document.add(table);
+    }
+
+    private void addProfitLossSummaryTable(Document document, ProfitLossReportDTO report) {
+        Table table = newTable(new float[]{2, 1, 2, 1}, 9.5f);
+
+        addLabelCell(table, "Net Revenue", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(report.netRevenue()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Total Expenses", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(report.totalExpenses()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Net Profit", TextAlignment.LEFT);
+        Cell netProfitCell = new Cell().add(new Paragraph(formatCurrency(report.netProfit()))
+                .setFont(boldFont()).setFontColor(report.netProfit().signum() < 0 ? NEGATIVE : POSITIVE));
+        netProfitCell.setTextAlignment(TextAlignment.RIGHT);
+        netProfitCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        netProfitCell.setBorder(Border.NO_BORDER);
+        netProfitCell.setBorderBottom(new SolidBorder(BORDER_COLOR, 0.5f));
+        netProfitCell.setBackgroundColor(ROW_SHADE);
+        netProfitCell.setPadding(4.5f);
+        table.addCell(netProfitCell);
+        addBlankCell(table);
+
+        document.add(table);
+    }
+
+    private Table buildExpenseCategoryBreakdownTable(List<ExpenseCategoryBreakdownDTO> items) {
+        Table table = newTable(new float[]{2, 1}, 9.5f);
+
+        addHeaderCell(table, "Category", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (ExpenseCategoryBreakdownDTO item : items) {
+            addDataCell(table, item.categoryName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(item.amount()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildProfitLossTrendTable(List<ProfitLossTrendPointDTO> trend) {
+        Table table = newTable(new float[]{1.3f, 1, 1, 1}, 9.5f);
+
+        addHeaderCell(table, "Period", TextAlignment.LEFT);
+        addHeaderCell(table, "Revenue", TextAlignment.RIGHT);
+        addHeaderCell(table, "Expenses", TextAlignment.RIGHT);
+        addHeaderCell(table, "Profit", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (ProfitLossTrendPointDTO point : trend) {
+            addDataCell(table, point.periodLabel(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(point.revenue()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.expenses()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.profit()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
     }
 
     private Table buildPaymentMethodTable(List<RevenueByPaymentMethodDTO> byPaymentMethod) {

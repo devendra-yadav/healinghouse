@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Profit &amp; Loss</h4>
+    <p class="text-muted small mb-3">
+        Net Revenue (Completed appointments, same basis as the Actual Revenue report) minus Total Expenses = Net Profit.
+    </p>
+
+    <!-- Filters -->
+    <form th:action="@{/reports/profit-loss}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                    <a th:href="@{/reports/profit-loss}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+                <div class="col-md-4 d-flex gap-1 ms-auto">
+                    <a th:href="@{/reports/profit-loss/export-csv(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as CSV">
+                        <i class="bi bi-file-earmark-csv"></i> CSV
+                    </a>
+                    <a th:href="@{/reports/profit-loss/export-pdf(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo})}"
+                       class="btn btn-sm btn-outline-secondary" title="Export as PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white border-success">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-currency-rupee"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.netRevenue, 1, 2)}|">—</div>
+                        <small class="text-muted">Net Revenue</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-danger"><i class="bi bi-receipt"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.totalExpenses, 1, 2)}|">—</div>
+                        <small class="text-muted">Total Expenses</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white"
+                 th:classappend="${report.netProfit.signum() lt 0} ? 'border-danger' : 'border-success'">
+                <div class="d-flex align-items-center gap-3">
+                    <span th:class="${report.netProfit.signum() lt 0} ? 'card-icon text-danger' : 'card-icon text-success'">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.netProfit, 1, 2)}|">—</div>
+                        <small class="text-muted">Net Profit</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend -->
+    <div class="row g-4 mb-1">
+        <div class="col-12">
+            <h6 class="section-header mb-3">Revenue vs. Expenses Trend</h6>
+            <div th:if="${report.trend.empty}" class="coming-soon-card">
+                <i class="bi bi-graph-up fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No data in this range.</span>
+            </div>
+            <div th:unless="${report.trend.empty}" class="card shadow-sm p-3">
+                <canvas id="profitLossTrendChart" height="90"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Expenses by Category</h6>
+            <div th:if="${report.expensesByCategory.empty}" class="coming-soon-card">
+                <i class="bi bi-receipt-cutoff fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No expenses in this range.</span>
+            </div>
+            <div th:unless="${report.expensesByCategory.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead><tr><th>Category</th><th class="text-end">Amount</th></tr></thead>
+                            <tbody>
+                                <tr th:each="c : ${report.expensesByCategory}">
+                                    <td th:text="${c.categoryName}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(c.amount, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.color = '#ad9fa4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+</script>
+<script th:inline="javascript">
+    const trendLabels = [];
+    const trendRevenue = [];
+    const trendExpenses = [];
+    const trendProfit = [];
+    /*[# th:each="point : ${report.trend}"]*/
+    trendLabels.push(/*[[${point.periodLabel}]]*/ '');
+    trendRevenue.push(/*[[${point.revenue}]]*/ 0);
+    trendExpenses.push(/*[[${point.expenses}]]*/ 0);
+    trendProfit.push(/*[[${point.profit}]]*/ 0);
+    /*[/]*/
+
+    if (trendLabels.length > 0) {
+        new Chart(document.getElementById('profitLossTrendChart'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    { label: 'Revenue', data: trendRevenue, borderColor: '#4fae82', backgroundColor: 'rgba(79,174,130,0.1)', tension: 0.3 },
+                    { label: 'Expenses', data: trendExpenses, borderColor: '#e0625f', backgroundColor: 'rgba(224,98,95,0.1)', tension: 0.3 },
+                    { label: 'Profit', data: trendProfit, borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.1)', tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { legend: { display: true } }
+            }
+        });
+    }
+</script>
+</body>
+</html>

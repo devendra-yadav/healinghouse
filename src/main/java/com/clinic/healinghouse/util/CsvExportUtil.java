@@ -176,6 +176,44 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
+    public String generateProfitLossReportCsv(ProfitLossReportDTO report) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Profit & Loss Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
+            writeProfitLossSummary(writer, report);
+
+            if (report.expensesByCategory() != null && !report.expensesByCategory().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Expenses by Category"});
+                writer.writeNext(new String[]{"Category", "Amount"});
+                for (ExpenseCategoryBreakdownDTO row : report.expensesByCategory()) {
+                    writer.writeNext(new String[]{sanitize(row.categoryName()), formatCurrency(row.amount())});
+                }
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Trend"});
+                writer.writeNext(new String[]{"Period", "Revenue", "Expenses", "Profit"});
+                for (ProfitLossTrendPointDTO point : report.trend()) {
+                    writer.writeNext(new String[]{
+                            sanitize(point.periodLabel()), formatCurrency(point.revenue()),
+                            formatCurrency(point.expenses()), formatCurrency(point.profit())
+                    });
+                }
+            }
+        }
+        return sw.toString();
+    }
+
+    private void writeProfitLossSummary(CSVWriter writer, ProfitLossReportDTO report) throws IOException {
+        writer.writeNext(new String[]{"Summary"});
+        writer.writeNext(new String[]{"Net Revenue", formatCurrency(report.netRevenue())});
+        writer.writeNext(new String[]{"Total Expenses", formatCurrency(report.totalExpenses())});
+        writer.writeNext(new String[]{"Net Profit", formatCurrency(report.netProfit())});
+    }
+
     private void writeRevenueSummary(CSVWriter writer, RevenueSummaryDTO summary) throws IOException {
         writer.writeNext(new String[]{"Summary"});
         writer.writeNext(new String[]{"Appointments", String.valueOf(summary.appointmentCount())});
