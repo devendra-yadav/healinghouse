@@ -407,7 +407,7 @@
                                               th:classappend="${row.status.name() == 'COMPLETED'} ? 'bg-success' :
                                                               (${row.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
                                                               (${row.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
-                                                                                                    'bg-primary'))">
+                                                                                                    'badge-scheduled'))">
                                         </span>
                                     </td>
                                     <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.gross, 1, 2)}|"></td>

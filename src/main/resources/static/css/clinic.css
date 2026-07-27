@@ -514,6 +514,14 @@ footer {
     letter-spacing: .2px;
 }
 
+/* SCHEDULED appointment status — bg-primary (jade green) reads too close to
+   COMPLETED's bg-success in this theme, since --bs-primary is jade-green
+   here rather than Bootstrap's stock blue. Dedicated soft blue instead. */
+.badge.badge-scheduled {
+    background-color: #4a7fb5;
+    color: #eaf2fb;
+}
+
 /* ── Placeholder coming-soon boxes ── */
 .coming-soon-card {
     border: 2px dashed var(--hh-jade-light);
