@@ -35,7 +35,7 @@
                                 <select id="categorySelect" th:field="*{categoryId}" class="form-select">
                                     <option value="">Select a category…</option>
                                     <option th:each="c : ${allCategories}" th:value="${c.id}" th:text="${c.name}"
-                                            th:attr="data-name=${c.name}"></option>
+                                            th:attr="data-payout=${c.payoutCategory}"></option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -101,18 +101,19 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script th:inline="javascript">
-    // The therapist picker + read-only commission hint only apply to the seeded "Salaries &
-    // Commission" category (requirements/Expenses_Requirements_v1.md §5.4) — the suggested figure
-    // is never written into the amount field, it's a reference only.
+    // The therapist picker + read-only commission hint apply to whichever category is flagged
+    // "payout category" (requirements/Expenses_Requirements_v1.md §5.4) — keyed off each <option>'s
+    // stable data-payout attribute, not the category's (renameable) display name, so renaming
+    // "Salaries & Commission" can't silently break this (Bug_Report_v6.md Finding 12). The
+    // suggested figure is never written into the amount field, it's a reference only.
     const categorySelect = document.getElementById('categorySelect');
     const therapistGroup = document.getElementById('therapistGroup');
     const therapistSelect = document.getElementById('therapistSelect');
     const suggestionEl = document.getElementById('commissionSuggestion');
-    const PAYOUT_CATEGORY_NAME = 'Salaries & Commission';
 
     function isPayoutCategorySelected() {
         const opt = categorySelect.options[categorySelect.selectedIndex];
-        return opt && opt.dataset.name === PAYOUT_CATEGORY_NAME;
+        return opt && opt.dataset.payout === 'true';
     }
 
     function toggleTherapistGroup() {

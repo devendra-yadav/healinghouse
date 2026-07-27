@@ -32,6 +32,7 @@ public class ProductService {
     private final ComboRepository comboRepository;
     private final ComboService comboService;
     private final PackageTemplateRepository packageTemplateRepository;
+    private final PackageTemplateService packageTemplateService;
     private final PatientPackageProductItemRepository patientPackageProductItemRepository;
 
     @Transactional(readOnly = true)
@@ -106,15 +107,19 @@ public class ProductService {
     /**
      * Deactivating never touches any existing appointment — line items snapshot price/therapist at
      * booking time and are fully decoupled from the live catalog. It does strip this product out of
-     * any combo that bundles it (see {@link ComboService#handleProductDeactivated}), since a combo's
-     * price is always live-computed and a combo can't keep offering an item that's no longer bookable.
+     * any combo that bundles it (see {@link ComboService#handleProductDeactivated}) and any package
+     * template that bundles it (see {@link PackageTemplateService#handleProductDeactivated},
+     * Bug_Report_v6.md Finding 9), since both a combo's and a template's price are always
+     * live-computed and neither can keep offering an item that's no longer bookable. Returns a
+     * combined flash-message suffix describing both impacts.
      */
-    public ComboService.CatalogItemRemovalResult deactivate(Long id) {
+    public String deactivate(Long id) {
         Product product = getById(id);
         product.setActive(false);
         productRepository.save(product);
         log.info("Deactivated product id={} name='{}'", product.getId(), product.getName());
-        return comboService.handleProductDeactivated(id);
+        return comboService.handleProductDeactivated(id).describe()
+                + packageTemplateService.handleProductDeactivated(id).describe();
     }
 
     public void activate(Long id) {

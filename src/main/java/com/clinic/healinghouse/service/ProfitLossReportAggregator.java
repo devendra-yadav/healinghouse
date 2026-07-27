@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,24 +64,35 @@ public class ProfitLossReportAggregator {
         return new ProfitLossReportDTO(dateFrom, dateTo, netRevenue, totalExpenses, netProfit, expensesByCategory, trend);
     }
 
+    /**
+     * Buckets by calendar month (requirements/Expenses_Requirements_v1.md §4.5/§8: "month
+     * buckets"/"month-over-month trend"), not by day — a day-level bucket produced one point per
+     * day (365 for a full-year range), contradicting the documented aggregation grain and making
+     * the Chart.js trend chart illegible (Bug_Report_v6.md Finding 8). Uses its own fixed "MMM
+     * yyyy" label format rather than the shared HealingHouseProperties.Reports.trendLabelFormat,
+     * which is a day-granularity format ("dd MMM") also used by the daily trends on the Dashboard/
+     * standard reports/Actual Revenue report — repurposing it here would need it to mean two
+     * different things depending on which page reads it.
+     */
     private List<ProfitLossTrendPointDTO> buildTrend(LocalDate dateFrom, LocalDate dateTo, List<Appointment> completed) {
-        Map<LocalDate, BigDecimal> revenueByDay = new HashMap<>();
+        Map<YearMonth, BigDecimal> revenueByMonth = new HashMap<>();
         for (Appointment a : completed) {
-            LocalDate day = a.getAppointmentDateTime().toLocalDate();
-            revenueByDay.merge(day, nz(a.getGrandTotal()), BigDecimal::add);
+            YearMonth month = YearMonth.from(a.getAppointmentDateTime().toLocalDate());
+            revenueByMonth.merge(month, nz(a.getGrandTotal()), BigDecimal::add);
         }
 
-        Map<LocalDate, BigDecimal> expensesByDay = new HashMap<>();
+        Map<YearMonth, BigDecimal> expensesByMonth = new HashMap<>();
         for (Expense e : expenseRepository.findByStatusAndExpenseDateBetween(ExpenseStatus.ACTIVE, dateFrom, dateTo)) {
-            expensesByDay.merge(e.getExpenseDate(), nz(e.getAmount()), BigDecimal::add);
+            expensesByMonth.merge(YearMonth.from(e.getExpenseDate()), nz(e.getAmount()), BigDecimal::add);
         }
 
         List<ProfitLossTrendPointDTO> trend = new ArrayList<>();
-        DateTimeFormatter trendLabelFormat = DateTimeFormatter.ofPattern(properties.getReports().getTrendLabelFormat());
-        for (LocalDate day = dateFrom; !day.isAfter(dateTo); day = day.plusDays(1)) {
-            BigDecimal revenue = revenueByDay.getOrDefault(day, BigDecimal.ZERO);
-            BigDecimal expenses = expensesByDay.getOrDefault(day, BigDecimal.ZERO);
-            trend.add(new ProfitLossTrendPointDTO(day.format(trendLabelFormat), revenue, expenses, revenue.subtract(expenses)));
+        DateTimeFormatter monthLabelFormat = DateTimeFormatter.ofPattern("MMM yyyy");
+        YearMonth lastMonth = YearMonth.from(dateTo);
+        for (YearMonth month = YearMonth.from(dateFrom); !month.isAfter(lastMonth); month = month.plusMonths(1)) {
+            BigDecimal revenue = revenueByMonth.getOrDefault(month, BigDecimal.ZERO);
+            BigDecimal expenses = expensesByMonth.getOrDefault(month, BigDecimal.ZERO);
+            trend.add(new ProfitLossTrendPointDTO(month.format(monthLabelFormat), revenue, expenses, revenue.subtract(expenses)));
         }
         return trend;
     }

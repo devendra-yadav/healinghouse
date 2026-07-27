@@ -116,8 +116,8 @@ public class TreatmentController {
     @RequiresPermission(module = Module.SERVICES, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        var comboImpact = treatmentService.deactivate(id);
-        ra.addFlashAttribute("successMessage", "Service deactivated successfully." + comboImpact.describe());
+        var impact = treatmentService.deactivate(id);
+        ra.addFlashAttribute("successMessage", "Service deactivated successfully." + impact);
         return "redirect:/services";
     }
 

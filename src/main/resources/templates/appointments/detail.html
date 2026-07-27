@@ -717,6 +717,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <form th:action="@{/appointments/{id}/cancel(id=${appointment.id})}" method="post">
+                <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
                 <div class="modal-body">
                     <p class="text-muted small mb-3">
                         Cancel appointment for
@@ -744,7 +745,6 @@
 </div>
 
 <th:block th:replace="~{fragments/wallet-modals :: topUpModal(${appointment.patient.id}, ${walletBalance}, '/appointments/' + ${appointment.id}, false)}"/>
-<th:block th:replace="~{fragments/wallet-modals :: refundModal(${appointment.patient.id}, ${walletBalance}, '/appointments/' + ${appointment.id})}"/>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>

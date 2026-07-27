@@ -68,6 +68,11 @@ public class RecurringExpenseTemplate {
     @Column(nullable = false)
     private boolean active = true;
 
+    /** Guards concurrent "Generate Now"/scheduler firing against double-generating an expense for
+     *  the same due period (Bug_Report_v6.md Finding 6) — mirrors PatientPackage's @Version. */
+    @Version
+    private Long version;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by_user_id", nullable = false)
     private User createdBy;

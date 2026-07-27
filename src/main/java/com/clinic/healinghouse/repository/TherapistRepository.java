@@ -15,5 +15,8 @@ public interface TherapistRepository extends JpaRepository<Therapist, Long> {
 
     List<Therapist> findByFullNameContainingIgnoreCaseAndActiveTrue(String name);
 
+    // Active-agnostic — list-page search always matches active AND inactive (Bug_Report_v6.md Finding 16).
+    Page<Therapist> findByFullNameContainingIgnoreCase(String fullName, Pageable pageable);
+
     long countByActiveTrue();
 }

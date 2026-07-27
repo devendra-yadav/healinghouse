@@ -43,6 +43,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -266,6 +267,49 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
+    public byte[] generateExpenseListPdf(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Expense List", "From " + dateFrom.format(displayDateFormatter()) +
+                    "  to  " + dateTo.format(displayDateFormatter()));
+            document.add(buildExpenseListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    private Table buildExpenseListTable(List<ExpenseListRowDTO> rows) {
+        Table table = newTable(new float[]{1, 1.6f, 1, 1.4f, 1.2f, 1.4f, 0.9f, 1.2f, 0.9f}, 8f);
+
+        addHeaderCell(table, "Date", TextAlignment.LEFT);
+        addHeaderCell(table, "Category", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+        addHeaderCell(table, "Vendor", TextAlignment.LEFT);
+        addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
+        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+        addHeaderCell(table, "Recorded By", TextAlignment.LEFT);
+        addHeaderCell(table, "Recurring", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ExpenseListRowDTO row : rows) {
+            addDataCell(table, row.expenseDate().format(displayDateFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.categoryName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.amount()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, row.vendorName() != null ? row.vendorName() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.paymentMethod() != null ? row.paymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.therapistName() != null ? row.therapistName() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.status().name(), TextAlignment.CENTER, shaded);
+            addDataCell(table, row.recordedByUsername() != null ? row.recordedByUsername() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.recurring() ? "Yes" : "No", TextAlignment.CENTER, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
     public byte[] generateProfitLossReportPdf(ProfitLossReportDTO report) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
@@ -313,15 +357,22 @@ public class PdfExportUtil {
     }
 
     private void finish(Document document, PdfDocument pdfDoc) {
-        // The "of N" total page count isn't known until every page has been laid out, so each
-        // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
-        // the real count once, right before close — safe because the XObject is its own
-        // indirect object and isn't flushed just because the page referencing it already was.
-        CURRENT_FOOTER_HANDLER.get().writeTotalPageCount(pdfDoc);
-        document.close();
-        CURRENT_REGULAR_FONT.remove();
-        CURRENT_BOLD_FONT.remove();
-        CURRENT_FOOTER_HANDLER.remove();
+        // try/finally so a failure in writeTotalPageCount/document.close() can't mask the real
+        // export error under a stack trace pointing here, and can't leave this thread's
+        // ThreadLocal font/handler pinned to a now-closed PdfDocument for the next export that
+        // thread handles (Bug_Report_v6.md Finding 17).
+        try {
+            // The "of N" total page count isn't known until every page has been laid out, so each
+            // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
+            // the real count once, right before close — safe because the XObject is its own
+            // indirect object and isn't flushed just because the page referencing it already was.
+            CURRENT_FOOTER_HANDLER.get().writeTotalPageCount(pdfDoc);
+            document.close();
+        } finally {
+            CURRENT_REGULAR_FONT.remove();
+            CURRENT_BOLD_FONT.remove();
+            CURRENT_FOOTER_HANDLER.remove();
+        }
     }
 
     private void addLetterhead(Document document, String title, String subtitle) {

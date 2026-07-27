@@ -10,6 +10,7 @@ public class ExpenseCategoryForm {
     private String name;
     private boolean active = true;
     private boolean restrictedVisibility = false;
+    private boolean payoutCategory = false;
 
     public static ExpenseCategoryForm from(ExpenseCategory category) {
         ExpenseCategoryForm form = new ExpenseCategoryForm();
@@ -17,6 +18,7 @@ public class ExpenseCategoryForm {
         form.setName(category.getName());
         form.setActive(category.isActive());
         form.setRestrictedVisibility(category.isRestrictedVisibility());
+        form.setPayoutCategory(category.isPayoutCategory());
         return form;
     }
 }

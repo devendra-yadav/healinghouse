@@ -15,18 +15,25 @@ import com.clinic.healinghouse.service.ExpenseCategoryService;
 import com.clinic.healinghouse.service.ExpenseService;
 import com.clinic.healinghouse.service.UserService;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 @Controller
 @RequestMapping("/expenses")
@@ -40,6 +47,9 @@ public class ExpenseController {
     private final UserService userService;
     private final PermissionService permissionService;
     private final PaginationUtil paginationUtil;
+    private final CsvExportUtil csvExportUtil;
+    private final PdfExportUtil pdfExportUtil;
+    private final com.clinic.healinghouse.config.HealingHouseProperties properties;
 
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
     @GetMapping
@@ -71,6 +81,57 @@ public class ExpenseController {
         return "expenses/list";
     }
 
+    @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                                            @RequestParam(required = false) Long categoryId,
+                                            @RequestParam(required = false) String vendorName,
+                                            @RequestParam(required = false) PaymentMethod paymentMethod,
+                                            @RequestParam(defaultValue = "false") boolean showVoided) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+        List<ExpenseListRowDTO> rows = exportRows(dateFrom, dateTo, categoryId, vendorName, paymentMethod, showVoided);
+        String csv = csvExportUtil.generateExpenseListCsv(rows, from, to);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment;filename=expenses-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                                            @RequestParam(required = false) Long categoryId,
+                                            @RequestParam(required = false) String vendorName,
+                                            @RequestParam(required = false) PaymentMethod paymentMethod,
+                                            @RequestParam(defaultValue = "false") boolean showVoided) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate to = dateTo != null ? dateTo : today;
+        List<ExpenseListRowDTO> rows = exportRows(dateFrom, dateTo, categoryId, vendorName, paymentMethod, showVoided);
+        byte[] pdf = pdfExportUtil.generateExpenseListPdf(rows, from, to);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment;filename=expenses-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    private List<ExpenseListRowDTO> exportRows(LocalDate dateFrom, LocalDate dateTo, Long categoryId,
+                                               String vendorName, PaymentMethod paymentMethod, boolean showVoided) {
+        ExpenseStatus status = showVoided ? null : ExpenseStatus.ACTIVE;
+        ExpenseFilter filter = new ExpenseFilter(dateFrom, dateTo, categoryId, vendorName, paymentMethod, status);
+        return expenseService.search(filter, Pageable.unpaged())
+                .map(ExpenseListRowDTO::from)
+                .getContent();
+    }
+
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.CREATE)
     @GetMapping("/new")
     public String newForm(Model model) {
@@ -82,8 +143,15 @@ public class ExpenseController {
 
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
-    public String editForm(@PathVariable Long id, Model model) {
+    public String editForm(@PathVariable Long id, Model model, RedirectAttributes ra) {
         Expense expense = expenseService.getById(id);
+        // Mirrors the POST /{id} update's own VOIDED check (ExpenseService.update) — without this,
+        // a stale bookmark to a voided expense's edit page rendered a pre-filled form that could
+        // never actually be submitted successfully (Bug_Report_v6.md Finding 23).
+        if (expense.getStatus() == ExpenseStatus.VOIDED) {
+            ra.addFlashAttribute("errorMessage", "A voided expense cannot be edited.");
+            return "redirect:/expenses";
+        }
         model.addAttribute("expenseForm", ExpenseForm.from(expense));
         populateFormModel(model);
         model.addAttribute("pageTitle", "Edit Expense");
@@ -130,13 +198,20 @@ public class ExpenseController {
     }
 
     /** Read-only reference figure for the Salaries & Commission category form (§5.4) — never
-     *  bound into the amount field, purely informational. */
+     *  bound into the amount field, purely informational. Scoped to the caller's own linked
+     *  therapist when the caller is THERAPIST_PLUS/THERAPIST, since that role can never see
+     *  another therapist's commission/bonus payout (Bug_Report_v6.md Finding 2). */
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
     @GetMapping("/commission-suggestion")
     @ResponseBody
     public BigDecimal commissionSuggestion(@RequestParam Long therapistId,
                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
                                            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId != null && !ownTherapistId.equals(therapistId)) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "You don't have permission to view another therapist's commission figure.");
+        }
         var therapist = therapistRepository.findById(therapistId)
                 .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Therapist not found: " + therapistId));
         return commissionCalculator.calculateEarnings(therapist, dateFrom, dateTo).totalVariablePay();

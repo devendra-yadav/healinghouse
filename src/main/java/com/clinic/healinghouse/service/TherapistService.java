@@ -45,6 +45,17 @@ public class TherapistService {
         return therapistRepository.findByActiveTrueOrderByFullNameAsc(pageable);
     }
 
+    /** Paginated, name-filtered variant for the therapists list page's search box — matches active
+     *  AND inactive rows (like every sibling list page's search), unlike the unpaginated
+     *  {@link #search(String)} above which stays active-only (Bug_Report_v6.md Finding 16). */
+    @Transactional(readOnly = true)
+    public Page<Therapist> search(String query, Pageable pageable) {
+        if (StringUtils.hasText(query)) {
+            return therapistRepository.findByFullNameContainingIgnoreCase(query.trim(), pageable);
+        }
+        return therapistRepository.findByActiveTrueOrderByFullNameAsc(pageable);
+    }
+
     /** Includes deactivated therapists too — backs the list page's "Show inactive" toggle, the only UI path to reactivate one. */
     @Transactional(readOnly = true)
     public Page<Therapist> findAllIncludingInactive(Pageable pageable) {

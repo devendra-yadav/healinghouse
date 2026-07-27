@@ -235,7 +235,7 @@ public enum AppRole {
 }
 ```
 
-- `THERAPIST_PLUS` is scoped identically to `THERAPIST` everywhere else in the app (own appointments/earnings only, via the same `User.therapist` link) — the *only* difference is Access Matrix grants on the new Expenses-related modules (§3.5, §5.5). No existing THERAPIST-scoping code changes; a THERAPIST_PLUS user is simply a THERAPIST for every purpose except expenses.
+- `THERAPIST_PLUS` is scoped identically to `THERAPIST` everywhere else in the app (own appointments/earnings only, via the same `User.therapist` link) — no existing THERAPIST-scoping code changes; a THERAPIST_PLUS user is simply a THERAPIST for every purpose except the additional grants below. The Access Matrix differences are: full CRUD (view/create/edit/deactivate, **not** permanent-delete) on Expenses-related modules **and** on the catalog modules Services/Products/Combos/Package Templates (§3.5, §5.5) — see the 2026-07-27 addendum in §5.5 for why the catalog grant was added on top of the original Expenses-only scope.
 - A `THERAPIST_PLUS`-role `User` still requires `therapist` to be set (same validation `AppUserDetailsService`/`UserService` already enforce for `THERAPIST`).
 
 ### 3.5 `Module` — three new values
@@ -380,6 +380,8 @@ private boolean recurring;      // true iff sourceTemplate != null
 - `THERAPIST_PLUS` is granted `EXPENSES` module `VIEW/CREATE/EDIT/DELETE` (void), but is **never** granted `REPORTS_PROFIT_LOSS` or `REPORTS_REVENUE` — it cannot see Net Revenue, Net Profit, or any P&L summary, only the raw expense entries it and others record.
 - Independently of the module/action grant, every expense query run on behalf of a `THERAPIST_PLUS` session **excludes** any `Expense` whose `category.restrictedVisibility = true` (i.e., "Salaries & Commission" by default, or any other category an Owner/Admin later flags confidential). This is implemented **inline in `ExpenseService`**, not the `PermissionAspect` — the same architectural choice already used for `THERAPIST`'s "own appointments only" scoping (`AppointmentController.enforceOwnAppointmentForTherapist`) and `ReportController.denyClinicWideReportsForTherapist` — because it depends on a data attribute (the category), not just the caller's role, which the aspect's coarse module/action gate can't express.
 - `RECEPTIONIST` and plain `THERAPIST` get no grants on `EXPENSE_CATEGORIES`, `EXPENSES`, or `REPORTS_PROFIT_LOSS` at all — same "—" as their existing Wallet/Actual-Revenue rows.
+
+**Addendum (2026-07-27, confirmed by clinic owner):** `THERAPIST_PLUS` is additionally granted full catalog management — `VIEW/CREATE/EDIT/DELETE` (**not** `APPROVE`/permanent-delete) — on `SERVICES`, `PRODUCTS`, `COMBOS`, and `PACKAGE_TEMPLATES`, widened from the original `VIEW`-only grant on those four modules. This is an intentional scope decision, not an oversight: a therapist trusted enough to be promoted to `THERAPIST_PLUS` for expense-recording is also trusted to add/edit/deactivate catalog items day-to-day, without needing a full Admin promotion. Permanent-delete stays OWNER/ADMIN-only, same as every other role. `SecuritySeeder.seedRolePermissions()`/`backfillTherapistPlusPermissions()` implement this; a static-review pass (`requirements/Bug_Report_v6.md` Finding 1) initially flagged the resulting seed change as an unreviewed escalation because this addendum hadn't been written yet — that finding has since been closed as not-a-bug now that the spec and code agree.
 
 ### 5.6 Permanent delete of an `ExpenseCategory`
 

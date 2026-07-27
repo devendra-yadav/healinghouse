@@ -3,8 +3,10 @@ package com.clinic.healinghouse.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -32,8 +34,10 @@ public class Therapist {
 
     private String specialization;
 
+    @Pattern(regexp = "^$|^[0-9+()\\-\\s]{7,20}$", message = "Enter a valid phone number.")
     private String phone;
 
+    @Email(message = "Enter a valid email address.")
     private String email;
 
     /** Typically 0 or null for the owner — no salary calculation applies to them (see {@code owner}). */

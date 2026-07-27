@@ -37,7 +37,8 @@ public class TherapistController {
 
     @RequiresPermission(module = Module.THERAPISTS, action = PermissionAction.VIEW)
     @GetMapping
-    public String list(@RequestParam(defaultValue = "false") boolean showInactive,
+    public String list(@RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "false") boolean showInactive,
                        @RequestParam(defaultValue = "0") int page,
                        @RequestParam(defaultValue = "20") int size,
                        Model model) {
@@ -49,9 +50,11 @@ public class TherapistController {
 
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
-        model.addAttribute("therapists", showInactive
+        boolean hasFilter = org.springframework.util.StringUtils.hasText(q);
+        model.addAttribute("therapists", (showInactive && !hasFilter)
                 ? therapistService.findAllIncludingInactive(PageRequest.of(page, pageSize, Sort.by("fullName")))
-                : therapistService.findAll(PageRequest.of(page, pageSize)));
+                : therapistService.search(q, PageRequest.of(page, pageSize, Sort.by("fullName"))));
+        model.addAttribute("q", q);
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Therapists");
         return "therapists/list";

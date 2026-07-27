@@ -33,10 +33,11 @@ Everything else in the system exists to support that loop:
 
 - **Catalog** — services, products, tags (for categorization + commission eligibility), combos (bundled discount offers), and package templates (multi-session bundles).
 - **Money** — per-appointment discounts, a patient wallet (prepaid ₹ balance), and prepaid session packages — three independent ways a patient can pay, all reconciled against the same `grandTotal`.
+- **Costs** — one-off and recurring clinic expenses (rent, salaries, supplies) against an admin-managed category list, netted against revenue in a Profit & Loss report.
 - **Scheduling** — a per-therapist calendar and an all-therapists overlay calendar, with drag-to-reschedule, conflict warnings (not hard blocks), and duration tracking.
 - **Payroll input** — therapist commission is computed from tagged, completed appointment lines, per line-item therapist (not just the main therapist on the appointment).
-- **Reporting** — six report types (daily, period, comparison, patient acquisition, performance, actual revenue) each exportable to CSV/PDF.
-- **Security** — session-based login, four fixed roles, a data-driven permission matrix, and therapist "own data only" scoping.
+- **Reporting** — seven report types (daily, period, comparison, patient acquisition, performance, actual revenue, profit & loss) each exportable to CSV/PDF.
+- **Security** — session-based login, five fixed roles, a data-driven permission matrix, and therapist "own data only" scoping.
 
 ---
 
@@ -45,7 +46,7 @@ Everything else in the system exists to support that loop:
 | Layer | Technology |
 |---|---|
 | Language / runtime | Java 21 |
-| Framework | Spring Boot 4.1 (Web MVC, Data JPA, Security, Validation, AspectJ) |
+| Framework | Spring Boot 4.1 (Web MVC, Data JPA, Security, Validation, AspectJ, Scheduling) |
 | View layer | Thymeleaf (server-rendered HTML, no client framework) |
 | Frontend | Bootstrap 5.3 (CDN), vanilla JS, Chart.js (CDN), FullCalendar v6 (CDN) — **no npm/node build step** |
 | Database | MySQL 8+ (Hibernate `ddl-auto: update`, no migration tool yet) |
@@ -161,6 +162,12 @@ erDiagram
 
     APP_USER }o--|| THERAPIST : "linked login (nullable, 1:1)"
     APP_USER ||--o{ ROLE_PERMISSION : "role grants (via AppRole enum)"
+
+    EXPENSE_CATEGORY ||--o{ EXPENSE : categorizes
+    EXPENSE_CATEGORY ||--o{ RECURRING_EXPENSE_TEMPLATE : categorizes
+    RECURRING_EXPENSE_TEMPLATE ||--o{ EXPENSE : "auto-generates (nullable)"
+    THERAPIST ||--o{ EXPENSE : "payout (nullable)"
+    APP_USER ||--o{ EXPENSE : "recorded by"
 ```
 
 **Key modeling decisions** (see `CLAUDE.md` for full detail):
@@ -175,12 +182,13 @@ erDiagram
 - **Combos** — catalog bundles with their own discount, expanded into normal line items on save; never trust a client-sent discount, always re-resolve from the live catalog.
 - **Discounts** — one whole-appointment discount (percentage or flat), proportionally distributed across lines; never affects commission (which stays on undiscounted `priceAtTime`/`lineTotal`).
 - **Optimistic locking** (`@Version`) on `Appointment` and `PatientWallet`/`PatientPackage` guards against double-submit races (e.g. double-cancel double-reversing a wallet debit).
+- **Expenses** — a cost-side ledger, structurally independent of the revenue catalog. Soft-void, never hard-deleted; recurring templates auto-generate actual expenses on a daily schedule (the app's first background job); a category flag hides sensitive rows (salary payouts) from the `THERAPIST_PLUS` role.
 
 ---
 
 ## Roles & permissions
 
-Four fixed roles, no custom role creation:
+Five fixed roles, no custom role creation:
 
 | Role | Typical use |
 |---|---|
@@ -188,6 +196,7 @@ Four fixed roles, no custom role creation:
 | **ADMIN** | Day-to-day management, everything except OWNER-account edits |
 | **RECEPTIONIST** | Booking, patients, payments — no reports/financial admin (data-driven, see matrix) |
 | **THERAPIST** | Scoped to their **own** appointments/earnings only |
+| **THERAPIST_PLUS** | A THERAPIST plus expense recording/catalog management — never sees Revenue/Profit & Loss reports or salary-payout expenses |
 
 - Permissions are **data-driven**: `RolePermission(role, module, action) → granted`, seeded by `SecuritySeeder`, editable at runtime via `/admin/access-matrix` (OWNER edits, ADMIN read-only), cached in memory.
 - Enforced twice: `@RequiresPermission` + `PermissionAspect` (server-side, hard gate) and the `perm` Thymeleaf bean (hides nav links/buttons a user can't use).
@@ -377,7 +386,7 @@ conf/logback-spring.xml                  # logging config for deployed environme
 
 ## Reports
 
-Six report pages under `/reports`, each with **CSV** and **PDF** export (`/reports/{report}/export-csv|export-pdf`), all sharing one date-range-defaulting (last 30 days) query layer (`ReportAggregator` / `CommissionCalculator`):
+Seven report pages under `/reports`, each with **CSV** and **PDF** export (`/reports/{report}/export-csv|export-pdf`), all sharing one date-range-defaulting (last 30 days) query layer (`ReportAggregator` / `CommissionCalculator`):
 
 | Report | Purpose |
 |---|---|
@@ -387,8 +396,9 @@ Six report pages under `/reports`, each with **CSV** and **PDF** export (`/repor
 | **Patients** | New-patient acquisition trend |
 | **Performance** | Product/service performance ranking |
 | **Actual Revenue** | What the clinic actually collected — Net Revenue (Σ`grandTotal`), Collected (Σ`amountPaid`), Outstanding, Combo/Manual discounts given, Wallet-funded portion. Only `COMPLETED` appointments count toward headline totals. |
+| **Profit & Loss** | Net Revenue − Total Expenses = Net Profit, by-category expense breakdown, month-over-month trend. OWNER/ADMIN only. |
 
-The first five reports label pre-discount figures **"(Pre-Discount)"** — those numbers double as the commission base, since discounts never reduce commission. The Actual Revenue report exists specifically to show the post-discount, actually-collected picture.
+The first five reports label pre-discount figures **"(Pre-Discount)"** — those numbers double as the commission base, since discounts never reduce commission. The Actual Revenue report exists specifically to show the post-discount, actually-collected picture. Profit & Loss is the only report that reads costs (`Expense`) as well as revenue.
 
 PDF exports carry a branded letterhead, footer with page numbers, and a confidentiality notice (`PdfExportUtil`).
 
@@ -400,7 +410,7 @@ PDF exports carry a branded letterhead, footer with page numbers, and a confiden
 ./mvnw test
 ```
 
-73/73 tests passing as of the last full RBAC security pass (2026-07-19). See `requirements/Bug_Report_v1.md` through `v5.md` for the historical findings/fixes trail — all findings through v5 are fixed.
+102/102 tests passing as of the Expenses/Profit & Loss feature (2026-07-27), up from 73/73 at the last full RBAC security pass (2026-07-19). See `requirements/Bug_Report_v1.md` through `v6.md` for the historical findings/fixes trail — all findings through v6 are fixed or closed not-a-bug.
 
 ---
 
@@ -408,6 +418,6 @@ PDF exports carry a branded letterhead, footer with page numbers, and a confiden
 
 - **`CLAUDE.md`** — the single most detailed doc in this repo: every non-obvious business rule (discounts, combos, packages, wallet, commission, RBAC) with the *why* behind each design decision. Read this before making any change to money/commission/scheduling logic.
 - **`requirements/Healing_House_Clinic_Requirements_v1.md`** — the authoritative v1.2 spec, phase-by-phase.
-- **`requirements/*_Requirements_v1.md`** — feature-specific specs (Combos, Packages, Wallet, Tags, RBAC, Calendar, etc.) for anything not fully covered above.
-- **`requirements/Bug_Report_v1.md`–`v5.md`** — historical bug findings and fixes, useful context for *why* certain code looks defensive.
+- **`requirements/*_Requirements_v1.md`** — feature-specific specs (Combos, Packages, Wallet, Tags, RBAC, Calendar, Expenses, etc.) for anything not fully covered above.
+- **`requirements/Bug_Report_v1.md`–`v6.md`** — historical bug findings and fixes, useful context for *why* certain code looks defensive.
 - **`HELP.md`** — Spring Boot / Maven wrapper reference links (auto-generated by Spring Initializr).

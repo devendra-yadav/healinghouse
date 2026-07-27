@@ -3,6 +3,7 @@ package com.clinic.healinghouse.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -42,6 +43,7 @@ public class Patient {
     @Enumerated(EnumType.STRING)
     private Gender gender;
 
+    @PastOrPresent(message = "Date of birth cannot be in the future.")
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dateOfBirth;
 

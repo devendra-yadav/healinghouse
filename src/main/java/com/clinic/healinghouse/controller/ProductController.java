@@ -117,8 +117,8 @@ public class ProductController {
     @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.DELETE)
     @PostMapping("/{id}/delete")
     public String delete(@PathVariable Long id, RedirectAttributes ra) {
-        var comboImpact = productService.deactivate(id);
-        ra.addFlashAttribute("successMessage", "Product deactivated successfully." + comboImpact.describe());
+        var impact = productService.deactivate(id);
+        ra.addFlashAttribute("successMessage", "Product deactivated successfully." + impact);
         return "redirect:/products";
     }
 

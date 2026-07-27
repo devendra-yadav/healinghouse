@@ -12,7 +12,10 @@ import com.clinic.healinghouse.repository.AppointmentComboRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -36,6 +39,7 @@ public class ComboService {
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
     private final AppointmentComboRepository appointmentComboRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<Combo> findAllActive() {
@@ -238,6 +242,18 @@ public class ComboService {
         return removeFromCombos(combos, combo -> combo.getProductItems().removeIf(pi -> pi.getProduct().getId().equals(productId)));
     }
 
+    /**
+     * The "empty after removal" check below reads each combo's in-transaction collection state,
+     * which two concurrent deactivations (one removing the combo's last service, the other its
+     * last product) can both evaluate against stale data under MySQL's default REPEATABLE READ —
+     * each sees the other item still present, so neither trips the auto-deactivate branch and the
+     * combo silently ends up with zero items while still active (Bug_Report_v6.md Finding 10).
+     * lockAndPersist force-increments the version on every combo touched here (not just the ones
+     * that go empty), so the second concurrent call to reach it always loses with a clear
+     * "just updated" error instead of silently completing — mirrors PackageService.lockAndPersist's
+     * identical OPTIMISTIC_FORCE_INCREMENT pattern for the same "mutation lives on a mappedBy
+     * collection" reason.
+     */
     private CatalogItemRemovalResult removeFromCombos(List<Combo> combos, java.util.function.Consumer<Combo> removeItem) {
         int autoDeactivated = 0;
         for (Combo combo : combos) {
@@ -248,10 +264,21 @@ public class ComboService {
                 log.info("Auto-deactivated combo id={} name='{}' — no items left after catalog removal",
                         combo.getId(), combo.getName());
             }
-            comboRepository.save(combo);
+            lockAndPersist(combo);
             log.info("Removed deactivated catalog item from combo id={} name='{}'", combo.getId(), combo.getName());
         }
         return new CatalogItemRemovalResult(combos.size(), autoDeactivated);
+    }
+
+    private void lockAndPersist(Combo combo) {
+        try {
+            comboRepository.save(combo);
+            entityManager.lock(combo, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+            entityManager.flush();
+        } catch (OptimisticLockException ex) {
+            throw new IllegalStateException(
+                    "This combo was just updated by someone else. Please refresh and try again.", ex);
+        }
     }
 
     /** Only allowed once deactivated, and only if unreferenced by appointment history. */

@@ -36,12 +36,20 @@
                                    placeholder="e.g. Raw Materials, Maintenance, Rent"/>
                         </div>
 
-                        <div class="form-check form-switch mb-4">
+                        <div class="form-check form-switch mb-3">
                             <input type="checkbox" class="form-check-input" th:field="*{restrictedVisibility}"/>
                             <label class="form-check-label" th:for="${#ids.prev('restrictedVisibility')}">
                                 Restricted (hidden from Therapist+ users)
                             </label>
                             <div class="form-text">Use this for sensitive categories like salary/commission payouts — Therapist+ can record expenses but will never see these.</div>
+                        </div>
+
+                        <div class="form-check form-switch mb-4">
+                            <input type="checkbox" class="form-check-input" th:field="*{payoutCategory}"/>
+                            <label class="form-check-label" th:for="${#ids.prev('payoutCategory')}">
+                                Payout category (requires a therapist)
+                            </label>
+                            <div class="form-text">Every expense recorded under this category must have a therapist selected — used for salary/commission payouts.</div>
                         </div>
 
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">

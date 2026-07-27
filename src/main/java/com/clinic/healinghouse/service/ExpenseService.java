@@ -115,6 +115,10 @@ public class ExpenseService {
             throw new EntityNotFoundException("Expense category not found: " + form.getCategoryId());
         }
 
+        if (category.isPayoutCategory() && form.getTherapistId() == null) {
+            throw new IllegalArgumentException("Therapist is required for a \"" + category.getName() + "\" expense.");
+        }
+
         Therapist therapist = null;
         if (form.getTherapistId() != null) {
             therapist = therapistRepository.findById(form.getTherapistId())

@@ -11,6 +11,9 @@ import com.clinic.healinghouse.repository.AppointmentRepository;
 import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.security.PermissionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +41,17 @@ public class DashboardService {
     private final AppointmentProductLineRepository productLineRepository;
     private final HealingHouseProperties properties;
     private final ProfitLossReportAggregator profitLossReportAggregator;
+    private final PermissionService permissionService;
 
+    /**
+     * The full {@code ProfitLossReportAggregator.getProfitLossReport} call (category breakdown +
+     * trend, on top of the totalExpenses/netProfit figures actually used here) used to run
+     * unconditionally on every dashboard load, for every role — wasted query work on the
+     * highest-traffic page for any role that can't see the resulting KPI cards anyway, since
+     * {@code dashboard.html} already gates them on {@code REPORTS_PROFIT_LOSS}/{@code VIEW}
+     * (Bug_Report_v6.md Finding 18). Skipped entirely (zeros returned, never read by the template)
+     * when the caller lacks that permission.
+     */
     public DashboardKpiDTO getTodayKPIs() {
         LocalDate today = LocalDate.now();
         long appointmentsCount = appointmentRepository.countByAppointmentDateTimeGreaterThanEqualAndAppointmentDateTimeLessThan(
@@ -48,10 +61,16 @@ public class DashboardService {
         long lowStockCount = productRepository.findLowStockProducts().size();
         long activeTherapistsCount = therapistRepository.countByActiveTrue();
 
-        var profitLoss = profitLossReportAggregator.getProfitLossReport(today.withDayOfMonth(1), today);
+        BigDecimal monthExpenses = BigDecimal.ZERO;
+        BigDecimal monthNetProfit = BigDecimal.ZERO;
+        if (permissionService.has(Module.REPORTS_PROFIT_LOSS, PermissionAction.VIEW)) {
+            var profitLoss = profitLossReportAggregator.getProfitLossReport(today.withDayOfMonth(1), today);
+            monthExpenses = profitLoss.totalExpenses();
+            monthNetProfit = profitLoss.netProfit();
+        }
 
         return new DashboardKpiDTO(appointmentsCount, revenue, lowStockCount, activeTherapistsCount,
-                profitLoss.totalExpenses(), profitLoss.netProfit());
+                monthExpenses, monthNetProfit);
     }
 
     public List<Appointment> getTodayAppointments() {

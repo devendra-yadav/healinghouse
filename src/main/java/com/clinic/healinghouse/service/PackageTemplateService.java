@@ -178,6 +178,60 @@ public class PackageTemplateService {
         log.info("Permanently deleted package template id={} name='{}'", id, template.getName());
     }
 
+    /** Summary handed back to the caller (TreatmentService/ProductService) to build a flash message
+     *  — mirrors ComboService.CatalogItemRemovalResult exactly. */
+    public record CatalogItemRemovalResult(int templatesAffected, int templatesAutoDeactivated) {
+        public boolean isEmpty() {
+            return templatesAffected == 0;
+        }
+
+        /** Flash-message suffix, e.g. " Removed from 1 package template(s); 1 auto-deactivated (no items left)." */
+        public String describe() {
+            if (isEmpty()) return "";
+            String msg = " Removed from " + templatesAffected + " package template(s)";
+            if (templatesAutoDeactivated > 0) {
+                msg += "; " + templatesAutoDeactivated + " auto-deactivated (no items left)";
+            }
+            return msg + ".";
+        }
+    }
+
+    /**
+     * Called when a ClinicService is deactivated: strips it out of every package template that
+     * bundles it and auto-deactivates any template left with zero items — mirrors {@link
+     * ComboService#handleServiceDeactivated} and the same "at least one item" invariant {@link
+     * #save} enforces. Without this, a template kept referencing the now-inactive item, its
+     * live-computed price stayed built from the stale item, and it stayed listed as active/
+     * sellable while every sale attempt from it failed with no admin-facing signal why
+     * (Bug_Report_v6.md Finding 9).
+     */
+    public CatalogItemRemovalResult handleServiceDeactivated(Long serviceId) {
+        List<PackageTemplate> templates = packageTemplateRepository.findByServiceItems_Service_Id(serviceId);
+        return removeFromTemplates(templates, t -> t.getServiceItems().removeIf(si -> si.getService().getId().equals(serviceId)));
+    }
+
+    /** Product equivalent of {@link #handleServiceDeactivated}. */
+    public CatalogItemRemovalResult handleProductDeactivated(Long productId) {
+        List<PackageTemplate> templates = packageTemplateRepository.findByProductItems_Product_Id(productId);
+        return removeFromTemplates(templates, t -> t.getProductItems().removeIf(pi -> pi.getProduct().getId().equals(productId)));
+    }
+
+    private CatalogItemRemovalResult removeFromTemplates(List<PackageTemplate> templates, java.util.function.Consumer<PackageTemplate> removeItem) {
+        int autoDeactivated = 0;
+        for (PackageTemplate template : templates) {
+            removeItem.accept(template);
+            if (template.isActive() && template.getServiceItems().isEmpty() && template.getProductItems().isEmpty()) {
+                template.setActive(false);
+                autoDeactivated++;
+                log.info("Auto-deactivated package template id={} name='{}' — no items left after catalog removal",
+                        template.getId(), template.getName());
+            }
+            packageTemplateRepository.save(template);
+            log.info("Removed deactivated catalog item from package template id={} name='{}'", template.getId(), template.getName());
+        }
+        return new CatalogItemRemovalResult(templates.size(), autoDeactivated);
+    }
+
     /** Live sum of current catalog prices x session count across every item — never stored. */
     public BigDecimal computeOriginalPrice(PackageTemplate template) {
         BigDecimal total = BigDecimal.ZERO;

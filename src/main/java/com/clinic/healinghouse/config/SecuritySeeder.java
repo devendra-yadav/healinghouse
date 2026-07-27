@@ -61,6 +61,7 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillTherapistPlusPermissions();
         backfillFullAccessMatrix();
         seedExpenseCategories();
+        backfillPayoutCategoryFlag();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
         // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
         // before invoking any CommandLineRunner, regardless of runner order. Without this, a
@@ -191,19 +192,21 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST, WALLET, VIEW, CREATE, APPROVE);
 
         // ── THERAPIST_PLUS — identical to THERAPIST in every respect above (same "own schedule/
-        // earnings only" row-level scoping, same master-data view-only access) plus the ability to
-        // record/view day-to-day clinic expenses. Deliberately NOT granted EXPENSE_CATEGORIES (master
-        // category management stays an Owner/Admin admin task) or REPORTS_PROFIT_LOSS (this role never
-        // sees revenue/profit figures — see ExpenseService's restricted-category filtering for the
-        // additional, non-permission-matrix scoping that hides Salaries & Commission entries from it) ──
+        // earnings only" row-level scoping) plus the ability to record/view day-to-day clinic
+        // expenses, and (unlike THERAPIST) full catalog management (add/edit/deactivate, not
+        // permanent-delete) on Services/Products/Combos/Package Templates. Deliberately NOT granted
+        // EXPENSE_CATEGORIES (master category management stays an Owner/Admin admin task) or
+        // REPORTS_PROFIT_LOSS (this role never sees revenue/profit figures — see ExpenseService's
+        // restricted-category filtering for the additional, non-permission-matrix scoping that hides
+        // Salaries & Commission entries from it) ──
         grant(defaults, THERAPIST_PLUS, DASHBOARD, VIEW);
         grant(defaults, THERAPIST_PLUS, PATIENTS, VIEW, CREATE, EDIT);
         grant(defaults, THERAPIST_PLUS, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
         grant(defaults, THERAPIST_PLUS, THERAPISTS, VIEW);
-        grant(defaults, THERAPIST_PLUS, SERVICES, VIEW);
-        grant(defaults, THERAPIST_PLUS, PRODUCTS, VIEW);
-        grant(defaults, THERAPIST_PLUS, COMBOS, VIEW);
-        grant(defaults, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW);
+        grant(defaults, THERAPIST_PLUS, SERVICES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, PRODUCTS, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, COMBOS, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, THERAPIST_PLUS, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST_PLUS, WALLET, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST_PLUS, EXPENSES, VIEW, CREATE, EDIT, DELETE);
@@ -352,13 +355,15 @@ public class SecuritySeeder implements CommandLineRunner {
     }
 
     /**
-     * One-time idempotent fix-up for databases seeded before THERAPIST_PLUS existed. THERAPIST_PLUS
-     * is a brand-new role, not just a new grant on an existing one, so unlike the other backfill
-     * methods above this seeds its *entire* permission block (mirrors the THERAPIST block in
-     * {@link #seedRolePermissions()} exactly, plus EXPENSES) — {@link #seedRolePermissions()}'s
-     * short-circuit on a non-empty table means none of it would otherwise land, and
-     * {@link #backfillFullAccessMatrix()} would insert every cell as granted=false, silently
-     * locking a THERAPIST_PLUS login out of everything including DASHBOARD/VIEW.
+     * One-time idempotent fix-up for databases seeded before THERAPIST_PLUS existed (or before its
+     * catalog-management grants were added). Seeds the role's *entire* permission block — mirrors
+     * the THERAPIST_PLUS block in {@link #seedRolePermissions()} exactly — since
+     * {@link #seedRolePermissions()}'s short-circuit on a non-empty table means none of it would
+     * otherwise land, and {@link #backfillFullAccessMatrix()} would insert any still-missing cell
+     * as granted=false, silently locking a THERAPIST_PLUS login out of it. {@link #grantIfMissing}
+     * is a no-op for any (role, module, action) already granted, so re-running this after the
+     * SERVICES/PRODUCTS/COMBOS/PACKAGE_TEMPLATES CREATE/EDIT/DELETE grants were added is safe on
+     * a database that already had the role's earlier (VIEW-only-on-those-modules) permission set.
      */
     private void backfillTherapistPlusPermissions() {
         List<RolePermission> toSave = new ArrayList<>();
@@ -366,10 +371,10 @@ public class SecuritySeeder implements CommandLineRunner {
         grantIfMissing(toSave, THERAPIST_PLUS, PATIENTS, VIEW, CREATE, EDIT);
         grantIfMissing(toSave, THERAPIST_PLUS, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
         grantIfMissing(toSave, THERAPIST_PLUS, THERAPISTS, VIEW);
-        grantIfMissing(toSave, THERAPIST_PLUS, SERVICES, VIEW);
-        grantIfMissing(toSave, THERAPIST_PLUS, PRODUCTS, VIEW);
-        grantIfMissing(toSave, THERAPIST_PLUS, COMBOS, VIEW);
-        grantIfMissing(toSave, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW);
+        grantIfMissing(toSave, THERAPIST_PLUS, SERVICES, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, PRODUCTS, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, COMBOS, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
         grantIfMissing(toSave, THERAPIST_PLUS, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grantIfMissing(toSave, THERAPIST_PLUS, WALLET, VIEW, CREATE, APPROVE);
         grantIfMissing(toSave, THERAPIST_PLUS, EXPENSES, VIEW, CREATE, EDIT, DELETE);
@@ -436,11 +441,29 @@ public class SecuritySeeder implements CommandLineRunner {
                 ExpenseCategory.builder().name("Maintenance").build(),
                 ExpenseCategory.builder().name("Utilities").build(),
                 ExpenseCategory.builder().name("Rent").build(),
-                ExpenseCategory.builder().name("Salaries & Commission").restrictedVisibility(true).build(),
+                ExpenseCategory.builder().name("Salaries & Commission").restrictedVisibility(true).payoutCategory(true).build(),
                 ExpenseCategory.builder().name("Other").build()
         );
         expenseCategoryRepository.saveAll(categories);
         log.info("Seeded {} starter expense categories.", categories.size());
+    }
+
+    /**
+     * One-time idempotent fix-up (mirroring OwnerFlagBackfill's pattern) for databases seeded
+     * before {@code ExpenseCategory.payoutCategory} existed: the new column defaults to false at
+     * the DB level, so a pre-existing "Salaries & Commission" row seeded by an earlier version of
+     * {@link #seedExpenseCategories()} would otherwise never get the flag ExpenseService's
+     * therapist-required validation and the expense form's JS now key off (Bug_Report_v6.md
+     * Finding 5/12). Matches by name, exactly once; a no-op on every later startup.
+     */
+    private void backfillPayoutCategoryFlag() {
+        expenseCategoryRepository.findAll().stream()
+                .filter(c -> "Salaries & Commission".equals(c.getName()) && !c.isPayoutCategory())
+                .forEach(c -> {
+                    c.setPayoutCategory(true);
+                    expenseCategoryRepository.save(c);
+                    log.info("Backfilled payoutCategory=true for expense category id={} name='{}'", c.getId(), c.getName());
+                });
     }
 
     private void grant(List<RolePermission> list, AppRole role, Module module, PermissionAction... actions) {

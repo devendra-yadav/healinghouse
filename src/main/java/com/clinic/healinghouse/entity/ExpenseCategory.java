@@ -44,6 +44,15 @@ public class ExpenseCategory {
     @Column(nullable = false)
     private boolean restrictedVisibility = false;
 
+    /** When true, every Expense under this category must carry a {@code therapist} — enforced
+     *  server-side by ExpenseService.applyForm, not just the form's conditional therapist picker
+     *  (Bug_Report_v6.md Finding 5). Also drives the therapist-picker show/hide in
+     *  templates/expenses/form.html via a data attribute instead of matching the category's
+     *  (renameable) display name (Finding 12). Seeded true only for "Salaries & Commission". */
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean payoutCategory = false;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 

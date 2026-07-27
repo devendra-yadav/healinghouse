@@ -176,6 +176,30 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
+    public String generateExpenseListCsv(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Expense List - " + dateFrom.format(dateFormatter()) +
+                    " to " + dateTo.format(dateFormatter()));
+            writer.writeNext(new String[]{"Date", "Category", "Amount", "Vendor", "Payment Method",
+                    "Therapist", "Status", "Recorded By", "Recurring"});
+            for (ExpenseListRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        row.expenseDate().format(dateFormatter()),
+                        sanitize(row.categoryName()),
+                        formatCurrency(row.amount()),
+                        sanitize(row.vendorName()),
+                        row.paymentMethod() != null ? row.paymentMethod().name() : "N/A",
+                        row.therapistName() != null ? sanitize(row.therapistName()) : "N/A",
+                        row.status().name(),
+                        row.recordedByUsername() != null ? sanitize(row.recordedByUsername()) : "N/A",
+                        row.recurring() ? "Yes" : "No"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
     public String generateProfitLossReportCsv(ProfitLossReportDTO report) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {

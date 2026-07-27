@@ -86,6 +86,7 @@ public class ExpenseCategoryService {
         category.setName(form.getName().trim());
         category.setActive(form.isActive());
         category.setRestrictedVisibility(form.isRestrictedVisibility());
+        category.setPayoutCategory(form.isPayoutCategory());
 
         ExpenseCategory saved = expenseCategoryRepository.save(category);
         log.info("{} expense category id={} name='{}'", isNew ? "Created" : "Updated", saved.getId(), saved.getName());
