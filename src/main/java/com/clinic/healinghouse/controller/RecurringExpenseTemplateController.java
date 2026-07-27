@@ -112,7 +112,7 @@ public class RecurringExpenseTemplateController {
     }
 
     private void populateFormModel(Model model) {
-        model.addAttribute("allCategories", expenseCategoryService.findAllActive());
+        model.addAttribute("allCategories", expenseCategoryService.findAllActiveVisible());
         model.addAttribute("paymentMethods", PaymentMethod.values());
         model.addAttribute("frequencies", RecurrenceFrequency.values());
     }

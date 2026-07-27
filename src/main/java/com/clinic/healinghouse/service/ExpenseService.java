@@ -108,6 +108,12 @@ public class ExpenseService {
         }
         ExpenseCategory category = expenseCategoryRepository.findById(form.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Expense category not found: " + form.getCategoryId()));
+        if (permissionService.currentRole() == AppRole.THERAPIST_PLUS && category.isRestrictedVisibility()) {
+            // Mirrors getById's existence-masking — a THERAPIST_PLUS caller who crafts a request
+            // with a restricted category id directly (bypassing the filtered dropdown) shouldn't
+            // learn the category exists.
+            throw new EntityNotFoundException("Expense category not found: " + form.getCategoryId());
+        }
 
         Therapist therapist = null;
         if (form.getTherapistId() != null) {

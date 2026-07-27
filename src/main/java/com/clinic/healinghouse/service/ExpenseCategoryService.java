@@ -1,10 +1,12 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.ExpenseCategoryForm;
+import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.ExpenseCategory;
 import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.ExpenseRepository;
 import com.clinic.healinghouse.repository.RecurringExpenseTemplateRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +32,24 @@ public class ExpenseCategoryService {
     private final ExpenseCategoryRepository expenseCategoryRepository;
     private final ExpenseRepository expenseRepository;
     private final RecurringExpenseTemplateRepository recurringExpenseTemplateRepository;
+    private final PermissionService permissionService;
 
     @Transactional(readOnly = true)
     public List<ExpenseCategory> findAllActive() {
         return expenseCategoryRepository.findByActiveTrueOrderByNameAsc();
+    }
+
+    /** Same as {@link #findAllActive()} but excludes restrictedVisibility categories when the
+     *  caller is THERAPIST_PLUS (§5.5) — backs every category dropdown a THERAPIST_PLUS user can
+     *  reach (expense form, recurring template form, expense list filter), so a restricted
+     *  category's name never surfaces to them, mirroring ExpenseService's row-level scoping. */
+    @Transactional(readOnly = true)
+    public List<ExpenseCategory> findAllActiveVisible() {
+        List<ExpenseCategory> categories = findAllActive();
+        if (permissionService.currentRole() == AppRole.THERAPIST_PLUS) {
+            return categories.stream().filter(c -> !c.isRestrictedVisibility()).toList();
+        }
+        return categories;
     }
 
     /** Paginated, always matches active AND inactive — same reasoning as ComboService.search(query, pageable). */

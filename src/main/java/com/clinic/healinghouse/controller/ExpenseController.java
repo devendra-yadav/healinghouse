@@ -59,7 +59,7 @@ public class ExpenseController {
         var expenses = expenseService.search(filter, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "expenseDate")))
                 .map(ExpenseListRowDTO::from);
         model.addAttribute("expenses", expenses);
-        model.addAttribute("categories", expenseCategoryService.findAllActive());
+        model.addAttribute("categories", expenseCategoryService.findAllActiveVisible());
         model.addAttribute("dateFrom", dateFrom);
         model.addAttribute("dateTo", dateTo);
         model.addAttribute("categoryId", categoryId);
@@ -143,7 +143,7 @@ public class ExpenseController {
     }
 
     private void populateFormModel(Model model) {
-        model.addAttribute("allCategories", expenseCategoryService.findAllActive());
+        model.addAttribute("allCategories", expenseCategoryService.findAllActiveVisible());
         model.addAttribute("allTherapists", therapistRepository.findByActiveTrueOrderByFullNameAsc());
         model.addAttribute("paymentMethods", PaymentMethod.values());
     }

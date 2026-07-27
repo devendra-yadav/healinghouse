@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.RecurringExpenseTemplateForm;
+import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.Expense;
 import com.clinic.healinghouse.entity.ExpenseCategory;
 import com.clinic.healinghouse.entity.ExpenseStatus;
@@ -9,6 +10,7 @@ import com.clinic.healinghouse.entity.User;
 import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.ExpenseRepository;
 import com.clinic.healinghouse.repository.RecurringExpenseTemplateRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,21 +35,38 @@ public class RecurringExpenseTemplateService {
     private final RecurringExpenseTemplateRepository recurringExpenseTemplateRepository;
     private final ExpenseCategoryRepository expenseCategoryRepository;
     private final ExpenseRepository expenseRepository;
+    private final PermissionService permissionService;
 
     @Transactional(readOnly = true)
     public List<RecurringExpenseTemplate> findAllActive() {
         return recurringExpenseTemplateRepository.findByActiveTrueOrderByLabelAsc();
     }
 
+    /** Excludes templates under a restrictedVisibility category when the caller is THERAPIST_PLUS
+     *  (requirements/Expenses_Requirements_v1.md §5.5, §254 — recurring templates fall under the
+     *  same EXPENSES module/visibility rule as one-off expense rows) — backs the recurring
+     *  templates list page. */
     @Transactional(readOnly = true)
     public List<RecurringExpenseTemplate> findAll() {
-        return recurringExpenseTemplateRepository.findAll();
+        List<RecurringExpenseTemplate> templates = recurringExpenseTemplateRepository.findAll();
+        if (permissionService.currentRole() == AppRole.THERAPIST_PLUS) {
+            return templates.stream().filter(t -> !t.getCategory().isRestrictedVisibility()).toList();
+        }
+        return templates;
     }
 
+    /** Throws EntityNotFoundException (not AccessDeniedException) for a THERAPIST_PLUS caller
+     *  requesting a restricted-category template — avoids leaking that row's existence, mirroring
+     *  ExpenseService.getById. Also guards edit/pause/resume/generateNow, which all route through
+     *  this method. */
     @Transactional(readOnly = true)
     public RecurringExpenseTemplate getById(Long id) {
-        return recurringExpenseTemplateRepository.findById(id)
+        RecurringExpenseTemplate template = recurringExpenseTemplateRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Recurring expense template not found: " + id));
+        if (permissionService.currentRole() == AppRole.THERAPIST_PLUS && template.getCategory().isRestrictedVisibility()) {
+            throw new EntityNotFoundException("Recurring expense template not found: " + id);
+        }
+        return template;
     }
 
     public RecurringExpenseTemplate create(RecurringExpenseTemplateForm form, User createdBy) {
@@ -98,6 +117,12 @@ public class RecurringExpenseTemplateService {
         }
         ExpenseCategory category = expenseCategoryRepository.findById(form.getCategoryId())
                 .orElseThrow(() -> new EntityNotFoundException("Expense category not found: " + form.getCategoryId()));
+        if (permissionService.currentRole() == AppRole.THERAPIST_PLUS && category.isRestrictedVisibility()) {
+            // Mirrors getById's existence-masking — a THERAPIST_PLUS caller who crafts a request
+            // with a restricted category id directly (bypassing the filtered dropdown) shouldn't
+            // learn the category exists.
+            throw new EntityNotFoundException("Expense category not found: " + form.getCategoryId());
+        }
 
         template.setCategory(category);
         template.setLabel(form.getLabel().trim());

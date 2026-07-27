@@ -1,16 +1,19 @@
 package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.ExpenseCategoryForm;
+import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.ExpenseCategory;
 import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.ExpenseRepository;
 import com.clinic.healinghouse.repository.RecurringExpenseTemplateRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,16 +31,48 @@ class ExpenseCategoryServiceTests {
     @Mock private ExpenseCategoryRepository expenseCategoryRepository;
     @Mock private ExpenseRepository expenseRepository;
     @Mock private RecurringExpenseTemplateRepository recurringExpenseTemplateRepository;
+    @Mock private PermissionService permissionService;
 
     private ExpenseCategoryService service;
 
     @BeforeEach
     void setUp() {
-        service = new ExpenseCategoryService(expenseCategoryRepository, expenseRepository, recurringExpenseTemplateRepository);
+        service = new ExpenseCategoryService(expenseCategoryRepository, expenseRepository, recurringExpenseTemplateRepository, permissionService);
     }
 
     private ExpenseCategory category(long id, boolean active) {
         return ExpenseCategory.builder().id(id).name("Raw Materials").active(active).build();
+    }
+
+    private ExpenseCategory category(long id, String name, boolean restricted) {
+        return ExpenseCategory.builder().id(id).name(name).active(true).restrictedVisibility(restricted).build();
+    }
+
+    // ── THERAPIST_PLUS restricted-category visibility (§5.5) ──
+
+    @Test
+    void findAllActiveVisibleExcludesRestrictedCategoriesForTherapistPlus() {
+        when(permissionService.currentRole()).thenReturn(AppRole.THERAPIST_PLUS);
+        when(expenseCategoryRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(
+                category(1L, "Raw Materials", false),
+                category(2L, "Salaries & Commission", true)));
+
+        List<ExpenseCategory> visible = service.findAllActiveVisible();
+
+        assertThat(visible).extracting(ExpenseCategory::getName).containsExactly("Raw Materials");
+    }
+
+    @Test
+    void findAllActiveVisibleIncludesRestrictedCategoriesForOwner() {
+        when(permissionService.currentRole()).thenReturn(AppRole.OWNER);
+        when(expenseCategoryRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(
+                category(1L, "Raw Materials", false),
+                category(2L, "Salaries & Commission", true)));
+
+        List<ExpenseCategory> visible = service.findAllActiveVisible();
+
+        assertThat(visible).extracting(ExpenseCategory::getName)
+                .containsExactly("Raw Materials", "Salaries & Commission");
     }
 
     @Test
