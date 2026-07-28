@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.dto.PackageTemplateExportRowDTO;
 import com.clinic.healinghouse.dto.PackageTemplateForm;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PackageTemplate;
@@ -8,15 +9,24 @@ import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.PackageTemplateService;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.util.List;
 
 @Controller
 @RequestMapping("/package-templates")
@@ -27,6 +37,8 @@ public class PackageTemplateController {
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
     private final PaginationUtil paginationUtil;
+    private final CsvExportUtil csvExportUtil;
+    private final PdfExportUtil pdfExportUtil;
 
     @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
     @GetMapping
@@ -46,6 +58,41 @@ public class PackageTemplateController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Package Templates");
         return "package-templates/list";
+    }
+
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
+        String csv = csvExportUtil.generatePackageTemplateListCsv(exportRows(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=package-templates-" + LocalDate.now() + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
+        byte[] pdf = pdfExportUtil.generatePackageTemplateListPdf(exportRows(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=package-templates-" + LocalDate.now() + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    /** Mirrors {@link #list}'s own filter precedence, unpaged; {@code includeInactive} then strips
+     *  out inactive rows unless explicitly requested — export defaults to active-only. */
+    private List<PackageTemplateExportRowDTO> exportRows(String q, boolean includeInactive) {
+        List<PackageTemplate> templates = StringUtils.hasText(q)
+                ? packageTemplateService.search(q, Pageable.unpaged()).getContent()
+                : (includeInactive ? packageTemplateService.findAllIncludingInactive(Pageable.unpaged()).getContent() : packageTemplateService.findAllActive());
+        if (!includeInactive) {
+            templates = templates.stream().filter(PackageTemplate::isActive).toList();
+        }
+        return templates.stream().map(t -> new PackageTemplateExportRowDTO(t.getName(), t.getDescription(),
+                packageTemplateService.buildItemsSummary(t), packageTemplateService.computeSuggestedPrice(t), t.isActive())).toList();
     }
 
     @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.CREATE)

@@ -2,6 +2,9 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.entity.Tag;
 import com.itextpdf.io.font.FontProgram;
 import com.itextpdf.io.font.FontProgramFactory;
 import com.itextpdf.io.font.PdfEncodings;
@@ -330,6 +333,156 @@ public class PdfExportUtil {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
+    }
+
+    public byte[] generateProductListPdf(List<Product> products) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Product List", products.size() + " product(s)");
+            document.add(buildProductListTable(products));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateServiceListPdf(List<ClinicService> services) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Service List", services.size() + " service(s)");
+            document.add(buildServiceListTable(services));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateComboListPdf(List<ComboExportRowDTO> rows) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Combo List", rows.size() + " combo(s)");
+            document.add(buildComboListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generatePackageTemplateListPdf(List<PackageTemplateExportRowDTO> rows) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Package Template List", rows.size() + " template(s)");
+            document.add(buildPackageTemplateListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    private Table buildProductListTable(List<Product> products) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 1.4f, 0.9f, 0.7f, 0.9f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Tags", TextAlignment.LEFT);
+        addHeaderCell(table, "Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Stock", TextAlignment.CENTER);
+        addHeaderCell(table, "Reorder Lvl", TextAlignment.CENTER);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (Product p : products) {
+            addDataCell(table, p.getName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getDescription() != null ? p.getDescription() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, joinTagNames(p.getSortedTags()), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(p.getPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, String.valueOf(p.getStockQuantity()), TextAlignment.CENTER, shaded);
+            addDataCell(table, String.valueOf(p.getReorderLevel()), TextAlignment.CENTER, shaded);
+            addBadgeCell(table, p.isActive() ? "Active" : "Inactive", p.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildServiceListTable(List<ClinicService> services) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 1.4f, 1, 0.9f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Tags", TextAlignment.LEFT);
+        addHeaderCell(table, "Duration", TextAlignment.CENTER);
+        addHeaderCell(table, "Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ClinicService s : services) {
+            addDataCell(table, s.getName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, s.getDescription() != null ? s.getDescription() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, joinTagNames(s.getSortedTags()), TextAlignment.LEFT, shaded);
+            addDataCell(table, s.getDurationMinutes() != null ? s.getDurationMinutes() + " min" : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(s.getPrice()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, s.isActive() ? "Active" : "Inactive", s.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildComboListTable(List<ComboExportRowDTO> rows) {
+        Table table = newTable(new float[]{1.5f, 2f, 2f, 1, 1, 1, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Items", TextAlignment.LEFT);
+        addHeaderCell(table, "Original Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Combo Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Savings", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ComboExportRowDTO row : rows) {
+            addDataCell(table, row.name(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.description() != null ? row.description() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.itemsSummary(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.originalPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.comboPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.savings()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, row.active() ? "Active" : "Inactive", row.active(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildPackageTemplateListTable(List<PackageTemplateExportRowDTO> rows) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 2.2f, 1.1f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Items", TextAlignment.LEFT);
+        addHeaderCell(table, "Suggested Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (PackageTemplateExportRowDTO row : rows) {
+            addDataCell(table, row.name(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.description() != null ? row.description() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.itemsSummary(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.suggestedPrice()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, row.active() ? "Active" : "Inactive", row.active(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private String joinTagNames(List<Tag> tags) {
+        return tags.stream().map(Tag::getName).collect(java.util.stream.Collectors.joining(", "));
     }
 
     // ---- document scaffolding ----------------------------------------------------------

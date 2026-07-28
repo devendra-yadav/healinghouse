@@ -338,7 +338,9 @@ public class ComboService {
                 original, comboPrice, original.subtract(comboPrice));
     }
 
-    private String buildItemsSummary(Combo combo) {
+    /** Human-readable item list, e.g. "2x Deep Tissue Massage + Massage Oil" — used by the picker
+     *  suggestion DTO and the list page's CSV/PDF export. */
+    public String buildItemsSummary(Combo combo) {
         List<String> parts = new java.util.ArrayList<>();
         combo.getServiceItems().forEach(si -> parts.add(
                 si.getQuantity() > 1 ? si.getQuantity() + "x " + si.getService().getName() : si.getService().getName()));

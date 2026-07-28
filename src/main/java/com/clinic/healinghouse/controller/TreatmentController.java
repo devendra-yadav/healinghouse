@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.dto.CsvImportResultDTO;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
@@ -8,18 +9,27 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.TagService;
 import com.clinic.healinghouse.service.TreatmentService;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,6 +43,8 @@ public class TreatmentController {
     private final TagService tagService;
     private final PaginationUtil paginationUtil;
     private final PermissionService permissionService;
+    private final CsvExportUtil csvExportUtil;
+    private final PdfExportUtil pdfExportUtil;
 
     @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
     @GetMapping
@@ -54,6 +66,39 @@ public class TreatmentController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Services");
         return "services/list";
+    }
+
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
+                                            @RequestParam(required = false) String tag,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
+        String csv = csvExportUtil.generateServiceListCsv(exportList(q, tag, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=services-" + LocalDate.now() + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
+                                            @RequestParam(required = false) String tag,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
+        byte[] pdf = pdfExportUtil.generateServiceListPdf(exportList(q, tag, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=services-" + LocalDate.now() + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    /** Mirrors {@link #list}'s own filter precedence, unpaged; {@code includeInactive} then strips
+     *  out inactive rows unless explicitly requested — export defaults to active-only. */
+    private List<ClinicService> exportList(String q, String tag, boolean includeInactive) {
+        List<ClinicService> rows = (StringUtils.hasText(q) || StringUtils.hasText(tag))
+                ? treatmentService.search(q, tag, Pageable.unpaged()).getContent()
+                : (includeInactive ? treatmentService.findAllIncludingInactive(Pageable.unpaged()).getContent() : treatmentService.findAll());
+        return includeInactive ? rows : rows.stream().filter(ClinicService::isActive).toList();
     }
 
     @RequiresPermission(module = Module.SERVICES, action = PermissionAction.CREATE)
@@ -139,5 +184,35 @@ public class TreatmentController {
             ra.addFlashAttribute("errorMessage", ex.getMessage());
         }
         return "redirect:/services?showInactive=true";
+    }
+
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.CREATE)
+    @GetMapping("/import-csv/template")
+    public ResponseEntity<byte[]> importCsvTemplate() {
+        String csv = "name,description,durationMinutes,price,tags,active\n"
+                + "Deep Tissue Massage,60 minute full body massage,60,1500.00,Commission;Bonus,true\n";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"services_import_template.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.SERVICES, action = PermissionAction.CREATE)
+    @PostMapping("/import-csv")
+    public String importCsv(@RequestParam("file") MultipartFile file, RedirectAttributes ra) {
+        if (file.isEmpty()) {
+            ra.addFlashAttribute("errorMessage", "Please choose a CSV file to upload.");
+            return "redirect:/services";
+        }
+        try {
+            CsvImportResultDTO result = treatmentService.importFromCsv(file);
+            ra.addFlashAttribute("importResult", result);
+            ra.addFlashAttribute("successMessage", String.format(
+                    "Import complete: %d created, %d skipped, %d errors (of %d rows).",
+                    result.successCount(), result.skippedCount(), result.errorCount(), result.totalRows()));
+        } catch (IllegalArgumentException ex) {
+            ra.addFlashAttribute("errorMessage", ex.getMessage());
+        }
+        return "redirect:/services";
     }
 }

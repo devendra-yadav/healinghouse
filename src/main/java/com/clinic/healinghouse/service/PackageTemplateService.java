@@ -279,7 +279,9 @@ public class PackageTemplateService {
                 computeSuggestedPrice(template), serviceItems, productItems);
     }
 
-    private String buildItemsSummary(PackageTemplate template) {
+    /** Human-readable item list, e.g. "10x Deep Tissue Massage" — used by the picker suggestion DTO
+     *  and the list page's CSV/PDF export. */
+    public String buildItemsSummary(PackageTemplate template) {
         List<String> parts = new ArrayList<>();
         template.getServiceItems().forEach(si -> parts.add(si.getSessionCount() + "x " + si.getService().getName()));
         template.getProductItems().forEach(pi -> parts.add(pi.getSessionCount() + "x " + pi.getProduct().getName()));

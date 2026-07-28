@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.dto.CsvImportResultDTO;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
@@ -7,6 +8,8 @@ import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.PackageTemplateRepository;
 import com.clinic.healinghouse.repository.PatientPackageServiceItemRepository;
+import com.clinic.healinghouse.util.CsvImportUtil;
+import com.opencsv.exceptions.CsvValidationException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +18,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,6 +42,7 @@ public class TreatmentService {
     private final PackageTemplateRepository packageTemplateRepository;
     private final PackageTemplateService packageTemplateService;
     private final PatientPackageServiceItemRepository patientPackageServiceItemRepository;
+    private final CsvImportUtil csvImportUtil;
 
     @Transactional(readOnly = true)
     public List<ClinicService> findAll() {
@@ -97,6 +105,64 @@ public class TreatmentService {
             if (StringUtils.hasText(name)) tags.add(tagService.findOrCreate(name.trim()));
         }
         return tags;
+    }
+
+    /**
+     * Best-effort bulk import — expects headers {@code name, description, durationMinutes, price,
+     * tags, active} (case-insensitive, any order; only name and price are required). Each row is
+     * validated and inserted independently: a duplicate name (case-insensitive, active or inactive)
+     * is skipped, a validation failure is recorded as an error, and neither aborts the rest of the
+     * file — matches how staff actually use this (a large, occasionally-messy spreadsheet).
+     * {@code tags} is semicolon-separated (a comma is already the CSV column delimiter) and resolved
+     * via the same {@link TagService#findOrCreate} find-or-create path the manual form uses.
+     */
+    public CsvImportResultDTO importFromCsv(MultipartFile file) {
+        List<CsvImportUtil.CsvRow> rows;
+        try {
+            rows = csvImportUtil.readRows(file);
+        } catch (IOException | CsvValidationException e) {
+            throw new IllegalArgumentException("Could not read CSV file: " + e.getMessage());
+        }
+
+        List<CsvImportResultDTO.RowResult> results = new ArrayList<>();
+        int success = 0, skipped = 0, errors = 0;
+        for (CsvImportUtil.CsvRow row : rows) {
+            String name = row.get("name") == null ? "" : row.get("name").trim();
+            try {
+                if (!StringUtils.hasText(name)) {
+                    throw new IllegalArgumentException("Name is required");
+                }
+                if (clinicServiceRepository.existsByNameIgnoreCase(name)) {
+                    results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                            CsvImportResultDTO.RowStatus.SKIPPED, "A service named \"" + name + "\" already exists"));
+                    skipped++;
+                    continue;
+                }
+                BigDecimal price = CsvImportUtil.parsePrice(row.get("price"));
+                int duration = CsvImportUtil.parseOptionalNonNegativeInt(row.get("durationminutes"), 60, "durationMinutes");
+                boolean active = CsvImportUtil.parseActive(row.get("active"));
+                List<String> tagNames = CsvImportUtil.parseTags(row.get("tags"));
+                String description = StringUtils.hasText(row.get("description")) ? row.get("description").trim() : null;
+
+                ClinicService service = ClinicService.builder()
+                        .name(name)
+                        .description(description)
+                        .durationMinutes(duration)
+                        .price(price)
+                        .active(active)
+                        .build();
+                save(service, tagNames);
+                results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                        CsvImportResultDTO.RowStatus.SUCCESS, "Created"));
+                success++;
+            } catch (Exception e) {
+                results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                        CsvImportResultDTO.RowStatus.ERROR, e.getMessage()));
+                errors++;
+            }
+        }
+        log.info("Service CSV import: {} rows, {} created, {} skipped, {} errors", rows.size(), success, skipped, errors);
+        return new CsvImportResultDTO(rows.size(), success, skipped, errors, results);
     }
 
     /**

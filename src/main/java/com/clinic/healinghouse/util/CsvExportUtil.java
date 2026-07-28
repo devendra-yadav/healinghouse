@@ -2,6 +2,9 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.entity.Tag;
 import com.opencsv.CSVWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -229,6 +233,87 @@ public class CsvExportUtil {
             }
         }
         return sw.toString();
+    }
+
+    public String generateProductListCsv(List<Product> products) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Product List");
+            writer.writeNext(new String[]{"Name", "Description", "Tags", "Price", "Stock Quantity", "Reorder Level", "Status"});
+            for (Product p : products) {
+                writer.writeNext(new String[]{
+                        sanitize(p.getName()),
+                        sanitize(p.getDescription()),
+                        sanitize(tagNames(p.getSortedTags())),
+                        formatCurrency(p.getPrice()),
+                        String.valueOf(p.getStockQuantity()),
+                        String.valueOf(p.getReorderLevel()),
+                        p.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateServiceListCsv(List<ClinicService> services) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Service List");
+            writer.writeNext(new String[]{"Name", "Description", "Tags", "Duration (min)", "Price", "Status"});
+            for (ClinicService s : services) {
+                writer.writeNext(new String[]{
+                        sanitize(s.getName()),
+                        sanitize(s.getDescription()),
+                        sanitize(tagNames(s.getSortedTags())),
+                        s.getDurationMinutes() != null ? String.valueOf(s.getDurationMinutes()) : "N/A",
+                        formatCurrency(s.getPrice()),
+                        s.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateComboListCsv(List<ComboExportRowDTO> rows) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Combo List");
+            writer.writeNext(new String[]{"Name", "Description", "Items", "Original Price", "Combo Price", "Savings", "Status"});
+            for (ComboExportRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        sanitize(row.name()),
+                        sanitize(row.description()),
+                        sanitize(row.itemsSummary()),
+                        formatCurrency(row.originalPrice()),
+                        formatCurrency(row.comboPrice()),
+                        formatCurrency(row.savings()),
+                        row.active() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generatePackageTemplateListCsv(List<PackageTemplateExportRowDTO> rows) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Package Template List");
+            writer.writeNext(new String[]{"Name", "Description", "Items", "Suggested Price", "Status"});
+            for (PackageTemplateExportRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        sanitize(row.name()),
+                        sanitize(row.description()),
+                        sanitize(row.itemsSummary()),
+                        formatCurrency(row.suggestedPrice()),
+                        row.active() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    private String tagNames(List<Tag> tags) {
+        return tags.stream().map(Tag::getName).collect(Collectors.joining(", "));
     }
 
     private void writeProfitLossSummary(CSVWriter writer, ProfitLossReportDTO report) throws IOException {
