@@ -14,6 +14,8 @@ import com.clinic.healinghouse.security.PermissionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,14 +48,14 @@ public class RecurringExpenseTemplateService {
     /** Excludes templates under a restrictedVisibility category when the caller is THERAPIST_PLUS
      *  (requirements/Expenses_Requirements_v1.md §5.5, §254 — recurring templates fall under the
      *  same EXPENSES module/visibility rule as one-off expense rows) — backs the recurring
-     *  templates list page. */
+     *  templates list page. Filtered at the DB level (not in-memory) so the returned Page's
+     *  totals/element count stay accurate. */
     @Transactional(readOnly = true)
-    public List<RecurringExpenseTemplate> findAll() {
-        List<RecurringExpenseTemplate> templates = recurringExpenseTemplateRepository.findAll();
+    public Page<RecurringExpenseTemplate> findAll(Pageable pageable) {
         if (permissionService.currentRole() == AppRole.THERAPIST_PLUS) {
-            return templates.stream().filter(t -> !t.getCategory().isRestrictedVisibility()).toList();
+            return recurringExpenseTemplateRepository.findByCategory_RestrictedVisibilityFalse(pageable);
         }
-        return templates;
+        return recurringExpenseTemplateRepository.findAll(pageable);
     }
 
     /** Throws EntityNotFoundException (not AccessDeniedException) for a THERAPIST_PLUS caller

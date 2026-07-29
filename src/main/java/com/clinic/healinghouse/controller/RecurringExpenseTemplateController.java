@@ -11,7 +11,10 @@ import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ExpenseCategoryService;
 import com.clinic.healinghouse.service.RecurringExpenseTemplateService;
 import com.clinic.healinghouse.service.UserService;
+import com.clinic.healinghouse.util.PaginationUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -26,11 +29,17 @@ public class RecurringExpenseTemplateController {
     private final ExpenseCategoryService expenseCategoryService;
     private final UserService userService;
     private final PermissionService permissionService;
+    private final PaginationUtil paginationUtil;
 
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
     @GetMapping
-    public String list(Model model) {
-        model.addAttribute("templates", recurringExpenseTemplateService.findAll());
+    public String list(@RequestParam(defaultValue = "0") int page,
+                       @RequestParam(defaultValue = "20") int size,
+                       Model model) {
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
+        model.addAttribute("templates",
+                recurringExpenseTemplateService.findAll(PageRequest.of(page, pageSize, Sort.by("label"))));
         model.addAttribute("pageTitle", "Recurring Expense Templates");
         return "expenses/recurring-list";
     }

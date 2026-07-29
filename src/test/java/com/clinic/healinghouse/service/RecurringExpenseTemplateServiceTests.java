@@ -126,12 +126,13 @@ class RecurringExpenseTemplateServiceTests {
     void findAllExcludesRestrictedCategoryTemplatesForTherapistPlus() {
         when(permissionService.currentRole()).thenReturn(AppRole.THERAPIST_PLUS);
         RecurringExpenseTemplate visible = template(LocalDate.now(), null, false);
-        RecurringExpenseTemplate hidden = template(LocalDate.now(), null, true);
-        when(recurringExpenseTemplateRepository.findAll()).thenReturn(List.of(visible, hidden));
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(recurringExpenseTemplateRepository.findByCategory_RestrictedVisibilityFalse(pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(visible)));
 
-        List<RecurringExpenseTemplate> result = service.findAll();
+        var result = service.findAll(pageable);
 
-        assertThat(result).containsExactly(visible);
+        assertThat(result.getContent()).containsExactly(visible);
     }
 
     @Test
@@ -139,11 +140,13 @@ class RecurringExpenseTemplateServiceTests {
         when(permissionService.currentRole()).thenReturn(AppRole.OWNER);
         RecurringExpenseTemplate visible = template(LocalDate.now(), null, false);
         RecurringExpenseTemplate hidden = template(LocalDate.now(), null, true);
-        when(recurringExpenseTemplateRepository.findAll()).thenReturn(List.of(visible, hidden));
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 20);
+        when(recurringExpenseTemplateRepository.findAll(pageable))
+                .thenReturn(new org.springframework.data.domain.PageImpl<>(List.of(visible, hidden)));
 
-        List<RecurringExpenseTemplate> result = service.findAll();
+        var result = service.findAll(pageable);
 
-        assertThat(result).containsExactly(visible, hidden);
+        assertThat(result.getContent()).containsExactly(visible, hidden);
     }
 
     @Test
