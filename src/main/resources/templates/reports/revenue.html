@@ -117,11 +117,11 @@
                 </div>
                 <div class="col-md-2 d-flex gap-1 ms-auto">
                     <a th:href="@{/reports/revenue/export-csv(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly})}"
-                       class="btn btn-sm btn-outline-secondary" title="Export as CSV">
+                       class="btn btn-sm btn-outline-download" title="Export as CSV">
                         <i class="bi bi-file-earmark-csv"></i> CSV
                     </a>
                     <a th:href="@{/reports/revenue/export-pdf(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, therapistId=${selectedTherapistId}, patientName=${selectedPatientName}, serviceId=${selectedServiceId}, productId=${selectedProductId}, tagName=${selectedTagName}, paymentMethod=${selectedPaymentMethod}, status=${selectedStatus}, discountedOnly=${selectedDiscountedOnly})}"
-                       class="btn btn-sm btn-outline-secondary" title="Export as PDF">
+                       class="btn btn-sm btn-outline-download" title="Export as PDF">
                         <i class="bi bi-file-earmark-pdf"></i> PDF
                     </a>
                 </div>

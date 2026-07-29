@@ -35,6 +35,10 @@ public class Expense {
     @JoinColumn(name = "expense_category_id", nullable = false)
     private ExpenseCategory category;
 
+    /** Optional free-text label, mirrors RecurringExpenseTemplate.label — a recurring-generated
+     *  expense inherits its template's label (see RecurringExpenseTemplateService.generateOne). */
+    private String label;
+
     @Column(nullable = false)
     private LocalDate expenseDate;
 
@@ -46,12 +50,6 @@ public class Expense {
 
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
-
-    /** Set iff this expense is a salary/commission payout to a specific therapist (§5.4);
-     *  null for every other category. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "therapist_id")
-    private Therapist therapist;
 
     @Column(length = 1000)
     private String notes;

@@ -6,11 +6,9 @@ import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.Expense;
 import com.clinic.healinghouse.entity.ExpenseCategory;
 import com.clinic.healinghouse.entity.ExpenseStatus;
-import com.clinic.healinghouse.entity.Therapist;
 import com.clinic.healinghouse.entity.User;
 import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.ExpenseRepository;
-import com.clinic.healinghouse.repository.TherapistRepository;
 import com.clinic.healinghouse.security.PermissionService;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +27,6 @@ public class ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final ExpenseCategoryRepository expenseCategoryRepository;
-    private final TherapistRepository therapistRepository;
     private final PermissionService permissionService;
 
     @Transactional(readOnly = true)
@@ -45,7 +42,7 @@ public class ExpenseService {
     }
 
     /** When the caller is THERAPIST_PLUS, every expense under a restricted-visibility category
-     *  (e.g. "Salaries & Commission") is excluded — inline service-layer scoping, not a
+     *  (e.g. "Salaries"/"Commission") is excluded — inline service-layer scoping, not a
      *  PermissionAspect change, since it depends on a joined attribute, not just the role
      *  (requirements/Expenses_Requirements_v1.md §5.5). */
     private Specification<Expense> applyRestrictedCategoryScoping(Specification<Expense> spec) {
@@ -115,22 +112,12 @@ public class ExpenseService {
             throw new EntityNotFoundException("Expense category not found: " + form.getCategoryId());
         }
 
-        if (category.isPayoutCategory() && form.getTherapistId() == null) {
-            throw new IllegalArgumentException("Therapist is required for a \"" + category.getName() + "\" expense.");
-        }
-
-        Therapist therapist = null;
-        if (form.getTherapistId() != null) {
-            therapist = therapistRepository.findById(form.getTherapistId())
-                    .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + form.getTherapistId()));
-        }
-
         expense.setCategory(category);
+        expense.setLabel(form.getLabel());
         expense.setExpenseDate(form.getExpenseDate());
         expense.setAmount(form.getAmount());
         expense.setVendorName(form.getVendorName());
         expense.setPaymentMethod(form.getPaymentMethod());
-        expense.setTherapist(therapist);
         expense.setNotes(form.getNotes());
     }
 }

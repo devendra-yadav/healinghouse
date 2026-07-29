@@ -10,11 +10,9 @@ import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
-import com.clinic.healinghouse.service.CommissionCalculator;
 import com.clinic.healinghouse.service.ExpenseCategoryService;
 import com.clinic.healinghouse.service.ExpenseService;
 import com.clinic.healinghouse.service.UserService;
-import com.clinic.healinghouse.repository.TherapistRepository;
 import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
@@ -31,7 +29,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -42,8 +39,6 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
     private final ExpenseCategoryService expenseCategoryService;
-    private final TherapistRepository therapistRepository;
-    private final CommissionCalculator commissionCalculator;
     private final UserService userService;
     private final PermissionService permissionService;
     private final PaginationUtil paginationUtil;
@@ -197,29 +192,8 @@ public class ExpenseController {
         return "redirect:/expenses";
     }
 
-    /** Read-only reference figure for the Salaries & Commission category form (§5.4) — never
-     *  bound into the amount field, purely informational. Scoped to the caller's own linked
-     *  therapist when the caller is THERAPIST_PLUS/THERAPIST, since that role can never see
-     *  another therapist's commission/bonus payout (Bug_Report_v6.md Finding 2). */
-    @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
-    @GetMapping("/commission-suggestion")
-    @ResponseBody
-    public BigDecimal commissionSuggestion(@RequestParam Long therapistId,
-                                           @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
-                                           @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) {
-        Long ownTherapistId = permissionService.currentTherapistId();
-        if (ownTherapistId != null && !ownTherapistId.equals(therapistId)) {
-            throw new org.springframework.security.access.AccessDeniedException(
-                    "You don't have permission to view another therapist's commission figure.");
-        }
-        var therapist = therapistRepository.findById(therapistId)
-                .orElseThrow(() -> new jakarta.persistence.EntityNotFoundException("Therapist not found: " + therapistId));
-        return commissionCalculator.calculateEarnings(therapist, dateFrom, dateTo).totalVariablePay();
-    }
-
     private void populateFormModel(Model model) {
         model.addAttribute("allCategories", expenseCategoryService.findAllActiveVisible());
-        model.addAttribute("allTherapists", therapistRepository.findByActiveTrueOrderByFullNameAsc());
         model.addAttribute("paymentMethods", PaymentMethod.values());
     }
 }

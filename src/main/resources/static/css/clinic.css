@@ -359,6 +359,22 @@ footer {
     --bs-btn-active-border-color: var(--hh-gold);
 }
 
+/* ── Export / download buttons (report + list-page CSV/PDF, "Download" modal
+     triggers) — previously plain .btn-outline-secondary, which reads as
+     muted/disabled against the dark theme. A dedicated gold-accent style gives
+     every download affordance in the app one consistent, clearly-visible
+     identity, distinct from jade (primary/edit) and muted grey (neutral). ── */
+.btn-outline-download {
+    --bs-btn-color: var(--hh-gold-light);
+    --bs-btn-border-color: var(--hh-gold-dark);
+    --bs-btn-hover-color: #2a1d0c;
+    --bs-btn-hover-bg: var(--hh-gold);
+    --bs-btn-hover-border-color: var(--hh-gold);
+    --bs-btn-active-color: #2a1d0c;
+    --bs-btn-active-bg: var(--hh-gold);
+    --bs-btn-active-border-color: var(--hh-gold);
+}
+
 /* Badges/table rows painted with the bright (non-subtle) warning gold need
    guaranteed dark ink text — templates hardcode "bg-warning text-dark" and
    our own .text-dark utility override below would otherwise turn that text

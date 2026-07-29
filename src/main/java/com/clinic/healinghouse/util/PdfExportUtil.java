@@ -2,7 +2,9 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
 import com.itextpdf.io.font.FontProgram;
@@ -285,14 +287,14 @@ public class PdfExportUtil {
     }
 
     private Table buildExpenseListTable(List<ExpenseListRowDTO> rows) {
-        Table table = newTable(new float[]{1, 1.6f, 1, 1.4f, 1.2f, 1.4f, 0.9f, 1.2f, 0.9f}, 8f);
+        Table table = newTable(new float[]{1, 1.3f, 1.6f, 1, 1.4f, 1.2f, 0.9f, 1.2f, 0.9f}, 8f);
 
         addHeaderCell(table, "Date", TextAlignment.LEFT);
+        addHeaderCell(table, "Label", TextAlignment.LEFT);
         addHeaderCell(table, "Category", TextAlignment.LEFT);
         addHeaderCell(table, "Amount", TextAlignment.RIGHT);
         addHeaderCell(table, "Vendor", TextAlignment.LEFT);
         addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
-        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
         addHeaderCell(table, "Status", TextAlignment.CENTER);
         addHeaderCell(table, "Recorded By", TextAlignment.LEFT);
         addHeaderCell(table, "Recurring", TextAlignment.CENTER);
@@ -300,11 +302,11 @@ public class PdfExportUtil {
         boolean shaded = false;
         for (ExpenseListRowDTO row : rows) {
             addDataCell(table, row.expenseDate().format(displayDateFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.label() != null ? row.label() : "N/A", TextAlignment.LEFT, shaded);
             addDataCell(table, row.categoryName(), TextAlignment.LEFT, shaded);
             addDataCell(table, formatCurrency(row.amount()), TextAlignment.RIGHT, shaded);
             addDataCell(table, row.vendorName() != null ? row.vendorName() : "N/A", TextAlignment.LEFT, shaded);
             addDataCell(table, row.paymentMethod() != null ? row.paymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
-            addDataCell(table, row.therapistName() != null ? row.therapistName() : "N/A", TextAlignment.LEFT, shaded);
             addDataCell(table, row.status().name(), TextAlignment.CENTER, shaded);
             addDataCell(table, row.recordedByUsername() != null ? row.recordedByUsername() : "N/A", TextAlignment.LEFT, shaded);
             addDataCell(table, row.recurring() ? "Yes" : "No", TextAlignment.CENTER, shaded);
@@ -381,6 +383,32 @@ public class PdfExportUtil {
         try {
             addLetterhead(document, "Package Template List", rows.size() + " template(s)");
             document.add(buildPackageTemplateListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generatePatientListPdf(List<Patient> patients) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Patient List", patients.size() + " patient(s)");
+            document.add(buildPatientListTable(patients));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateAppointmentListPdf(List<Appointment> appointments) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Appointment List", appointments.size() + " appointment(s)");
+            document.add(buildAppointmentListTable(appointments));
         } finally {
             finish(document, pdfDoc);
         }
@@ -476,6 +504,60 @@ public class PdfExportUtil {
             addDataCell(table, row.itemsSummary(), TextAlignment.LEFT, shaded);
             addDataCell(table, formatCurrency(row.suggestedPrice()), TextAlignment.RIGHT, shaded);
             addBadgeCell(table, row.active() ? "Active" : "Inactive", row.active(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildPatientListTable(List<Patient> patients) {
+        Table table = newTable(new float[]{1.8f, 1.2f, 1.8f, 0.9f, 0.6f, 2.2f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Full Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Phone", TextAlignment.LEFT);
+        addHeaderCell(table, "Email", TextAlignment.LEFT);
+        addHeaderCell(table, "Gender", TextAlignment.CENTER);
+        addHeaderCell(table, "Age", TextAlignment.CENTER);
+        addHeaderCell(table, "Address", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (Patient p : patients) {
+            addDataCell(table, p.getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getPhone() != null ? p.getPhone() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getEmail() != null ? p.getEmail() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getGender() != null ? p.getGender().name() : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, p.getAge() != null ? String.valueOf(p.getAge()) : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, p.getAddress() != null ? p.getAddress() : "N/A", TextAlignment.LEFT, shaded);
+            addBadgeCell(table, p.isActive() ? "Active" : "Inactive", p.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildAppointmentListTable(List<Appointment> appointments) {
+        Table table = newTable(new float[]{1.3f, 1.4f, 1.2f, 1.4f, 0.9f, 1, 1, 1, 1.1f}, 8f);
+
+        addHeaderCell(table, "Date/Time", TextAlignment.LEFT);
+        addHeaderCell(table, "Patient", TextAlignment.LEFT);
+        addHeaderCell(table, "Phone", TextAlignment.LEFT);
+        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+        addHeaderCell(table, "Grand Total", TextAlignment.RIGHT);
+        addHeaderCell(table, "Amount Paid", TextAlignment.RIGHT);
+        addHeaderCell(table, "Balance Due", TextAlignment.RIGHT);
+        addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
+
+        boolean shaded = false;
+        for (Appointment a : appointments) {
+            addDataCell(table, a.getAppointmentDateTime().format(rowDateTimeFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getPatient().getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getPatient().getPhone() != null ? a.getPatient().getPhone() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getTherapist().getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getStatus().name(), TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(a.getGrandTotal()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(a.getAmountPaid()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(a.getBalanceDue()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
             shaded = !shaded;
         }
         return table;

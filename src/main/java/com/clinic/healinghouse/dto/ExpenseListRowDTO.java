@@ -10,11 +10,11 @@ import java.time.LocalDate;
 public record ExpenseListRowDTO(
         Long id,
         LocalDate expenseDate,
+        String label,
         String categoryName,
         BigDecimal amount,
         String vendorName,
         PaymentMethod paymentMethod,
-        String therapistName,
         ExpenseStatus status,
         String recordedByUsername,
         boolean recurring
@@ -23,11 +23,11 @@ public record ExpenseListRowDTO(
         return new ExpenseListRowDTO(
                 e.getId(),
                 e.getExpenseDate(),
+                e.getLabel(),
                 e.getCategory().getName(),
                 e.getAmount(),
                 e.getVendorName(),
                 e.getPaymentMethod(),
-                e.getTherapist() != null ? e.getTherapist().getFullName() : null,
                 e.getStatus(),
                 e.getRecordedBy() != null ? e.getRecordedBy().getUsername() : null,
                 e.getSourceTemplate() != null

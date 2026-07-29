@@ -61,7 +61,7 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillTherapistPlusPermissions();
         backfillFullAccessMatrix();
         seedExpenseCategories();
-        backfillPayoutCategoryFlag();
+        splitSalariesAndCommissionCategory();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
         // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
         // before invoking any CommandLineRunner, regardless of runner order. Without this, a
@@ -198,7 +198,7 @@ public class SecuritySeeder implements CommandLineRunner {
         // EXPENSE_CATEGORIES (master category management stays an Owner/Admin admin task) or
         // REPORTS_PROFIT_LOSS (this role never sees revenue/profit figures — see ExpenseService's
         // restricted-category filtering for the additional, non-permission-matrix scoping that hides
-        // Salaries & Commission entries from it) ──
+        // Salaries/Commission entries from it) ──
         grant(defaults, THERAPIST_PLUS, DASHBOARD, VIEW);
         grant(defaults, THERAPIST_PLUS, PATIENTS, VIEW, CREATE, EDIT);
         grant(defaults, THERAPIST_PLUS, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
@@ -427,7 +427,7 @@ public class SecuritySeeder implements CommandLineRunner {
      * Seeds a starter Expense Category list (requirements/Expenses_Requirements_v1.md §11) —
      * real operational master data needed in every environment including prod, unlike DataSeeder's
      * dev/test-only sample patients/therapists, so it lives here (always-on) rather than there.
-     * "Salaries & Commission" is seeded restrictedVisibility=true — hidden from THERAPIST_PLUS
+     * "Salaries" and "Commission" are seeded restrictedVisibility=true — hidden from THERAPIST_PLUS
      * (§5.4, §5.5). Only-if-empty, same gate as seedRolePermissions() — an Owner who has already
      * renamed/deleted these is never overwritten.
      */
@@ -441,7 +441,8 @@ public class SecuritySeeder implements CommandLineRunner {
                 ExpenseCategory.builder().name("Maintenance").build(),
                 ExpenseCategory.builder().name("Utilities").build(),
                 ExpenseCategory.builder().name("Rent").build(),
-                ExpenseCategory.builder().name("Salaries & Commission").restrictedVisibility(true).payoutCategory(true).build(),
+                ExpenseCategory.builder().name("Salaries").restrictedVisibility(true).build(),
+                ExpenseCategory.builder().name("Commission").restrictedVisibility(true).build(),
                 ExpenseCategory.builder().name("Other").build()
         );
         expenseCategoryRepository.saveAll(categories);
@@ -450,19 +451,27 @@ public class SecuritySeeder implements CommandLineRunner {
 
     /**
      * One-time idempotent fix-up (mirroring OwnerFlagBackfill's pattern) for databases seeded
-     * before {@code ExpenseCategory.payoutCategory} existed: the new column defaults to false at
-     * the DB level, so a pre-existing "Salaries & Commission" row seeded by an earlier version of
-     * {@link #seedExpenseCategories()} would otherwise never get the flag ExpenseService's
-     * therapist-required validation and the expense form's JS now key off (Bug_Report_v6.md
-     * Finding 5/12). Matches by name, exactly once; a no-op on every later startup.
+     * before this split: the single "Salaries & Commission" category is renamed IN PLACE to
+     * "Salaries" (same row id, so every historical Expense.category FK stays valid and those old
+     * payout expenses now display under "Salaries"), and a new sibling "Commission" category is
+     * inserted alongside it. Matches by name, exactly once; a no-op on every later startup
+     * (including a fresh install, where seedExpenseCategories() already seeds "Salaries" and
+     * "Commission" directly and this finds nothing to rename).
      */
-    private void backfillPayoutCategoryFlag() {
+    private void splitSalariesAndCommissionCategory() {
         expenseCategoryRepository.findAll().stream()
-                .filter(c -> "Salaries & Commission".equals(c.getName()) && !c.isPayoutCategory())
-                .forEach(c -> {
-                    c.setPayoutCategory(true);
-                    expenseCategoryRepository.save(c);
-                    log.info("Backfilled payoutCategory=true for expense category id={} name='{}'", c.getId(), c.getName());
+                .filter(c -> "Salaries & Commission".equals(c.getName()))
+                .findFirst()
+                .ifPresent(existing -> {
+                    existing.setName("Salaries");
+                    expenseCategoryRepository.save(existing);
+                    log.info("Renamed expense category id={} from 'Salaries & Commission' to 'Salaries'.", existing.getId());
+
+                    if (expenseCategoryRepository.findAll().stream().noneMatch(c -> "Commission".equals(c.getName()))) {
+                        ExpenseCategory commission = expenseCategoryRepository.save(
+                                ExpenseCategory.builder().name("Commission").restrictedVisibility(true).build());
+                        log.info("Inserted new expense category id={} name='Commission'.", commission.getId());
+                    }
                 });
     }
 

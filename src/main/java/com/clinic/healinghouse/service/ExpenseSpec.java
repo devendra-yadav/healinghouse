@@ -50,7 +50,7 @@ public class ExpenseSpec {
     }
 
     /** The THERAPIST_PLUS scoping mechanism (§5.5) — excludes every expense whose category is
-     *  flagged confidential (e.g. "Salaries & Commission"). Applied inline by ExpenseService,
+     *  flagged confidential (e.g. "Salaries"/"Commission"). Applied inline by ExpenseService,
      *  never by the PermissionAspect, since it depends on a joined attribute, not just the role. */
     public static Specification<Expense> categoryNotRestricted() {
         return (root, query, cb) -> cb.equal(root.get("category").get("restrictedVisibility"), false);

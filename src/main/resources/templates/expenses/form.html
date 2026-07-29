@@ -29,13 +29,17 @@
                           th:object="${expenseForm}" method="post">
                         <input type="hidden" th:field="*{id}"/>
 
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Label</label>
+                            <input type="text" th:field="*{label}" class="form-control" placeholder="e.g. Diwali decoration, AC repair, or therapist name for a salary/commission payout (optional)"/>
+                        </div>
+
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
                                 <select id="categorySelect" th:field="*{categoryId}" class="form-select">
                                     <option value="">Select a category…</option>
-                                    <option th:each="c : ${allCategories}" th:value="${c.id}" th:text="${c.name}"
-                                            th:attr="data-payout=${c.payoutCategory}"></option>
+                                    <option th:each="c : ${allCategories}" th:value="${c.id}" th:text="${c.name}"></option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -51,7 +55,6 @@
                                     <span class="input-group-text">₹</span>
                                     <input type="number" th:field="*{amount}" class="form-control" step="0.01" min="0.01" placeholder="0.00"/>
                                 </div>
-                                <div id="commissionSuggestion" class="form-text text-info" style="display:none;"></div>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Payment Method</label>
@@ -65,17 +68,6 @@
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Vendor</label>
                             <input type="text" th:field="*{vendorName}" class="form-control" placeholder="Shop/supplier name (optional)"/>
-                        </div>
-
-                        <div id="therapistGroup" class="mb-3" style="display:none;">
-                            <label class="form-label fw-semibold">Therapist</label>
-                            <select id="therapistSelect" th:field="*{therapistId}" class="form-select">
-                                <option value="">Select a therapist…</option>
-                                <option th:each="t : ${allTherapists}" th:value="${t.id}" th:text="${t.fullName}"></option>
-                            </select>
-                            <div class="form-text">
-                                Reference only, never binding: <span id="commissionSuggestionInline">select a therapist to see their current-month commission/bonus figure</span>.
-                            </div>
                         </div>
 
                         <div class="mb-4">
@@ -100,52 +92,5 @@
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
-<script th:inline="javascript">
-    // The therapist picker + read-only commission hint apply to whichever category is flagged
-    // "payout category" (requirements/Expenses_Requirements_v1.md §5.4) — keyed off each <option>'s
-    // stable data-payout attribute, not the category's (renameable) display name, so renaming
-    // "Salaries & Commission" can't silently break this (Bug_Report_v6.md Finding 12). The
-    // suggested figure is never written into the amount field, it's a reference only.
-    const categorySelect = document.getElementById('categorySelect');
-    const therapistGroup = document.getElementById('therapistGroup');
-    const therapistSelect = document.getElementById('therapistSelect');
-    const suggestionEl = document.getElementById('commissionSuggestion');
-
-    function isPayoutCategorySelected() {
-        const opt = categorySelect.options[categorySelect.selectedIndex];
-        return opt && opt.dataset.payout === 'true';
-    }
-
-    function toggleTherapistGroup() {
-        therapistGroup.style.display = isPayoutCategorySelected() ? '' : 'none';
-        if (!isPayoutCategorySelected()) {
-            suggestionEl.style.display = 'none';
-        }
-    }
-
-    function fetchCommissionSuggestion() {
-        const therapistId = therapistSelect.value;
-        if (!therapistId) {
-            suggestionEl.style.display = 'none';
-            return;
-        }
-        const today = new Date();
-        const dateFrom = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().slice(0, 10);
-        const dateTo = today.toISOString().slice(0, 10);
-        fetch(`/expenses/commission-suggestion?therapistId=${therapistId}&dateFrom=${dateFrom}&dateTo=${dateTo}`)
-            .then(r => r.ok ? r.json() : null)
-            .then(amount => {
-                if (amount === null) return;
-                suggestionEl.textContent = `Reference: current-month commission/bonus for this therapist is ₹${Number(amount).toFixed(2)} (not auto-filled).`;
-                suggestionEl.style.display = '';
-            })
-            .catch(() => { suggestionEl.style.display = 'none'; });
-    }
-
-    categorySelect.addEventListener('change', toggleTherapistGroup);
-    therapistSelect.addEventListener('change', fetchCommissionSuggestion);
-    toggleTherapistGroup();
-    if (isPayoutCategorySelected()) fetchCommissionSuggestion();
-</script>
 </body>
 </html>

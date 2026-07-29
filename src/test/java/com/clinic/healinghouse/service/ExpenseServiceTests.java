@@ -8,7 +8,6 @@ import com.clinic.healinghouse.entity.ExpenseStatus;
 import com.clinic.healinghouse.entity.User;
 import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.ExpenseRepository;
-import com.clinic.healinghouse.repository.TherapistRepository;
 import com.clinic.healinghouse.security.PermissionService;
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,14 +34,13 @@ class ExpenseServiceTests {
 
     @Mock private ExpenseRepository expenseRepository;
     @Mock private ExpenseCategoryRepository expenseCategoryRepository;
-    @Mock private TherapistRepository therapistRepository;
     @Mock private PermissionService permissionService;
 
     private ExpenseService service;
 
     @BeforeEach
     void setUp() {
-        service = new ExpenseService(expenseRepository, expenseCategoryRepository, therapistRepository, permissionService);
+        service = new ExpenseService(expenseRepository, expenseCategoryRepository, permissionService);
     }
 
     private ExpenseCategory category(long id, boolean restricted) {

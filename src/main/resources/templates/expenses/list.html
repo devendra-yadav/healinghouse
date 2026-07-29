@@ -13,7 +13,7 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Expenses</h4>
         <div class="d-flex gap-2">
-            <a th:href="@{/expenses/recurring}" class="btn btn-outline-secondary btn-sm">
+            <a th:href="@{/expenses/recurring}" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-arrow-repeat me-1"></i>Recurring Templates
             </a>
             <a th:if="${@perm.has('EXPENSES','CREATE')}" th:href="@{/expenses/new}" class="btn btn-hh btn-sm">
@@ -54,7 +54,7 @@
                     </select>
                 </div>
                 <div class="col-6 col-md-2 d-flex gap-2">
-                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+                    <button type="submit" class="btn btn-sm btn-hh w-100">
                         <i class="bi bi-search me-1"></i>Filter
                     </button>
                 </div>
@@ -68,11 +68,11 @@
             </form>
             <div class="d-flex gap-1 mt-2 justify-content-end">
                 <a th:href="@{/expenses/export-csv(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided})}"
-                   class="btn btn-sm btn-outline-secondary" title="Export as CSV">
+                   class="btn btn-sm btn-outline-download" title="Export as CSV">
                     <i class="bi bi-file-earmark-csv"></i> CSV
                 </a>
                 <a th:href="@{/expenses/export-pdf(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided})}"
-                   class="btn btn-sm btn-outline-secondary" title="Export as PDF">
+                   class="btn btn-sm btn-outline-download" title="Export as PDF">
                     <i class="bi bi-file-earmark-pdf"></i> PDF
                 </a>
             </div>
@@ -86,11 +86,11 @@
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <th>Label</th>
                             <th>Category</th>
                             <th class="text-end">Amount (₹)</th>
                             <th>Vendor</th>
                             <th>Payment</th>
-                            <th>Therapist</th>
                             <th>Recorded By</th>
                             <th class="text-center">Status</th>
                             <th class="text-center">Actions</th>
@@ -102,11 +102,11 @@
                         </tr>
                         <tr th:each="e : ${expenses}">
                             <td th:text="${e.expenseDate}"></td>
+                            <td th:text="${e.label} ?: '—'"></td>
                             <td th:text="${e.categoryName}"></td>
                             <td class="text-end fw-semibold" th:text="|₹ ${#numbers.formatDecimal(e.amount, 1, 2)}|"></td>
                             <td th:text="${e.vendorName} ?: '—'"></td>
                             <td th:text="${e.paymentMethod} ?: '—'"></td>
-                            <td th:text="${e.therapistName} ?: '—'"></td>
                             <td class="text-muted small" th:text="${e.recordedByUsername}"></td>
                             <td class="text-center">
                                 <span th:if="${e.status.name() == 'VOIDED'}" class="badge bg-secondary">Voided</span>

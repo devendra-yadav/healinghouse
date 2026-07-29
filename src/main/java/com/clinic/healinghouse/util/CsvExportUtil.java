@@ -2,7 +2,9 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
 import com.opencsv.CSVWriter;
@@ -185,16 +187,16 @@ public class CsvExportUtil {
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Expense List - " + dateFrom.format(dateFormatter()) +
                     " to " + dateTo.format(dateFormatter()));
-            writer.writeNext(new String[]{"Date", "Category", "Amount", "Vendor", "Payment Method",
-                    "Therapist", "Status", "Recorded By", "Recurring"});
+            writer.writeNext(new String[]{"Date", "Label", "Category", "Amount", "Vendor", "Payment Method",
+                    "Status", "Recorded By", "Recurring"});
             for (ExpenseListRowDTO row : rows) {
                 writer.writeNext(new String[]{
                         row.expenseDate().format(dateFormatter()),
+                        row.label() != null ? sanitize(row.label()) : "N/A",
                         sanitize(row.categoryName()),
                         formatCurrency(row.amount()),
                         sanitize(row.vendorName()),
                         row.paymentMethod() != null ? row.paymentMethod().name() : "N/A",
-                        row.therapistName() != null ? sanitize(row.therapistName()) : "N/A",
                         row.status().name(),
                         row.recordedByUsername() != null ? sanitize(row.recordedByUsername()) : "N/A",
                         row.recurring() ? "Yes" : "No"
@@ -306,6 +308,49 @@ public class CsvExportUtil {
                         sanitize(row.itemsSummary()),
                         formatCurrency(row.suggestedPrice()),
                         row.active() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generatePatientListCsv(List<Patient> patients) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Patient List");
+            writer.writeNext(new String[]{"Full Name", "Phone", "Email", "Gender", "Age", "Address", "Status"});
+            for (Patient p : patients) {
+                writer.writeNext(new String[]{
+                        sanitize(p.getFullName()),
+                        p.getPhone() != null ? sanitize(p.getPhone()) : "N/A",
+                        p.getEmail() != null ? sanitize(p.getEmail()) : "N/A",
+                        p.getGender() != null ? p.getGender().name() : "N/A",
+                        p.getAge() != null ? String.valueOf(p.getAge()) : "N/A",
+                        p.getAddress() != null ? sanitize(p.getAddress()) : "N/A",
+                        p.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateAppointmentListCsv(List<Appointment> appointments) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Appointment List");
+            writer.writeNext(new String[]{"Date/Time", "Patient", "Phone", "Therapist", "Status",
+                    "Grand Total", "Amount Paid", "Balance Due", "Payment Method"});
+            for (Appointment a : appointments) {
+                writer.writeNext(new String[]{
+                        a.getAppointmentDateTime().format(dateTimeFormatter()),
+                        sanitize(a.getPatient().getFullName()),
+                        a.getPatient().getPhone() != null ? sanitize(a.getPatient().getPhone()) : "N/A",
+                        sanitize(a.getTherapist().getFullName()),
+                        a.getStatus().name(),
+                        formatCurrency(a.getGrandTotal()),
+                        formatCurrency(a.getAmountPaid()),
+                        formatCurrency(a.getBalanceDue()),
+                        a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "N/A"
                 });
             }
         }

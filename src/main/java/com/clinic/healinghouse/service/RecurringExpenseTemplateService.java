@@ -187,6 +187,7 @@ public class RecurringExpenseTemplateService {
     private void generateOne(RecurringExpenseTemplate template) {
         Expense expense = Expense.builder()
                 .category(template.getCategory())
+                .label(template.getLabel())
                 .expenseDate(template.getNextDueDate())
                 .amount(template.getDefaultAmount())
                 .vendorName(template.getVendorName())

@@ -38,20 +38,11 @@ public class ExpenseCategory {
 
     /** When true, every Expense under this category is hidden from THERAPIST_PLUS sessions
      *  (ExpenseService, §5.5) — filtered at the service layer since visibility here depends on
-     *  the category a row belongs to, not just the caller's role. Seeded true only for "Salaries
-     *  & Commission" (§5.4); an Owner/Admin can flag any other category confidential the same way. */
+     *  the category a row belongs to, not just the caller's role. Seeded true for "Salaries" and
+     *  "Commission" (§5.4); an Owner/Admin can flag any other category confidential the same way. */
     @Builder.Default
     @Column(nullable = false)
     private boolean restrictedVisibility = false;
-
-    /** When true, every Expense under this category must carry a {@code therapist} — enforced
-     *  server-side by ExpenseService.applyForm, not just the form's conditional therapist picker
-     *  (Bug_Report_v6.md Finding 5). Also drives the therapist-picker show/hide in
-     *  templates/expenses/form.html via a data attribute instead of matching the category's
-     *  (renameable) display name (Finding 12). Seeded true only for "Salaries & Commission". */
-    @Builder.Default
-    @Column(nullable = false)
-    private boolean payoutCategory = false;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

@@ -55,7 +55,7 @@ class ExpenseCategoryServiceTests {
         when(permissionService.currentRole()).thenReturn(AppRole.THERAPIST_PLUS);
         when(expenseCategoryRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(
                 category(1L, "Raw Materials", false),
-                category(2L, "Salaries & Commission", true)));
+                category(2L, "Salaries", true)));
 
         List<ExpenseCategory> visible = service.findAllActiveVisible();
 
@@ -67,12 +67,12 @@ class ExpenseCategoryServiceTests {
         when(permissionService.currentRole()).thenReturn(AppRole.OWNER);
         when(expenseCategoryRepository.findByActiveTrueOrderByNameAsc()).thenReturn(List.of(
                 category(1L, "Raw Materials", false),
-                category(2L, "Salaries & Commission", true)));
+                category(2L, "Salaries", true)));
 
         List<ExpenseCategory> visible = service.findAllActiveVisible();
 
         assertThat(visible).extracting(ExpenseCategory::getName)
-                .containsExactly("Raw Materials", "Salaries & Commission");
+                .containsExactly("Raw Materials", "Salaries");
     }
 
     @Test

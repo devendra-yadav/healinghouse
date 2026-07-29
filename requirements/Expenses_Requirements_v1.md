@@ -21,7 +21,7 @@ This document defines **Expenses**: a way to record one-off and recurring costs 
 
 - Record a one-off expense: category, date, amount, vendor (free text), payment method, optional notes.
 - Record recurring fixed/near-fixed costs (rent, salaries, utility bills) via a template that auto-generates the actual expense each period, so staff aren't relied on to remember them.
-- Maintain an admin-manageable **Expense Category** list (e.g. Raw Materials, Equipment, Maintenance, Utilities, Rent, Salaries & Commission, Other) — completely separate from `Product`/`ClinicService`/`Tag`, which represent what the clinic *earns from*, not what it *spends on*.
+- Maintain an admin-manageable **Expense Category** list (e.g. Raw Materials, Equipment, Maintenance, Utilities, Rent, Salaries, Commission, Other) — completely separate from `Product`/`ClinicService`/`Tag`, which represent what the clinic *earns from*, not what it *spends on*.
 - Record actual therapist salary/commission payouts as expenses, so Net Profit nets out the clinic's largest cost — using `CommissionCalculator`'s existing computed figure only as a read-only reference, never auto-posted.
 - A new **Profit & Loss** report: Net Revenue, Total Expenses, Net Profit, by-category breakdown, month-over-month trend, filterable by date range, exportable to CSV/PDF like every other report.
 - A "Total Expenses" / "Net Profit" KPI on the Dashboard, visible only to roles with report access.
@@ -72,7 +72,7 @@ public class ExpenseCategory {
     /** When true, every Expense under this category is invisible to THERAPIST_PLUS
      *  (§5.5) — filtered at the service layer, not a permission-matrix cell, since
      *  visibility here depends on the category the row belongs to, not just the role.
-     *  Seeded true only for "Salaries & Commission" (§5.4); an Owner/Admin can flag
+     *  Seeded true for "Salaries" and "Commission" (§5.4); an Owner/Admin can flag
      *  any other category confidential the same way via the category edit form. */
     @Builder.Default
     @Column(nullable = false)
@@ -121,11 +121,8 @@ public class Expense {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;   // reuses the existing enum — no new payment concept
 
-    /** Set iff this expense is a salary/commission payout to a specific therapist (§5.4);
-     *  null for every other category. */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "therapist_id")
-    private Therapist therapist;
+    /** Optional free-text label — e.g. the payee's name for a salary/commission payout (§5.4). */
+    private String label;
 
     @Column(length = 1000)
     private String notes;
@@ -285,12 +282,12 @@ private boolean restrictedVisibility;
 
 ```java
 private Long id;
+private String label;           // optional — e.g. payee name for a salary/commission payout (§5.4)
 private Long categoryId;
 private LocalDate expenseDate;
 private BigDecimal amount;
 private String vendorName;
 private PaymentMethod paymentMethod;
-private Long therapistId;       // set only when category is a payout category (§5.4)
 private String notes;
 ```
 
@@ -336,11 +333,11 @@ private List<ProfitLossTrendPointDTO> trend;                    // {periodLabel,
 ```java
 private Long id;
 private LocalDate expenseDate;
+private String label;
 private String categoryName;
 private BigDecimal amount;
 private String vendorName;
 private PaymentMethod paymentMethod;
-private String therapistName;   // null unless a payout expense
 private ExpenseStatus status;
 private String recordedByUsername;
 private boolean recurring;      // true iff sourceTemplate != null
@@ -370,15 +367,14 @@ private boolean recurring;      // true iff sourceTemplate != null
 
 ### 5.4 Recording therapist salary/commission payouts
 
-- A seeded `ExpenseCategory` named **"Salaries & Commission"** (`restrictedVisibility = true`, §5.5, §11) is the intended category for actual payouts to therapists.
-- When an Owner/Admin selects this category on the Expense form, a `therapist` picker appears (required for this category) and the form shows `CommissionCalculator.calculateEarnings(therapist, dateFrom, dateTo)`'s `totalVariablePay` for a chosen period as a **read-only suggestion** — never pre-filled/binding into `amount`. The actual payout amount is always manually entered and confirmed by staff, since real-world payouts can be partial, include advances, or be adjusted — the commission figure is a computed *entitlement*, not a *transaction*.
-- This is the only case where `Expense.therapist` is set; every other category leaves it null.
+- Two seeded `ExpenseCategory` rows, **"Salaries"** and **"Commission"** (both `restrictedVisibility = true`, §5.5, §11), are the intended categories for actual payouts to therapists.
+- There is no dedicated therapist link or category-level "payout" flag — a payout is recorded as an ordinary expense under one of these two categories, with the payee noted in the free-text `label` field (e.g. "Priya — July commission"). The actual payout amount is always manually entered and confirmed by staff, since real-world payouts can be partial, include advances, or be adjusted.
 - Recording a payout this way does **not** modify `CommissionCalculator`'s own computation — that remains a pure read/report figure exactly as it is today. This is a separate, parallel record of the actual money paid out.
 
 ### 5.5 `THERAPIST_PLUS` role and category-level visibility
 
 - `THERAPIST_PLUS` is granted `EXPENSES` module `VIEW/CREATE/EDIT/DELETE` (void), but is **never** granted `REPORTS_PROFIT_LOSS` or `REPORTS_REVENUE` — it cannot see Net Revenue, Net Profit, or any P&L summary, only the raw expense entries it and others record.
-- Independently of the module/action grant, every expense query run on behalf of a `THERAPIST_PLUS` session **excludes** any `Expense` whose `category.restrictedVisibility = true` (i.e., "Salaries & Commission" by default, or any other category an Owner/Admin later flags confidential). This is implemented **inline in `ExpenseService`**, not the `PermissionAspect` — the same architectural choice already used for `THERAPIST`'s "own appointments only" scoping (`AppointmentController.enforceOwnAppointmentForTherapist`) and `ReportController.denyClinicWideReportsForTherapist` — because it depends on a data attribute (the category), not just the caller's role, which the aspect's coarse module/action gate can't express.
+- Independently of the module/action grant, every expense query run on behalf of a `THERAPIST_PLUS` session **excludes** any `Expense` whose `category.restrictedVisibility = true` (i.e., "Salaries"/"Commission" by default, or any other category an Owner/Admin later flags confidential). This is implemented **inline in `ExpenseService`**, not the `PermissionAspect` — the same architectural choice already used for `THERAPIST`'s "own appointments only" scoping (`AppointmentController.enforceOwnAppointmentForTherapist`) and `ReportController.denyClinicWideReportsForTherapist` — because it depends on a data attribute (the category), not just the caller's role, which the aspect's coarse module/action gate can't express.
 - `RECEPTIONIST` and plain `THERAPIST` get no grants on `EXPENSE_CATEGORIES`, `EXPENSES`, or `REPORTS_PROFIT_LOSS` at all — same "—" as their existing Wallet/Actual-Revenue rows.
 
 **Addendum (2026-07-27, confirmed by clinic owner):** `THERAPIST_PLUS` is additionally granted full catalog management — `VIEW/CREATE/EDIT/DELETE` (**not** `APPROVE`/permanent-delete) — on `SERVICES`, `PRODUCTS`, `COMBOS`, and `PACKAGE_TEMPLATES`, widened from the original `VIEW`-only grant on those four modules. This is an intentional scope decision, not an oversight: a therapist trusted enough to be promoted to `THERAPIST_PLUS` for expense-recording is also trusted to add/edit/deactivate catalog items day-to-day, without needing a full Admin promotion. Permanent-delete stays OWNER/ADMIN-only, same as every other role. `SecuritySeeder.seedRolePermissions()`/`backfillTherapistPlusPermissions()` implement this; a static-review pass (`requirements/Bug_Report_v6.md` Finding 1) initially flagged the resulting seed change as an unreviewed escalation because this addendum hadn't been written yet — that finding has since been closed as not-a-bug now that the spec and code agree.
@@ -429,7 +425,7 @@ private boolean recurring;      // true iff sourceTemplate != null
 ## 7. UI / Template Changes
 
 - `templates/expense-categories/list.html`, `.../form.html` — mirrors `templates/combos/list.html`/`.../form.html` (active/inactive toggle, pagination, permanent-delete modal), plus a "Restricted (hidden from Therapist+)" checkbox on the form.
-- `templates/expenses/list.html`, `.../form.html` — filter bar (date range, category, vendor, payment method, Show Voided toggle), CSV/PDF export buttons; the category-select on the form shows a "Salaries & Commission" option that reveals the therapist picker + read-only commission-suggestion hint (§5.4) via simple JS show/hide, same pattern as other conditional form sections in this app (e.g. wallet's pencil-edit toggles).
+- `templates/expenses/list.html`, `.../form.html` — filter bar (date range, category, vendor, payment method, Show Voided toggle), CSV/PDF export buttons, a Label column/field; the category-select on the form includes "Salaries" and "Commission" among the standard options — staff note payout/therapist details in the free-text Label field (§5.4), no special JS behavior needed.
 - `templates/expenses/recurring-list.html`, `.../recurring-form.html` — template CRUD, pause/resume toggle, "Generate Now" button, next-due-date column.
 - `templates/reports/profit-loss.html` — filter bar (date range), summary cards (Net Revenue, Total Expenses, Net Profit), by-category breakdown table/chart (Chart.js, consistent with existing report pages), month-over-month trend chart, CSV/PDF export buttons.
 - `fragments/layout.html` — new "Expenses" nav item (gated by the `perm` bean, visible to OWNER/ADMIN/THERAPIST_PLUS) and a new "Profit & Loss" report nav item (gated to OWNER/ADMIN only).
@@ -455,8 +451,8 @@ Unlike every prior addendum (where this section is typically a non-goal), report
 3. "Deleting" an expense sets it to `VOIDED`, hides it from default lists/reports, and makes it immutable — it cannot subsequently be edited.
 4. A recurring expense template auto-generates an `ACTIVE` `Expense` on schedule, using its default amount; that generated expense is freely editable afterward if the real amount differs.
 5. A recurring template's `nextDueDate` advances exactly once per generation (no duplicate generation on re-run) and the template auto-deactivates once past its `endDate`.
-6. A therapist salary/commission payout can be recorded against the seeded "Salaries & Commission" category with a linked therapist; the form shows the current `CommissionCalculator` figure as a read-only reference only.
-7. `THERAPIST_PLUS` retains every existing `THERAPIST` capability/scoping unchanged (own appointments, own earnings, etc.), can additionally record/view non-restricted expenses, but cannot view the Profit & Loss report, the Actual Revenue report, or any expense under a `restrictedVisibility` category (verified: a Salaries & Commission expense is invisible to a `THERAPIST_PLUS` user, visible to Owner/Admin).
+6. A therapist salary/commission payout can be recorded as an ordinary expense against the seeded "Salaries" or "Commission" category, with payee details noted in the Label field.
+7. `THERAPIST_PLUS` retains every existing `THERAPIST` capability/scoping unchanged (own appointments, own earnings, etc.), can additionally record/view non-restricted expenses, but cannot view the Profit & Loss report, the Actual Revenue report, or any expense under a `restrictedVisibility` category (verified: a Salaries or Commission expense is invisible to a `THERAPIST_PLUS` user, visible to Owner/Admin).
 8. `RECEPTIONIST` and plain `THERAPIST` have no access to Expense Categories, Expenses, Recurring Templates, or the Profit & Loss report.
 9. The Profit & Loss report's Net Revenue figure reconciles with the existing Actual Revenue report's Net Revenue figure for the same date range (same underlying `COMPLETED`/`grandTotal` basis); Total Expenses reconciles with a manual sum of `ACTIVE` expenses in range; Net Profit = the difference.
 10. Profit & Loss and the Expense list both support CSV and PDF export, consistent with every other report's export button placement and branded PDF letterhead/footer.
@@ -484,7 +480,7 @@ All confirmed by the clinic owner during brainstorming, July 26, 2026:
 - **Edit/delete:** editable while `ACTIVE`; delete is a soft-void, immutable once voided (§5.2).
 - **New role:** `THERAPIST_PLUS` — identical to `THERAPIST` everywhere else, plus expense record/view access (§3.4, §5.5).
 - **Expense visibility scope for `THERAPIST_PLUS`:** can record/view non-restricted expense entries only; no access to P&L or revenue reports (§5.5).
-- **Therapist payouts:** real salary/commission payouts are recorded as Expenses (category "Salaries & Commission," seeded `restrictedVisibility = true`), manually entered by Owner/Admin with the existing `CommissionCalculator` figure shown only as a reference (§5.4).
+- **Therapist payouts:** real salary/commission payouts are recorded as ordinary Expenses (categories "Salaries" and "Commission," both seeded `restrictedVisibility = true`), with payee details noted in the free-text `label` field rather than a dedicated therapist field (§5.4).
 - **Salary/payout visibility:** OWNER and ADMIN can see these entries; `THERAPIST_PLUS` cannot (§5.5, §12 Access Matrix).
 - **Scope of this document:** requirements only — implementation is a separate follow-up task once this document is reviewed.
 
@@ -492,7 +488,7 @@ All confirmed by the clinic owner during brainstorming, July 26, 2026:
 
 - **Recurrence granularity limited to `MONTHLY`/`QUARTERLY`/`YEARLY`** — no weekly or arbitrary custom-interval recurrence (assumed sufficient for rent/salary/utility-style costs; flag if a weekly cost — e.g. a recurring cleaning service — is actually needed).
 - **Recurring job trigger time: daily at 01:00 IST** (assumed reasonable off-peak time; flag if a different time is preferred).
-- **Starter category seed set:** propose `DataSeeder` seeds Raw Materials, Equipment, Maintenance, Utilities, Rent, Salaries & Commission (`restrictedVisibility = true`), Other — as a convenience starting point, all editable/deactivatable afterward (flag if a different starter list, or no seeding at all, is preferred).
+- **Starter category seed set:** `SecuritySeeder` seeds Raw Materials, Equipment, Maintenance, Utilities, Rent, Salaries (`restrictedVisibility = true`), Commission (`restrictedVisibility = true`), Other — as a convenience starting point, all editable/deactivatable afterward.
 - **`recordedBy` on an auto-generated recurring expense:** assumed to be the user who created the `RecurringExpenseTemplate` (flag if a dedicated "system" user or the template's last editor is preferred instead).
 - **THERAPIST_PLUS conversion:** assumed an Owner/Admin can change an existing `THERAPIST`-role user to `THERAPIST_PLUS` (and back) via the existing `/admin/users` edit screen's role dropdown, exactly like switching between any other two roles today (flag if a different provisioning flow is wanted).
 
