@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 @Component
 @RequiredArgsConstructor
 @Slf4j
-@Profile("!prod & !preprod")
+@Profile("!test & !prod & !preprod")
 public class DataSeeder implements CommandLineRunner {
 
     private final PatientRepository        patientRepository;
@@ -39,10 +39,10 @@ public class DataSeeder implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        seedTherapists();
-        seedPatients();
-        seedServices();
-        seedProducts();
+        //seedTherapists();
+        //seedPatients();
+       // seedServices();
+        //seedProducts();
     }
 
     // ─────────────────────────────────────────────────────────────────

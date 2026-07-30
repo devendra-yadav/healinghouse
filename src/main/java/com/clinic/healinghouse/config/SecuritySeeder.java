@@ -440,7 +440,7 @@ public class SecuritySeeder implements CommandLineRunner {
                 ExpenseCategory.builder().name("Equipment").build(),
                 ExpenseCategory.builder().name("Maintenance").build(),
                 ExpenseCategory.builder().name("Utilities").build(),
-                ExpenseCategory.builder().name("Rent").build(),
+                ExpenseCategory.builder().name("Rent").restrictedVisibility(true).build(),
                 ExpenseCategory.builder().name("Salaries").restrictedVisibility(true).build(),
                 ExpenseCategory.builder().name("Commission").restrictedVisibility(true).build(),
                 ExpenseCategory.builder().name("Other").build()
