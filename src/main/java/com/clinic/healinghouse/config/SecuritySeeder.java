@@ -59,6 +59,7 @@ public class SecuritySeeder implements CommandLineRunner {
         revokeReportsForNonAdminRoles();
         backfillOwnerAdminExpenseModules();
         backfillTherapistPlusPermissions();
+        backfillAuditLogPermission();
         backfillFullAccessMatrix();
         seedExpenseCategories();
         splitSalariesAndCommissionCategory();
@@ -134,6 +135,7 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, OWNER, EXPENSES, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, USER_MANAGEMENT, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, ACCESS_MATRIX, VIEW, EDIT);
+        grant(defaults, OWNER, AUDIT_LOG, VIEW);
 
         // ── ADMIN — same operational access as OWNER; Access Matrix is read-only ──
         // (ADMIN can't act on OWNER-role User accounts — enforced in the Phase D user-management
@@ -381,6 +383,20 @@ public class SecuritySeeder implements CommandLineRunner {
         if (!toSave.isEmpty()) {
             rolePermissionRepository.saveAll(toSave);
             log.info("Backfilled {} THERAPIST_PLUS role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before the {@code AuditLog} feature existed —
+     * OWNER-only, mirroring requirements/Security_RBAC_Requirements_v1.md §6.4 ("Visible read-only
+     * ... OWNER only"). Not granted to ADMIN, unlike most other admin-ish modules.
+     */
+    private void backfillAuditLogPermission() {
+        List<RolePermission> toSave = new ArrayList<>();
+        grantIfMissing(toSave, OWNER, AUDIT_LOG, VIEW);
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} OWNER/AUDIT_LOG role-permission row(s).", toSave.size());
         }
     }
 

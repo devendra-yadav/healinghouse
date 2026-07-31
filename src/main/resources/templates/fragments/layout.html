@@ -130,9 +130,9 @@
                         <i class="bi bi-bar-chart-line me-1"></i>Reports
                     </a>
                 </li>
-                <li class="nav-item dropdown" th:if="${@perm.has('USER_MANAGEMENT','VIEW') or @perm.has('ACCESS_MATRIX','VIEW') or @perm.has('EXPENSE_CATEGORIES','VIEW')}">
+                <li class="nav-item dropdown" th:if="${@perm.has('USER_MANAGEMENT','VIEW') or @perm.has('ACCESS_MATRIX','VIEW') or @perm.has('EXPENSE_CATEGORIES','VIEW') or @perm.has('AUDIT_LOG','VIEW')}">
                     <a class="nav-link dropdown-toggle"
-                       th:classappend="${activePage == 'UserManagement' or activePage == 'AccessMatrix' or activePage == 'ExpenseCategories'} ? 'active'"
+                       th:classappend="${activePage == 'UserManagement' or activePage == 'AccessMatrix' or activePage == 'ExpenseCategories' or activePage == 'AuditLog'} ? 'active'"
                        href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                         <i class="bi bi-shield-lock me-1"></i>Admin
                     </a>
@@ -150,6 +150,11 @@
                         <li th:if="${@perm.has('EXPENSE_CATEGORIES','VIEW')}">
                             <a class="dropdown-item" th:href="@{/expense-categories}">
                                 <i class="bi bi-tags me-1"></i>Expense Categories
+                            </a>
+                        </li>
+                        <li th:if="${@perm.has('AUDIT_LOG','VIEW')}">
+                            <a class="dropdown-item" th:href="@{/admin/audit-log}">
+                                <i class="bi bi-clock-history me-1"></i>Audit Log
                             </a>
                         </li>
                     </ul>
