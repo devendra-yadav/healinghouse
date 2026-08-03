@@ -30,7 +30,8 @@ import static com.clinic.healinghouse.entity.PermissionAction.*;
  * users and zero RolePermission rows, so without this there would be no way to log in, and every
  * @RequiresPermission check would deny everyone once Phase B's enforcement went live.
  * Always-on (not @Profile-gated like DataSeeder) — test/preprod/prod all need this seed exactly
- * like dev does, mirroring OwnerFlagBackfill's always-on, idempotent one-time-fixup pattern.
+ * like dev does, same always-on idempotent one-time-fixup pattern as the other self-healing
+ * config/ runners.
  * Deliberately fails startup with a clear message rather than seeding a guessable default password
  * — HEALING_HOUSE_OWNER_PASSWORD is required in every profile, dev included (§11 decision, §7 dev note).
  */
@@ -218,8 +219,9 @@ public class SecuritySeeder implements CommandLineRunner {
     }
 
     /**
-     * One-time idempotent fix-up (mirrors OwnerFlagBackfill's pattern) for databases that already
-     * had RolePermission rows seeded before package-template permanent-delete existed — since
+     * One-time idempotent fix-up (same always-on backfill pattern as the other self-healing config/
+     * runners) for databases that already had RolePermission rows seeded before package-template
+     * permanent-delete existed — since
      * seedRolePermissions() short-circuits on a non-empty table, those installs would otherwise
      * never get the new PACKAGE_TEMPLATES/APPROVE row and the permanent-delete button would 403
      * even for OWNER/ADMIN. Grants it exactly where COMBOS/APPROVE is already granted above.
@@ -466,8 +468,8 @@ public class SecuritySeeder implements CommandLineRunner {
     }
 
     /**
-     * One-time idempotent fix-up (mirroring OwnerFlagBackfill's pattern) for databases seeded
-     * before this split: the single "Salaries & Commission" category is renamed IN PLACE to
+     * One-time idempotent fix-up (same always-on backfill pattern as the other self-healing config/
+     * runners) for databases seeded before this split: the single "Salaries & Commission" category is renamed IN PLACE to
      * "Salaries" (same row id, so every historical Expense.category FK stays valid and those old
      * payout expenses now display under "Salaries"), and a new sibling "Commission" category is
      * inserted alongside it. Matches by name, exactly once; a no-op on every later startup

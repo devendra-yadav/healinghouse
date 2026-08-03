@@ -12,7 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 /**
- * One-time idempotent fix-up (mirrors {@code OwnerFlagBackfill}'s always-on pattern) for every CHECK
+ * One-time idempotent fix-up (an always-on {@code CommandLineRunner}, same style as the other
+ * self-healing config/ backfill runners) for every CHECK
  * constraint Hibernate auto-generated on an enum column before {@link HealingHouseMySQLDialect}
  * disabled that behavior — see that class's javadoc for why they exist and why
  * {@code ddl-auto: update} can never self-heal them on its own. No custom {@code @Check} constraint
