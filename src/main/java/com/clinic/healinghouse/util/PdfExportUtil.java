@@ -775,7 +775,7 @@ public class PdfExportUtil {
                                             boolean includeAllColumns) {
         Table table = includeAllColumns
                 ? newTable(new float[]{1.6f, 1, 1, 0.7f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f)
-                : newTable(new float[]{1.6f, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
+                : newTable(new float[]{1.6f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
         if (includeAllColumns) {
@@ -928,6 +928,7 @@ public class PdfExportUtil {
         netProfitCell.setBackgroundColor(ROW_SHADE);
         netProfitCell.setPadding(4.5f);
         table.addCell(netProfitCell);
+        addBlankCell(table);
         addBlankCell(table);
 
         document.add(table);
