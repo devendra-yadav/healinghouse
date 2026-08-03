@@ -115,10 +115,15 @@ public class RecurringExpenseTemplateService {
         if (form.getFrequency() == null) {
             throw new IllegalArgumentException("Frequency is required.");
         }
-        if (form.getStartDate() == null) {
+        // startDate is only accepted on create (see below, it's fixed for life once created and
+        // ignored on update) — the edit form renders it disabled, so browsers never submit it and
+        // form.getStartDate() is legitimately null on an update. Validate against whichever value
+        // is actually in effect for this save.
+        LocalDate effectiveStartDate = template.getId() == null ? form.getStartDate() : template.getStartDate();
+        if (template.getId() == null && form.getStartDate() == null) {
             throw new IllegalArgumentException("Start date is required.");
         }
-        if (form.getEndDate() != null && form.getEndDate().isBefore(form.getStartDate())) {
+        if (form.getEndDate() != null && form.getEndDate().isBefore(effectiveStartDate)) {
             throw new IllegalArgumentException("End date cannot be before start date.");
         }
         ExpenseCategory category = expenseCategoryRepository.findById(form.getCategoryId())
@@ -138,11 +143,11 @@ public class RecurringExpenseTemplateService {
         template.setFrequency(form.getFrequency());
         template.setEndDate(form.getEndDate());
         template.setActive(form.isActive());
-        // startDate is only ever set on create — the edit form renders it readonly ("Start date
-        // can't be changed once created — pause/resume instead"), so a normal submission always
-        // echoes back the unchanged value anyway; ignoring it outright on update (rather than
-        // trusting the submitted value) closes the gap where a crafted POST could otherwise still
-        // move it (Bug_Report_v6.md Finding 21). nextDueDate only (re)seeds from startDate on
+        // startDate is only ever set on create — the edit form renders it disabled ("Start date
+        // can't be changed once created — pause/resume instead"), so it's never part of an update
+        // submission; ignoring it outright on update (rather than trusting a submitted value)
+        // closes the gap where a crafted POST could otherwise still move it (Bug_Report_v6.md
+        // Finding 21). nextDueDate only (re)seeds from startDate on
         // create — an edit never rewinds an already-advancing cursor, so mid-life edits (e.g.
         // correcting the amount) don't accidentally trigger an extra generation.
         if (template.getId() == null) {

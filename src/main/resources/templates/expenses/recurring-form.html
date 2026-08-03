@@ -73,7 +73,7 @@
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Start Date <span class="text-danger">*</span></label>
                                 <input type="date" th:field="*{startDate}" class="form-control"
-                                       th:readonly="${templateForm.id != null}"/>
+                                       th:disabled="${templateForm.id != null}"/>
                                 <div class="form-text" th:if="${templateForm.id != null}">Start date can't be changed once created — pause/resume instead.</div>
                             </div>
                             <div class="col-md-6">

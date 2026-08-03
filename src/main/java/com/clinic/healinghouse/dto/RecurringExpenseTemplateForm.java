@@ -4,6 +4,7 @@ import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.RecurrenceFrequency;
 import com.clinic.healinghouse.entity.RecurringExpenseTemplate;
 import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,7 +19,9 @@ public class RecurringExpenseTemplateForm {
     private String vendorName;
     private PaymentMethod paymentMethod;
     private RecurrenceFrequency frequency;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate startDate = LocalDate.now();
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate endDate;
     private boolean active = true;
 

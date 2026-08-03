@@ -3,6 +3,7 @@ package com.clinic.healinghouse.dto;
 import com.clinic.healinghouse.entity.Expense;
 import com.clinic.healinghouse.entity.PaymentMethod;
 import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ public class ExpenseForm {
     private Long id;
     private String label;
     private Long categoryId;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate expenseDate = LocalDate.now();
     private BigDecimal amount;
     private String vendorName;
