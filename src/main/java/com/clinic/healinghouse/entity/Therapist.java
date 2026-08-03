@@ -40,6 +40,17 @@ public class Therapist {
     @Email(message = "Enter a valid email address.")
     private String email;
 
+    @Pattern(regexp = "^$|^[0-9]{12}$", message = "Aadhaar number must be 12 digits.")
+    @Column(length = 12)
+    private String aadhaarNumber;
+
+    @Pattern(regexp = "^$|^[A-Z]{5}[0-9]{4}[A-Z]$", message = "Enter a valid PAN (e.g. ABCDE1234F).")
+    @Column(length = 10)
+    private String panNumber;
+
+    @Column(columnDefinition = "TEXT")
+    private String address;
+
     /** Typically 0 or null for the owner — no salary calculation applies to them (see {@code owner}). */
     @DecimalMin(value = "0", message = "Fixed monthly salary cannot be negative.")
     @Column(precision = 10, scale = 2)

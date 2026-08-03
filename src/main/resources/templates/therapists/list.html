@@ -42,6 +42,9 @@
                             <th>Name</th>
                             <th>Specialization</th>
                             <th>Phone</th>
+                            <th>Aadhaar</th>
+                            <th>PAN</th>
+                            <th>Address</th>
                             <th class="text-end">Monthly Salary (₹)</th>
                             <th class="text-end">Commission</th>
                             <th class="text-end">Bonus Threshold</th>
@@ -51,7 +54,7 @@
                     </thead>
                     <tbody>
                         <tr th:if="${therapists.empty}">
-                            <td colspan="9" class="text-center text-muted py-4">No therapists found.</td>
+                            <td colspan="12" class="text-center text-muted py-4">No therapists found.</td>
                         </tr>
                         <tr th:each="t, stat : ${therapists}">
                             <td class="text-muted" th:text="${stat.count}"></td>
@@ -63,6 +66,9 @@
                             </td>
                             <td th:text="${t.specialization ?: '—'}"></td>
                             <td th:text="${t.phone ?: '—'}"></td>
+                            <td th:text="${t.aadhaarNumber ?: '—'}"></td>
+                            <td th:text="${t.panNumber ?: '—'}"></td>
+                            <td class="text-truncate" style="max-width:200px" th:title="${t.address}" th:text="${t.address ?: '—'}"></td>
                             <td class="text-end"
                                 th:text="${t.fixedMonthlySalary != null && t.fixedMonthlySalary.signum() > 0}
                                           ? |₹ ${#numbers.formatDecimal(t.fixedMonthlySalary, 1, 2)}| : '—'">
