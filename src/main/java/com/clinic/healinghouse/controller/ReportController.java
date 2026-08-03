@@ -92,7 +92,7 @@ public class ReportController {
                           Model model) {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Period Report");
@@ -110,7 +110,7 @@ public class ReportController {
                               Model model) {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null ? therapistIds : List.of();
 
@@ -133,7 +133,7 @@ public class ReportController {
                             Model model) {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Patient Acquisition");
@@ -150,7 +150,7 @@ public class ReportController {
                                Model model) {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         model.addAttribute("pageTitle", "Product/Service Performance");
@@ -176,7 +176,7 @@ public class ReportController {
                            @RequestParam(defaultValue = "20") int size,
                            Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         int pageSize = paginationUtil.clampPageSize(size);
@@ -256,7 +256,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPeriodReport(from, to);
@@ -276,7 +276,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPeriodReport(from, to);
@@ -297,7 +297,7 @@ public class ReportController {
             @RequestParam(required = false) List<Long> therapistIds) throws IOException {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
@@ -323,7 +323,7 @@ public class ReportController {
             @RequestParam(required = false) List<Long> therapistIds) throws Exception {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
         List<Long> selectedIds = therapistIds != null && !therapistIds.isEmpty() ? therapistIds : List.of();
 
@@ -348,7 +348,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPatientAcquisitionReport(from, to);
@@ -368,7 +368,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getPatientAcquisitionReport(from, to);
@@ -388,7 +388,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getProductPerformanceReport(from, to);
@@ -408,7 +408,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         denyClinicWideReportsForTherapist();
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         var report = reportService.getProductPerformanceReport(from, to);
@@ -435,7 +435,7 @@ public class ReportController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean discountedOnly) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
@@ -464,7 +464,7 @@ public class ReportController {
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "false") boolean discountedOnly) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
@@ -485,7 +485,7 @@ public class ReportController {
                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                              Model model) {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
@@ -503,7 +503,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
@@ -522,7 +522,7 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
 
         ProfitLossReportDTO report = profitLossReportAggregator.getProfitLossReport(from, to);
