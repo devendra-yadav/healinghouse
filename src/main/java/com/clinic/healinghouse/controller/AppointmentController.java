@@ -340,7 +340,6 @@ public class AppointmentController {
     public String update(@PathVariable Long id,
                          @ModelAttribute("form") AppointmentForm form,
                          @RequestParam(required = false) String returnUrl,
-                         @RequestParam(defaultValue = "false") boolean forceSave,
                          Model model,
                          RedirectAttributes ra) {
         enforceOwnAppointmentForTherapist(id);
@@ -348,13 +347,8 @@ public class AppointmentController {
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
-        if (!forceSave) {
-            List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, id);
-            if (!conflicts.isEmpty()) {
-                model.addAttribute("conflicts", conflicts);
-                return renderAppointmentFormWithError(model, form, null, true, id, returnUrl);
-            }
-        }
+        // No conflict check here: the conflict warning/"Save anyway" decision was already made
+        // at creation time (see save()); re-warning on every subsequent edit is redundant.
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");
