@@ -489,6 +489,7 @@ public class AppointmentService {
         if (rawServices.isEmpty()) {
             throw new IllegalArgumentException("At least one service must be selected.");
         }
+        validateNoComboPackageOverlap(rawServices, form.getProductLines());
 
         // 3. Build appointment shell (lines added below)
         PaymentMethod paymentMethod = null;
@@ -871,6 +872,7 @@ public class AppointmentService {
             if (rawServices.isEmpty()) {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
+            validateNoComboPackageOverlap(rawServices, form.getProductLines());
 
             oldServiceItemCounts = tallyServicePackageItemCounts(existing.getServiceLines());
             oldProductItemCounts = tallyProductPackageItemCounts(existing.getProductLines());
@@ -1275,13 +1277,16 @@ public class AppointmentService {
      * Sums quantity per product across every line in a single submission (a product can appear on more
      * than one line — a standalone line plus a combo line, or two combo lines) and validates the
      * aggregate demand against live stock, so two lines of the same product can't each pass an
-     * independent check blind to the other's demand.
+     * independent check blind to the other's demand. Clamps a package-covered line's quantity to 1,
+     * mirroring the actual line-building loop's `packageItemId != null ? 1 : ...` clamp — otherwise a
+     * stale non-1 quantity alongside a packageItemId could trigger a spurious "insufficient stock"
+     * rejection here even though the line will only ever consume 1 unit (Bug_Report_v6.md Finding 19).
      */
     private void validateAggregateStockDemand(List<AppointmentForm.ProductLineForm> productLines) {
         Map<Long, Integer> demandByProductId = new LinkedHashMap<>();
         for (AppointmentForm.ProductLineForm plf : productLines) {
             if (plf == null || plf.getProductId() == null) continue;
-            int qty = Math.max(1, plf.getQuantity());
+            int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
             demandByProductId.merge(plf.getProductId(), qty, Integer::sum);
         }
         for (Map.Entry<Long, Integer> entry : demandByProductId.entrySet()) {
@@ -1292,6 +1297,31 @@ public class AppointmentService {
                         "Insufficient stock for '" + product.getName()
                         + "'. Available: " + product.getStockQuantity()
                         + ", requested: " + entry.getValue());
+            }
+        }
+    }
+
+    /**
+     * A line is never both combo-covered and package-covered — Combos_Requirements_v1.md and
+     * Packages_Requirements_v1.md (§5.12) both document a package-covered line as always standalone,
+     * never added through the combo picker. Not reachable through the documented UI, but a raw client
+     * could set both fields on one line, which would otherwise silently debit the package for the
+     * line's raw pre-combo-discount value instead of its actual discounted contribution to grandTotal
+     * (Bug_Report_v6.md Finding 3).
+     */
+    private void validateNoComboPackageOverlap(List<AppointmentForm.ServiceLineForm> serviceLines,
+                                                List<AppointmentForm.ProductLineForm> productLines) {
+        for (AppointmentForm.ServiceLineForm slf : serviceLines) {
+            if (slf.getComboGroupKey() != null && slf.getPackageItemId() != null) {
+                throw new IllegalArgumentException(
+                        "A service line cannot be both part of a combo and covered by a package.");
+            }
+        }
+        for (AppointmentForm.ProductLineForm plf : productLines) {
+            if (plf == null) continue;
+            if (plf.getComboGroupKey() != null && plf.getPackageItemId() != null) {
+                throw new IllegalArgumentException(
+                        "A product line cannot be both part of a combo and covered by a package.");
             }
         }
     }

@@ -28,10 +28,12 @@ elif [ "a$HEALING_HOUSE_OWNER_PASSWORD" == "a" ]; then
 else
 
   #check if process is already running
-  pid=$(ps -elf|grep healinghouse.jar|grep -i java|grep -v grep |awk '{print $4}');
+  #pid=$(ps -elf|grep healinghouse.jar|grep -i java|grep -i --spring.profiles.active=$env | grep -v grep |awk '{print $4}');
+  pid=$(ps -elf|grep "healinghouse.jar --spring.profiles.active=$env" | grep -v grep |awk '{print $4}');
+
 
   if [ "a$pid" == "a" ]; then
-    nohup java -Xms$APP_INIT_JAVA_HEAP -Xmx$APP_MAX_JAVA_HEAP -DHEALING_HOUSE_DB_PASSWORD=$HEALING_HOUSE_DB_PASSWORD -DHEALING_HOUSE_OWNER_PASSWORD=$HEALING_HOUSE_OWNER_PASSWORD -Dhh_external_properties=$hh_external_properties -Dlogs_dir=$logs_dir -Dlogging.config=$logback_config -jar $app_home/lib/healinghouse.jar --spring.profiles.active=$env&
+    nohup java -Xms$APP_INIT_JAVA_HEAP -Xmx$APP_MAX_JAVA_HEAP -Denv=$env -DHEALING_HOUSE_DB_PASSWORD=$HEALING_HOUSE_DB_PASSWORD -DHEALING_HOUSE_OWNER_PASSWORD=$HEALING_HOUSE_OWNER_PASSWORD -Dhh_external_properties=$hh_external_properties -Dlogs_dir=$logs_dir -Dlogging.config=$logback_config -jar $app_home/lib/healinghouse.jar --spring.profiles.active=$env&
     PID=$!
     echo "Started healing house aplication with PID: $PID";
   else

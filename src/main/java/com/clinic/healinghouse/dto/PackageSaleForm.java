@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.dto;
 
 import lombok.Data;
+import org.springframework.format.annotation.DateTimeFormat;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ public class PackageSaleForm {
     private List<PackageSaleItemForm> productItems = new ArrayList<>();
 
     private BigDecimal totalPrice;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate expiryDate;
 
     /** Kept as String to avoid Spring's binder error on an empty <select>, same reason as WalletTopUpForm. */

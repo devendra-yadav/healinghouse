@@ -40,6 +40,7 @@
                     <div class="text-uppercase text-muted small fw-semibold mb-1 px-2">In this guide</div>
                     <nav class="nav flex-column">
                         <a class="nav-link" href="#welcome">Welcome</a>
+                        <a class="nav-link" href="#roles">Logging In &amp; Roles</a>
                         <a class="nav-link" href="#around">Finding Your Way Around</a>
                         <a class="nav-link" href="#dashboard">The Dashboard</a>
                         <a class="nav-link" href="#patients">Patients</a>
@@ -51,6 +52,7 @@
                         <a class="nav-link" href="#booking">Booking an Appointment</a>
                         <a class="nav-link" href="#managing">Managing an Appointment</a>
                         <a class="nav-link" href="#wallet">Prepaid Balance (Wallet)</a>
+                        <a class="nav-link" href="#expenses">Expenses &amp; Profit/Loss</a>
                         <a class="nav-link" href="#reports">Reports</a>
                         <a class="nav-link" href="#tips">Tips &amp; Common Questions</a>
                     </nav>
@@ -69,7 +71,38 @@
                     <p class="mb-0">You don't need any computer knowledge to use it. Everything is done by clicking buttons and filling simple forms, just like filling a paper form — except this one saves itself and never gets lost!</p>
                     <div class="alert alert-warning mt-3 mb-0">
                         <i class="bi bi-lightbulb-fill me-1"></i>
-                        <strong>Good to know:</strong> There is no login needed right now — anyone on the clinic computer can open the system and start working straightaway.
+                        <strong>Good to know:</strong> Everyone logs in with their own username and password. What you can see and do depends on your role — see <a href="#roles">Logging In &amp; Roles</a> below.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Login & Roles -->
+            <div id="roles" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-shield-lock me-1"></i>Logging In &amp; Roles</div>
+                <div class="card-body">
+                    <p>Every staff member has their own login. This keeps a clear record of who did what, and makes sure everyone only sees the screens relevant to their job.</p>
+
+                    <h6 class="fw-semibold">Your first login</h6>
+                    <p>An Owner or Admin creates your account and gives you a temporary password. The system will force you to choose a new password the very first time you log in — this is normal, not an error.</p>
+
+                    <h6 class="fw-semibold">The five roles</h6>
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm table-hover">
+                            <thead><tr><th>Role</th><th>What they can do</th></tr></thead>
+                            <tbody>
+                                <tr><td class="fw-semibold">Owner</td><td class="text-muted small">Everything, including managing staff logins and who can see what (the Access Matrix).</td></tr>
+                                <tr><td class="fw-semibold">Admin</td><td class="text-muted small">Everything Owner can do day-to-day, except editing the Owner's own account.</td></tr>
+                                <tr><td class="fw-semibold">Receptionist</td><td class="text-muted small">Booking, patients, payments, wallet, packages — no financial reports or expenses.</td></tr>
+                                <tr><td class="fw-semibold">Therapist</td><td class="text-muted small">Sees only their own appointments, schedule, and earnings — nothing belonging to other therapists.</td></tr>
+                                <tr><td class="fw-semibold">Therapist+</td><td class="text-muted small">Everything a Therapist can do, plus recording clinic <a href="#expenses">Expenses</a> and managing the Services/Products/Combos/Packages catalogue. Still can't see money-in reports (Profit &amp; Loss, Actual Revenue) or salary-payout expense entries.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="mb-0">If a menu item or button you expect isn't there, it's almost always because your role doesn't include it — not a bug. Ask your Owner/Admin if you think you need extra access.</p>
+
+                    <div class="alert alert-danger mt-3 mb-0">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>Locked out?</strong> Too many wrong password attempts in a row will temporarily lock an account for a short while, to keep things secure. Just wait and try again, or ask an Owner/Admin to reset your password.
                     </div>
                 </div>
             </div>
@@ -89,6 +122,7 @@
                         <span class="badge bg-success-subtle text-success border">Combos</span>
                         <span class="badge bg-success-subtle text-success border">Packages</span>
                         <span class="badge bg-success-subtle text-success border">Appointments</span>
+                        <span class="badge bg-success-subtle text-success border">Expenses</span>
                         <span class="badge bg-success-subtle text-success border">Reports</span>
                     </div>
                     <div class="help-shot">
@@ -398,7 +432,7 @@
                     <div class="table-responsive mb-3">
                         <table class="table table-sm">
                             <tbody>
-                                <tr><td><span class="badge bg-primary">SCHEDULED</span></td><td class="text-muted small">Booked, upcoming or in progress. Can still be edited.</td></tr>
+                                <tr><td><span class="badge badge-scheduled">SCHEDULED</span></td><td class="text-muted small">Booked, upcoming or in progress. Can still be edited.</td></tr>
                                 <tr><td><span class="badge bg-success">COMPLETED</span></td><td class="text-muted small">Visit finished. Locked from further edits.</td></tr>
                                 <tr><td><span class="badge bg-warning text-dark">NO_SHOW</span></td><td class="text-muted small">Patient did not come in.</td></tr>
                                 <tr><td><span class="badge bg-danger">CANCELLED</span></td><td class="text-muted small">Appointment was called off.</td></tr>
@@ -452,11 +486,42 @@
                 </div>
             </div>
 
+            <!-- Expenses -->
+            <div id="expenses" class="card shadow-sm help-section">
+                <div class="card-header py-2 fw-semibold"><i class="bi bi-receipt me-1"></i>Expenses &amp; Profit/Loss</div>
+                <div class="card-body">
+                    <p>Everything so far tracks money <em>coming in</em>. Expenses track money <strong>going out</strong> — rent, salaries, supplies, equipment, and anything else the clinic spends — so you can see the real Profit &amp; Loss picture, not just revenue.</p>
+
+                    <h6 class="fw-semibold">Recording a one-off expense</h6>
+                    <ol class="help-steps">
+                        <li>Click <strong>Expenses</strong> in the top menu, then <strong>Add Expense</strong>.</li>
+                        <li>Choose a <strong>Category</strong> (Rent, Utilities, Raw Materials, etc.).</li>
+                        <li>Enter the <strong>Date</strong>, <strong>Amount</strong>, who you paid (<strong>Vendor</strong>), and how you paid.</li>
+                        <li>Add any <strong>Notes</strong> if useful.</li>
+                        <li>Click <strong>Save</strong>.</li>
+                    </ol>
+
+                    <h6 class="fw-semibold">Recurring expenses (rent, salaries, monthly bills)</h6>
+                    <p>Instead of typing the same expense every month, set up a <strong>Recurring Template</strong> once (from the Expenses page) with an amount and how often it repeats (Monthly / Quarterly / Yearly). The system automatically creates the actual expense entry for you when it's due — you only need to open it and adjust the amount afterwards if the real bill was different (e.g. a variable electricity bill).</p>
+
+                    <h6 class="fw-semibold">Recording a therapist's salary/commission payout</h6>
+                    <p class="mb-0">Choose the <strong>Salaries &amp; Commission</strong> category, then pick the therapist — the form will show their computed commission figure as a helpful reference, but you always type in the actual amount paid, since real payouts can differ (advances, partial payments, etc.).</p>
+
+                    <div class="alert alert-danger mt-3">
+                        <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                        <strong>No editing after deleting.</strong> "Deleting" an expense doesn't erase it — it's marked <strong>Voided</strong> and kept for the record, but can never be edited or brought back. If you made a mistake, void the wrong entry and add a fresh, correct one.
+                    </div>
+
+                    <h6 class="fw-semibold mt-3">The Profit &amp; Loss report</h6>
+                    <p class="mb-0">Owners and Admins can open <strong>Profit &amp; Loss</strong> under Reports to see Net Revenue minus Total Expenses = Net Profit, broken down by expense category, with a month-by-month trend. It's also exportable to CSV/PDF like every other report.</p>
+                </div>
+            </div>
+
             <!-- Reports -->
             <div id="reports" class="card shadow-sm help-section">
                 <div class="card-header py-2 fw-semibold"><i class="bi bi-bar-chart-line me-1"></i>Reports</div>
                 <div class="card-body">
-                    <p>Click <strong>Reports</strong> in the top menu to see six report types. Each can be viewed on-screen, and downloaded as a <strong>CSV</strong> (for Excel) or a nicely formatted <strong>PDF</strong>, using the export buttons at the top of the report.</p>
+                    <p>Click <strong>Reports</strong> in the top menu to see seven report types. Each can be viewed on-screen, and downloaded as a <strong>CSV</strong> (for Excel) or a nicely formatted <strong>PDF</strong>, using the export buttons at the top of the report.</p>
 
                     <div class="table-responsive mb-3">
                         <table class="table table-sm table-hover">
@@ -468,13 +533,14 @@
                                 <tr><td class="fw-semibold">Patient Acquisition</td><td class="text-muted small">New vs. repeat patients, and how well you retain them.</td></tr>
                                 <tr><td class="fw-semibold">Product/Service Performance</td><td class="text-muted small">Your top-selling services, products, and tag categories.</td></tr>
                                 <tr><td class="fw-semibold">Actual Revenue</td><td class="text-muted small">The real money billed and collected, after discounts — the truest picture of clinic income.</td></tr>
+                                <tr><td class="fw-semibold">Profit &amp; Loss</td><td class="text-muted small">Net Revenue minus <a href="#expenses">Expenses</a> — what the clinic actually made. Owner/Admin only.</td></tr>
                             </tbody>
                         </table>
                     </div>
 
                     <div class="help-shot">
                         <i class="bi bi-image fs-3"></i>
-                        <div class="cap">[Screenshot: Reports home page showing all six report cards]</div>
+                        <div class="cap">[Screenshot: Reports home page showing all seven report cards]</div>
                     </div>
 
                     <div class="alert alert-warning">

@@ -12,9 +12,41 @@
 
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="section-header mb-0">Services / Treatments</h4>
-        <a th:if="${@perm.has('SERVICES','CREATE')}" th:href="@{/services/new}" class="btn btn-hh btn-sm">
-            <i class="bi bi-plus-lg me-1"></i>New Service
-        </a>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-download btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#downloadModal">
+                <i class="bi bi-download me-1"></i>Download
+            </button>
+            <button th:if="${@perm.has('SERVICES','CREATE')}" type="button" class="btn btn-outline-secondary btn-sm"
+                    data-bs-toggle="modal" data-bs-target="#uploadCsvModal">
+                <i class="bi bi-upload me-1"></i>Upload CSV
+            </button>
+            <a th:if="${@perm.has('SERVICES','CREATE')}" th:href="@{/services/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Service
+            </a>
+        </div>
+    </div>
+
+    <!-- CSV import result detail (only rendered when a row was skipped or errored; the success/error banner above already shows the summary counts) -->
+    <div th:if="${importResult != null and (importResult.skippedCount > 0 or importResult.errorCount > 0)}"
+         class="alert alert-warning mb-3">
+        <div class="fw-semibold mb-2"><i class="bi bi-info-circle me-1"></i>Rows needing attention:</div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Row</th><th>Name</th><th>Status</th><th>Reason</th></tr></thead>
+                <tbody>
+                    <tr th:each="r : ${importResult.rows}" th:if="${r.status.name() != 'SUCCESS'}">
+                        <td th:text="${r.rowNumber}"></td>
+                        <td th:text="${r.name}"></td>
+                        <td>
+                            <span class="badge" th:classappend="${r.status.name() == 'ERROR'} ? 'bg-danger' : 'bg-secondary'"
+                                  th:text="${r.status}"></span>
+                        </td>
+                        <td th:text="${r.message}"></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <!-- Search + Tag filter -->
@@ -184,6 +216,69 @@
                     <button type="submit" class="btn btn-danger">Delete Permanently</button>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Download Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="get">
+                <div class="modal-header">
+                    <h6 class="modal-title"><i class="bi bi-download me-2"></i>Download Service List</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="q" th:value="${q}"/>
+                    <input type="hidden" name="tag" th:value="${selectedTag}"/>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="includeInactive" value="true" id="includeInactiveCheck"/>
+                        <label class="form-check-label" for="includeInactiveCheck">Include inactive services</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" formaction="/services/export-csv" class="btn btn-outline-primary">
+                        <i class="bi bi-filetype-csv me-1"></i>CSV
+                    </button>
+                    <button type="submit" formaction="/services/export-pdf" class="btn btn-hh">
+                        <i class="bi bi-filetype-pdf me-1"></i>PDF
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Upload CSV Modal -->
+<div class="modal fade" id="uploadCsvModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form th:action="@{/services/import-csv}" method="post" enctype="multipart/form-data">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                <div class="modal-header">
+                    <h6 class="modal-title"><i class="bi bi-upload me-2"></i>Upload Services CSV</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">
+                        Columns (case-insensitive, any order): <code>name</code>, <code>description</code>,
+                        <code>durationMinutes</code>, <code>price</code>, <code>tags</code>, <code>active</code>.
+                        Only <code>name</code> and <code>price</code> are required. Multiple <code>tags</code>
+                        in one field are separated with <code>;</code>. A row whose name already exists is
+                        skipped, not overwritten.
+                    </p>
+                    <a th:href="@{/services/import-csv/template}" class="small">
+                        <i class="bi bi-download me-1"></i>Download CSV template
+                    </a>
+                    <input type="file" name="file" accept=".csv" class="form-control mt-3" required/>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-hh">Upload</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>

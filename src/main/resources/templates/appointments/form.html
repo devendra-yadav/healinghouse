@@ -168,7 +168,7 @@
                     <i class="bi bi-box-seam me-1"></i>Products
                     <span class="text-muted fw-normal small">(optional)</span>
                 </span>
-                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addProductRow()">
+                <button type="button" class="btn btn-sm btn-hh" onclick="addProductRow()">
                     <i class="bi bi-plus-lg me-1"></i>Add Product
                 </button>
             </div>
@@ -783,7 +783,11 @@ function onProductChange(sel) {
 function onProductQty(input) {
     const row = input.closest('.product-row');
     const p   = productMap[row.querySelector('.p-select').value];
-    if (p && parseInt(input.value) > p.stock) {
+    const qty = parseInt(input.value);
+    // parseInt('') is NaN, and 'NaN > p.stock' is always false — guarded explicitly rather than
+    // relying on that coincidence, so a cleared field is deliberately left alone (nothing to clamp
+    // to yet) instead of silently skipping the clamp for an unrelated reason.
+    if (p && !Number.isNaN(qty) && qty > p.stock) {
         input.value = p.stock;
         input.classList.add('is-invalid');
         setTimeout(() => input.classList.remove('is-invalid'), 1500);

@@ -62,7 +62,7 @@
                             </select>
                             <div class="form-text">
                                 Only active therapists not already linked to another account are shown.
-                                Required for the THERAPIST role — "my schedule/earnings" scoping resolves off this link.
+                                Required for the THERAPIST and THERAPIST_PLUS roles — "my schedule/earnings" scoping resolves off this link.
                             </div>
                         </div>
 
@@ -97,13 +97,13 @@
 <footer th:replace="~{fragments/layout :: footer}"></footer>
 <th:block th:replace="~{fragments/layout :: scripts}"/>
 <script>
-    // The therapist link is only meaningful (and only required) for the THERAPIST role — hidden
-    // for every other role rather than just disabled, so its "required"-looking label doesn't
-    // confuse someone creating an ADMIN/RECEPTIONIST account.
+    // The therapist link is only meaningful (and only required) for the THERAPIST and
+    // THERAPIST_PLUS roles — hidden for every other role rather than just disabled, so its
+    // "required"-looking label doesn't confuse someone creating an ADMIN/RECEPTIONIST account.
     const roleSelect = document.getElementById('roleSelect');
     const therapistGroup = document.getElementById('therapistLinkGroup');
     function toggleTherapistGroup() {
-        therapistGroup.style.display = roleSelect.value === 'THERAPIST' ? '' : 'none';
+        therapistGroup.style.display = (roleSelect.value === 'THERAPIST' || roleSelect.value === 'THERAPIST_PLUS') ? '' : 'none';
     }
     roleSelect.addEventListener('change', toggleTherapistGroup);
     toggleTherapistGroup();

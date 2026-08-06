@@ -1,0 +1,26 @@
+name,description,durationMinutes,price,tags,active
+TCM Consultation & Diagnosis,"A traditional Chinese medicine assessment that evaluates pulse, tongue, and symptoms to identify imbalances and create a personalized treatment plan.",,400,TCM;Commission,TRUE
+Acupuncture (TCM Needling therapy),"Fine sterile needles are inserted at specific points to restore energy flow, relieve pain, and support overall balance.",,1000,TCM;Commission,TRUE
+Dry Cupping Therapy,"Glass or silicone cups create suction on the skin to improve circulation, release muscle tension, and promote healing.",,699,TCM;Commission,TRUE
+Bleeding Cupping Therapy (Haijama),A form of wet cupping that combines suction with controlled bloodletting to remove stagnant blood and toxins.,,2000,TCM;Commission,TRUE
+Vacuum Therapy,"Uses controlled suction to stimulate circulation, reduce cellulite appearance, and support lymphatic drainage.",,1699,TCM;Commission,TRUE
+Foot ION Detox,An ionic foot bath that helps draw out impurities through the feet while promoting relaxation.,,1500,TCM;Commission,TRUE
+Head & Shoulder Massage,"Focused massage techniques that relieve tension in the neck, scalp, and shoulders to reduce stress and headaches.",30,1000,Massage;Bonus,TRUE
+Back Massage,"Targeted massage of the back muscles to ease stiffness, improve mobility, and promote relaxation.",30,800,Massage;Bonus,TRUE
+Leg & Feet Massage,"Soothing massage of the legs and feet that improves circulation, reduces swelling, and relieves tiredness.",30,800,Massage;Bonus,TRUE
+Foot Reflexology,Pressure applied to specific points on the feet that correspond to organs and systems throughout the body.,30,599,Massage;Bonus,TRUE
+Full Body Abhyanga Massage (Ayurvedic),"Warm herbal oil massage performed in rhythmic strokes to nourish the body, calm the mind, and balance doshas.",60,999,Massage;Bonus,TRUE
+Deep Tissue Massage,Firm pressure and slow strokes target deeper muscle layers to release chronic tension and adhesions.,60,1500,Massage;Bonus,TRUE
+Hot & Cold Therapy,"Alternating heat and cold applications to reduce inflammation, ease muscle soreness, and improve recovery.",30,699,Massage;Commission,TRUE
+Waterfall Halo Oil Spa,Warm oil is poured in a continuous stream over the forehead to deeply relax the mind and nervous system.,,1500,Commission,TRUE
+LED Light Face Therapy,"Specific wavelengths of light are used to support skin healing, reduce inflammation, and improve complexion.",,499,Commission,TRUE
+Face Lift Acupuncture,"Fine needles are placed on facial points to stimulate collagen, tighten skin, and create a natural lifting effect.",,2500,Commission,TRUE
+Mask Face Harmonization,"A customized facial mask applied to hydrate, balance, and rejuvenate the skin for a clearer, glowing look.",,899,Commission,TRUE
+Korean Facial Skin Care,"Multi-step Korean skincare techniques focused on deep cleansing, hydration, and achieving a healthy glass-skin glow.",,3499,Commission,TRUE
+Flower Remedy (Consultation + Remedy),"A gentle emotional wellness approach using flower essences, guided by a consultation to select the right remedies.",,900,Commission,TRUE
+Foot Crack Remover Therapy,"Removes dead skin, reduce cracks, prevent further damage, soft smoot and healthy feet",,699,Commission,TRUE
+Laser & UltraSound Machine,For pain relief,30,699,Commission,TRUE
+Tense Machine,For pain relief,30,500,Commission,TRUE
+Hydra Foot Reflexology,Foot reflexology + Crack Removal + Hydra foot spa,60,1499,Commission,TRUE
+Foot Reflexology Machine,Flexology with only machine. Nothing manual ,30,500,Commission,TRUE
+Red Light Therapy Mat,It help the body to get rid of inflammation and pain source,30,500,Commission,TRUE

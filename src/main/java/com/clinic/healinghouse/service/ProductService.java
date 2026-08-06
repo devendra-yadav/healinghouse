@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.service;
 
+import com.clinic.healinghouse.dto.CsvImportResultDTO;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Tag;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
@@ -7,6 +8,8 @@ import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.PackageTemplateRepository;
 import com.clinic.healinghouse.repository.PatientPackageProductItemRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import com.clinic.healinghouse.util.CsvImportUtil;
+import com.opencsv.exceptions.CsvValidationException;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +18,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -32,7 +39,9 @@ public class ProductService {
     private final ComboRepository comboRepository;
     private final ComboService comboService;
     private final PackageTemplateRepository packageTemplateRepository;
+    private final PackageTemplateService packageTemplateService;
     private final PatientPackageProductItemRepository patientPackageProductItemRepository;
+    private final CsvImportUtil csvImportUtil;
 
     @Transactional(readOnly = true)
     public List<Product> findAll() {
@@ -104,17 +113,78 @@ public class ProductService {
     }
 
     /**
+     * Best-effort bulk import — expects headers {@code name, description, price, stockQuantity,
+     * reorderLevel, tags, active} (case-insensitive, any order; only name and price are required).
+     * Same per-row skip/error semantics as {@link com.clinic.healinghouse.service.TreatmentService#importFromCsv}
+     * — see that method's javadoc for the duplicate-name and best-effort rationale.
+     */
+    public CsvImportResultDTO importFromCsv(MultipartFile file) {
+        List<CsvImportUtil.CsvRow> rows;
+        try {
+            rows = csvImportUtil.readRows(file);
+        } catch (IOException | CsvValidationException e) {
+            throw new IllegalArgumentException("Could not read CSV file: " + e.getMessage());
+        }
+
+        List<CsvImportResultDTO.RowResult> results = new ArrayList<>();
+        int success = 0, skipped = 0, errors = 0;
+        for (CsvImportUtil.CsvRow row : rows) {
+            String name = row.get("name") == null ? "" : row.get("name").trim();
+            try {
+                if (!StringUtils.hasText(name)) {
+                    throw new IllegalArgumentException("Name is required");
+                }
+                if (productRepository.existsByNameIgnoreCase(name)) {
+                    results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                            CsvImportResultDTO.RowStatus.SKIPPED, "A product named \"" + name + "\" already exists"));
+                    skipped++;
+                    continue;
+                }
+                BigDecimal price = CsvImportUtil.parsePrice(row.get("price"));
+                int stockQuantity = CsvImportUtil.parseOptionalNonNegativeInt(row.get("stockquantity"), 0, "stockQuantity");
+                int reorderLevel = CsvImportUtil.parseOptionalNonNegativeInt(row.get("reorderlevel"), 5, "reorderLevel");
+                boolean active = CsvImportUtil.parseActive(row.get("active"));
+                List<String> tagNames = CsvImportUtil.parseTags(row.get("tags"));
+                String description = StringUtils.hasText(row.get("description")) ? row.get("description").trim() : null;
+
+                Product product = Product.builder()
+                        .name(name)
+                        .description(description)
+                        .price(price)
+                        .stockQuantity(stockQuantity)
+                        .reorderLevel(reorderLevel)
+                        .active(active)
+                        .build();
+                save(product, tagNames);
+                results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                        CsvImportResultDTO.RowStatus.SUCCESS, "Created"));
+                success++;
+            } catch (Exception e) {
+                results.add(new CsvImportResultDTO.RowResult(row.rowNumber(), name,
+                        CsvImportResultDTO.RowStatus.ERROR, e.getMessage()));
+                errors++;
+            }
+        }
+        log.info("Product CSV import: {} rows, {} created, {} skipped, {} errors", rows.size(), success, skipped, errors);
+        return new CsvImportResultDTO(rows.size(), success, skipped, errors, results);
+    }
+
+    /**
      * Deactivating never touches any existing appointment — line items snapshot price/therapist at
      * booking time and are fully decoupled from the live catalog. It does strip this product out of
-     * any combo that bundles it (see {@link ComboService#handleProductDeactivated}), since a combo's
-     * price is always live-computed and a combo can't keep offering an item that's no longer bookable.
+     * any combo that bundles it (see {@link ComboService#handleProductDeactivated}) and any package
+     * template that bundles it (see {@link PackageTemplateService#handleProductDeactivated},
+     * Bug_Report_v6.md Finding 9), since both a combo's and a template's price are always
+     * live-computed and neither can keep offering an item that's no longer bookable. Returns a
+     * combined flash-message suffix describing both impacts.
      */
-    public ComboService.CatalogItemRemovalResult deactivate(Long id) {
+    public String deactivate(Long id) {
         Product product = getById(id);
         product.setActive(false);
         productRepository.save(product);
         log.info("Deactivated product id={} name='{}'", product.getId(), product.getName());
-        return comboService.handleProductDeactivated(id);
+        return comboService.handleProductDeactivated(id).describe()
+                + packageTemplateService.handleProductDeactivated(id).describe();
     }
 
     public void activate(Long id) {

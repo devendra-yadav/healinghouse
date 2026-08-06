@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Expenses')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Expenses</h4>
+        <div class="d-flex gap-2">
+            <a th:href="@{/expenses/recurring}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-arrow-repeat me-1"></i>Recurring Templates
+            </a>
+            <a th:if="${@perm.has('EXPENSES','CREATE')}" th:href="@{/expenses/new}" class="btn btn-hh btn-sm">
+                <i class="bi bi-plus-lg me-1"></i>New Expense
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+        <div class="card-body">
+            <form th:action="@{/expenses}" method="get" class="row g-2 align-items-end">
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" th:value="${dateFrom}" class="form-control form-control-sm"/>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" th:value="${dateTo}" class="form-control form-control-sm"/>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Category</label>
+                    <select name="categoryId" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="c : ${categories}" th:value="${c.id}" th:text="${c.name}"
+                                th:selected="${c.id == categoryId}"></option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Vendor</label>
+                    <input type="text" name="vendorName" th:value="${vendorName}" class="form-control form-control-sm"/>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label small mb-1">Payment Method</label>
+                    <select name="paymentMethod" class="form-select form-select-sm">
+                        <option value="">All</option>
+                        <option th:each="pm : ${paymentMethods}" th:value="${pm}" th:text="${pm}"
+                                th:selected="${pm == paymentMethod}"></option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2 d-flex gap-2">
+                    <button type="submit" class="btn btn-sm btn-hh w-100">
+                        <i class="bi bi-search me-1"></i>Filter
+                    </button>
+                </div>
+                <div class="col-12">
+                    <div class="form-check form-switch mt-2">
+                        <input type="checkbox" class="form-check-input" name="showVoided" value="true"
+                               th:checked="${showVoided}" onchange="this.form.submit()"/>
+                        <label class="form-check-label small">Show Voided</label>
+                    </div>
+                </div>
+            </form>
+            <div class="d-flex gap-1 mt-2 justify-content-end">
+                <a th:href="@{/expenses/export-csv(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided})}"
+                   class="btn btn-sm btn-outline-download" title="Export as CSV">
+                    <i class="bi bi-file-earmark-csv"></i> CSV
+                </a>
+                <a th:href="@{/expenses/export-pdf(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided})}"
+                   class="btn btn-sm btn-outline-download" title="Export as PDF">
+                    <i class="bi bi-file-earmark-pdf"></i> PDF
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Label</th>
+                            <th>Category</th>
+                            <th class="text-end">Amount (₹)</th>
+                            <th>Vendor</th>
+                            <th>Payment</th>
+                            <th>Recorded By</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${expenses.empty}">
+                            <td colspan="9" class="text-center text-muted py-4">No expenses found.</td>
+                        </tr>
+                        <tr th:each="e : ${expenses}">
+                            <td th:text="${e.expenseDate}"></td>
+                            <td th:text="${e.label} ?: '—'"></td>
+                            <td th:text="${e.categoryName}"></td>
+                            <td class="text-end fw-semibold" th:text="|₹ ${#numbers.formatDecimal(e.amount, 1, 2)}|"></td>
+                            <td th:text="${e.vendorName} ?: '—'"></td>
+                            <td th:text="${e.paymentMethod} ?: '—'"></td>
+                            <td class="text-muted small" th:text="${e.recordedByUsername}"></td>
+                            <td class="text-center">
+                                <span th:if="${e.status.name() == 'VOIDED'}" class="badge bg-secondary">Voided</span>
+                                <span th:unless="${e.status.name() == 'VOIDED'}" class="badge bg-success">Active</span>
+                                <span th:if="${e.recurring}" class="badge bg-info text-dark ms-1">Recurring</span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:if="${@perm.has('EXPENSES','EDIT') and e.status.name() != 'VOIDED'}"
+                                   th:href="@{/expenses/{id}/edit(id=${e.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger"
+                                        th:if="${@perm.has('EXPENSES','DELETE') and e.status.name() != 'VOIDED'}"
+                                        data-bs-toggle="modal" data-bs-target="#voidModal"
+                                        th:attr="data-url=@{/expenses/{id}/void(id=${e.id})}">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${expenses.totalElements} + ' expense(s)'"></span>
+            <div th:if="${expenses.totalPages > 1}" class="d-flex align-items-center gap-2">
+                <span class="text-muted small" th:text="'Page ' + (${expenses.number} + 1) + ' of ' + ${expenses.totalPages}"></span>
+                <div class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary" th:classappend="${!expenses.hasPrevious()} ? 'disabled'"
+                       th:href="@{/expenses(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided},page=${expenses.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary" th:classappend="${!expenses.hasNext()} ? 'disabled'"
+                       th:href="@{/expenses(dateFrom=${dateFrom},dateTo=${dateTo},categoryId=${categoryId},vendorName=${vendorName},paymentMethod=${paymentMethod},showVoided=${showVoided},page=${expenses.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Void Confirmation Modal -->
+<div class="modal fade" id="voidModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Confirm Void</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Void this expense? Once voided it can no longer be edited — record a new corrected entry if needed.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="voidForm" method="post">
+                    <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/>
+                    <button type="submit" class="btn btn-danger">Void</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script>
+    document.getElementById('voidModal').addEventListener('show.bs.modal', function (e) {
+        document.getElementById('voidForm').action = e.relatedTarget.dataset.url;
+    });
+</script>
+</body>
+</html>

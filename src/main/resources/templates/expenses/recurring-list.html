@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Expenses')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/expenses}">Expenses</a></li>
+            <li class="breadcrumb-item active">Recurring Templates</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="section-header mb-0">Recurring Expense Templates</h4>
+        <a th:if="${@perm.has('EXPENSES','CREATE')}" th:href="@{/expenses/recurring/new}" class="btn btn-hh btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Recurring Template
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Label</th>
+                            <th>Category</th>
+                            <th class="text-end">Default Amount (₹)</th>
+                            <th>Frequency</th>
+                            <th>Next Due</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr th:if="${templates.empty}">
+                            <td colspan="7" class="text-center text-muted py-4">No recurring templates found.</td>
+                        </tr>
+                        <tr th:each="t : ${templates}">
+                            <td class="fw-semibold" th:text="${t.label}"></td>
+                            <td th:text="${t.category.name}"></td>
+                            <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(t.defaultAmount, 1, 2)}|"></td>
+                            <td th:text="${t.frequency}"></td>
+                            <td th:text="${t.nextDueDate}"></td>
+                            <td class="text-center">
+                                <span th:if="${t.active}" class="badge bg-success">Active</span>
+                                <span th:unless="${t.active}" class="badge bg-secondary">Paused</span>
+                            </td>
+                            <td class="text-center text-nowrap">
+                                <a th:if="${@perm.has('EXPENSES','EDIT')}" th:href="@{/expenses/recurring/{id}/edit(id=${t.id})}"
+                                   class="btn btn-sm btn-outline-primary me-1">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form th:if="${t.active and @perm.has('EXPENSES','EDIT')}" th:action="@{/expenses/recurring/{id}/pause(id=${t.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pause"></i></button>
+                                </form>
+                                <form th:if="${!t.active and @perm.has('EXPENSES','EDIT')}" th:action="@{/expenses/recurring/{id}/resume(id=${t.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-success"><i class="bi bi-play"></i></button>
+                                </form>
+                                <form th:if="${@perm.has('EXPENSES','CREATE')}" th:action="@{/expenses/recurring/{id}/generate-now(id=${t.id})}"
+                                      method="post" class="d-inline">
+                                    <button type="submit" class="btn btn-sm btn-outline-info" title="Generate Now">
+                                        <i class="bi bi-lightning-charge"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="text-muted small" th:text="${templates.totalElements} + ' template(s) total'"></span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select form-select-sm" style="width:auto;"
+                        onchange="location.href=this.value">
+                    <option th:each="s : ${ {10,20,50,100} }"
+                            th:value="@{/expenses/recurring(size=${s},page=0)}"
+                            th:selected="${s == templates.size}"
+                            th:text="${s} + ' / page'">
+                    </option>
+                </select>
+                <span th:if="${templates.totalPages > 1}" class="text-muted small"
+                      th:text="'Page ' + (${templates.number} + 1) + ' of ' + ${templates.totalPages}">
+                </span>
+                <div th:if="${templates.totalPages > 1}" class="btn-group btn-group-sm">
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!templates.hasPrevious()} ? 'disabled'"
+                       th:href="@{/expenses/recurring(size=${templates.size},page=${templates.number - 1})}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                    <a class="btn btn-outline-secondary"
+                       th:classappend="${!templates.hasNext()} ? 'disabled'"
+                       th:href="@{/expenses/recurring(size=${templates.size},page=${templates.number + 1})}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

@@ -68,6 +68,24 @@
                                 </td>
                                 <td th:text="${therapist.createdAt != null ? #temporals.format(therapist.createdAt, 'dd MMM yyyy') : '—'}"></td>
                             </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-credit-card-2-front me-1"></i>Aadhaar
+                                </td>
+                                <td th:text="${therapist.aadhaarNumber ?: '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-credit-card me-1"></i>PAN
+                                </td>
+                                <td th:text="${therapist.panNumber ?: '—'}"></td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted ps-0">
+                                    <i class="bi bi-geo-alt me-1"></i>Address
+                                </td>
+                                <td style="white-space:pre-wrap" th:text="${therapist.address ?: '—'}"></td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -132,7 +150,7 @@
                     <input type="date" name="dateTo" class="form-control form-control-sm"
                            th:value="${selectedDateTo}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small mb-1">Status</label>
                     <select name="status" class="form-select form-select-sm">
                         <option value="">All</option>
@@ -147,10 +165,14 @@
                     <input type="text" name="patientName" class="form-control form-control-sm"
                            placeholder="Search by patient name" th:value="${selectedPatientName}">
                 </div>
-                <div class="col-md-2 d-flex gap-1">
+                <div class="col-md-3 d-flex gap-1">
                     <button type="submit" class="btn btn-sm btn-hh flex-fill">
                         <i class="bi bi-search"></i> Filter
                     </button>
+                    <a th:href="@{/therapists/{id}(id=${therapist.id},dateFrom=${T(java.time.LocalDate).now()},dateTo=${T(java.time.LocalDate).now()})}"
+                       class="btn btn-sm btn-outline-primary" title="Show today's earnings and appointments">
+                        Today
+                    </a>
                     <a th:href="@{/therapists/{id}(id=${therapist.id})}" class="btn btn-sm btn-outline-secondary">
                         <i class="bi bi-x"></i>
                     </a>
@@ -341,7 +363,7 @@
                                       th:classappend="${a.status.name() == 'COMPLETED'} ? 'bg-success' :
                                                       (${a.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
                                                       (${a.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
-                                                                                            'bg-primary'))">
+                                                                                            'badge-scheduled'))">
                                 </span>
                             </td>
                             <td class="text-center text-nowrap">

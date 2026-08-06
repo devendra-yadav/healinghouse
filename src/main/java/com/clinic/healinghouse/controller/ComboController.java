@@ -2,6 +2,7 @@ package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.ComboDetailDTO;
+import com.clinic.healinghouse.dto.ComboExportRowDTO;
 import com.clinic.healinghouse.dto.ComboForm;
 import com.clinic.healinghouse.dto.ComboSearchResultDTO;
 import com.clinic.healinghouse.entity.Combo;
@@ -11,11 +12,15 @@ import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.ComboService;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -24,6 +29,8 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.List;
 
 @Controller
@@ -36,6 +43,8 @@ public class ComboController {
     private final ProductRepository productRepository;
     private final HealingHouseProperties properties;
     private final PaginationUtil paginationUtil;
+    private final CsvExportUtil csvExportUtil;
+    private final PdfExportUtil pdfExportUtil;
 
     @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
     @GetMapping
@@ -55,6 +64,45 @@ public class ComboController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Combos");
         return "combos/list";
+    }
+
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
+        String csv = csvExportUtil.generateComboListCsv(exportRows(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=combos-" + LocalDate.now() + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.COMBOS, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
+        byte[] pdf = pdfExportUtil.generateComboListPdf(exportRows(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=combos-" + LocalDate.now() + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    /** Mirrors {@link #list}'s own filter precedence, unpaged; {@code includeInactive} then strips
+     *  out inactive rows unless explicitly requested — export defaults to active-only. */
+    private List<ComboExportRowDTO> exportRows(String q, boolean includeInactive) {
+        List<Combo> combos = StringUtils.hasText(q)
+                ? comboService.search(q, Pageable.unpaged()).getContent()
+                : (includeInactive ? comboService.findAllIncludingInactive(Pageable.unpaged()).getContent() : comboService.findAllActive());
+        if (!includeInactive) {
+            combos = combos.stream().filter(Combo::isActive).toList();
+        }
+        return combos.stream().map(c -> {
+            java.math.BigDecimal original = comboService.computeOriginalPrice(c);
+            java.math.BigDecimal comboPrice = comboService.computeComboPrice(c);
+            return new ComboExportRowDTO(c.getName(), c.getDescription(), comboService.buildItemsSummary(c),
+                    original, comboPrice, original.subtract(comboPrice), c.isActive());
+        }).toList();
     }
 
     @RequiresPermission(module = Module.COMBOS, action = PermissionAction.CREATE)

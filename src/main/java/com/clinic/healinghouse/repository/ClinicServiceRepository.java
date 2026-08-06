@@ -29,4 +29,6 @@ public interface ClinicServiceRepository extends JpaRepository<ClinicService, Lo
     List<ClinicService> findByTagsId(Long tagId);
 
     long countByTagsId(Long tagId);
+
+    boolean existsByNameIgnoreCase(String name);
 }

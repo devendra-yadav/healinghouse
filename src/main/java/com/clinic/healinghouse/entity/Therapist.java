@@ -3,8 +3,10 @@ package com.clinic.healinghouse.entity;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -32,9 +34,22 @@ public class Therapist {
 
     private String specialization;
 
+    @Pattern(regexp = "^$|^[0-9+()\\-\\s]{7,20}$", message = "Enter a valid phone number.")
     private String phone;
 
+    @Email(message = "Enter a valid email address.")
     private String email;
+
+    @Pattern(regexp = "^$|^[0-9]{12}$", message = "Aadhaar number must be 12 digits.")
+    @Column(length = 12)
+    private String aadhaarNumber;
+
+    @Pattern(regexp = "^$|^[A-Z]{5}[0-9]{4}[A-Z]$", message = "Enter a valid PAN (e.g. ABCDE1234F).")
+    @Column(length = 10)
+    private String panNumber;
+
+    @Column(columnDefinition = "TEXT")
+    private String address;
 
     /** Typically 0 or null for the owner — no salary calculation applies to them (see {@code owner}). */
     @DecimalMin(value = "0", message = "Fixed monthly salary cannot be negative.")
@@ -71,9 +86,8 @@ public class Therapist {
      * (the old behavior): a brand-new therapist saved before her payout terms are configured would
      * otherwise be indistinguishable from the owner and silently earn ₹0 commission. Defaults to
      * false, so every new therapist is a normal payout-earning therapist unless explicitly marked.
-     * DB default is 0/false at the column level (existing rows backfill to non-owner automatically);
-     * {@code config.OwnerFlagBackfill} does a one-time, idempotent fix-up of the pre-existing owner
-     * row in databases that were seeded before this column existed.
+     * Set exclusively via the "This therapist is the owner" checkbox on {@code therapists/form.html}
+     * (create and edit) — no automatic/background process infers or re-flags this value.
      */
     @Builder.Default
     @Column(nullable = false, columnDefinition = "TINYINT(1) NOT NULL DEFAULT 0")

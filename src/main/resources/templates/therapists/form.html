@@ -66,6 +66,32 @@
                             </div>
                         </div>
 
+                        <!-- Row 3: Aadhaar + PAN -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Aadhaar Number</label>
+                                <input type="text" th:field="*{aadhaarNumber}" class="form-control"
+                                       th:classappend="${#fields.hasErrors('aadhaarNumber')} ? 'is-invalid'"
+                                       maxlength="12" placeholder="optional — 12 digits"/>
+                                <div class="invalid-feedback" th:errors="*{aadhaarNumber}"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">PAN Number</label>
+                                <input type="text" th:field="*{panNumber}" class="form-control text-uppercase"
+                                       th:classappend="${#fields.hasErrors('panNumber')} ? 'is-invalid'"
+                                       maxlength="10" style="text-transform:uppercase"
+                                       placeholder="optional — e.g. ABCDE1234F"/>
+                                <div class="invalid-feedback" th:errors="*{panNumber}"></div>
+                            </div>
+                        </div>
+
+                        <!-- Address -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Address</label>
+                            <textarea th:field="*{address}" class="form-control"
+                                      rows="2" placeholder="optional"></textarea>
+                        </div>
+
                         <hr class="my-4"/>
                         <h6 class="section-header mb-3">Payout Configuration</h6>
 

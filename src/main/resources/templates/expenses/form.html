@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Expenses')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/expenses}">Expenses</a></li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0" th:text="${pageTitle}"></h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+                    <form th:action="${expenseForm.id == null} ? @{/expenses} : @{/expenses/{id}(id=${expenseForm.id})}"
+                          th:object="${expenseForm}" method="post">
+                        <input type="hidden" th:field="*{id}"/>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Label</label>
+                            <input type="text" th:field="*{label}" class="form-control" placeholder="e.g. Clinic decoration, AC repair, Buy something (optional)"/>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                                <select id="categorySelect" th:field="*{categoryId}" class="form-select">
+                                    <option value="">Select a category…</option>
+                                    <option th:each="c : ${allCategories}" th:value="${c.id}" th:text="${c.name}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Date <span class="text-danger">*</span></label>
+                                <input type="date" th:field="*{expenseDate}" class="form-control"/>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Amount (₹) <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" th:field="*{amount}" class="form-control" step="0.01" min="0.01" placeholder="0.00"/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Payment Method</label>
+                                <select th:field="*{paymentMethod}" class="form-select">
+                                    <option value="">—</option>
+                                    <option th:each="pm : ${paymentMethods}" th:value="${pm}" th:text="${pm}"></option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Vendor</label>
+                            <input type="text" th:field="*{vendorName}" class="form-control" placeholder="Shop/supplier name (optional)"/>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Notes</label>
+                            <textarea th:field="*{notes}" class="form-control" rows="2" placeholder="optional"></textarea>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">
+                            <a th:href="@{/expenses}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-hh">
+                                <i class="bi bi-check-lg me-1"></i>Save Expense
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>

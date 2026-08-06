@@ -11,18 +11,23 @@ import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.*;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import com.clinic.healinghouse.util.SafeRedirectUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -45,6 +50,8 @@ public class AppointmentController {
     private final ComboService       comboService;
     private final PaginationUtil     paginationUtil;
     private final PermissionService  permissionService;
+    private final CsvExportUtil      csvExportUtil;
+    private final PdfExportUtil      pdfExportUtil;
 
     // ── List ──────────────────────────────────────────────────────────────
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
@@ -84,6 +91,50 @@ public class AppointmentController {
         model.addAttribute("selectedPatientName",patientName);
         model.addAttribute("pageTitle", "Appointments");
         return "appointments/list";
+    }
+
+    // ── Export ────────────────────────────────────────────────────────────
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String status,
+                                            @RequestParam(required = false) Long therapistId,
+                                            @RequestParam(required = false)
+                                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                                            @RequestParam(required = false)
+                                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                                            @RequestParam(required = false) String patientName) throws java.io.IOException {
+        String csv = csvExportUtil.generateAppointmentListCsv(exportList(status, therapistId, dateFrom, dateTo, patientName));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=appointments-" + LocalDate.now() + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String status,
+                                            @RequestParam(required = false) Long therapistId,
+                                            @RequestParam(required = false)
+                                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                                            @RequestParam(required = false)
+                                            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                                            @RequestParam(required = false) String patientName) throws Exception {
+        byte[] pdf = pdfExportUtil.generateAppointmentListPdf(exportList(status, therapistId, dateFrom, dateTo, patientName));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=appointments-" + LocalDate.now() + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    /** Mirrors {@link #list}'s own filter precedence, unpaged. */
+    private List<Appointment> exportList(String status, Long therapistId, LocalDate dateFrom, LocalDate dateTo, String patientName) {
+        AppointmentStatus statusEnum = null;
+        if (status != null && !status.isBlank()) {
+            try {
+                statusEnum = AppointmentStatus.valueOf(status.trim());
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName);
     }
 
     // ── New form ──────────────────────────────────────────────────────────
@@ -289,7 +340,6 @@ public class AppointmentController {
     public String update(@PathVariable Long id,
                          @ModelAttribute("form") AppointmentForm form,
                          @RequestParam(required = false) String returnUrl,
-                         @RequestParam(defaultValue = "false") boolean forceSave,
                          Model model,
                          RedirectAttributes ra) {
         enforceOwnAppointmentForTherapist(id);
@@ -297,13 +347,8 @@ public class AppointmentController {
         String suffix = (returnUrl != null && !returnUrl.isBlank())
                 ? "?returnUrl=" + java.net.URLEncoder.encode(returnUrl, java.nio.charset.StandardCharsets.UTF_8)
                 : "";
-        if (!forceSave) {
-            List<TherapistConflictDTO> conflicts = appointmentService.findConflicts(form, id);
-            if (!conflicts.isEmpty()) {
-                model.addAttribute("conflicts", conflicts);
-                return renderAppointmentFormWithError(model, form, null, true, id, returnUrl);
-            }
-        }
+        // No conflict check here: the conflict warning/"Save anyway" decision was already made
+        // at creation time (see save()); re-warning on every subsequent edit is redundant.
         try {
             appointmentService.updateAppointment(id, form);
             ra.addFlashAttribute("successMessage", "Appointment #" + id + " updated successfully.");

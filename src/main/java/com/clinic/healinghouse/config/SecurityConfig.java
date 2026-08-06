@@ -3,6 +3,7 @@ package com.clinic.healinghouse.config;
 import com.clinic.healinghouse.security.LoginRateLimitFilter;
 import com.clinic.healinghouse.security.MdcUserContextFilter;
 import com.clinic.healinghouse.security.MustChangePasswordFilter;
+import com.clinic.healinghouse.security.TherapistStepUpAuthFilter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -91,6 +92,10 @@ public class SecurityConfig {
             // Runs once a request is authenticated — redirects to /account/change-password while
             // User.mustChangePassword is still true (see MustChangePasswordFilter's javadoc).
             .addFilterAfter(new MustChangePasswordFilter(), UsernamePasswordAuthenticationFilter.class)
+            // Step-up re-auth for THERAPIST/THERAPIST_PLUS viewing their own "Therapists" page on a
+            // shared clinic computer — see TherapistStepUpAuthFilter's javadoc. Ordered after
+            // MustChangePasswordFilter so a forced password change always takes priority.
+            .addFilterAfter(new TherapistStepUpAuthFilter(), MustChangePasswordFilter.class)
             // Populates MDC with the current user/role so every log line for this request shows
             // "who" — see MdcUserContextFilter's javadoc.
             .addFilterAfter(new MdcUserContextFilter(), UsernamePasswordAuthenticationFilter.class)

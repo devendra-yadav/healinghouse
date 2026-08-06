@@ -99,6 +99,30 @@ class UserServiceTests {
         assertThat(saved.isActive()).isTrue();
     }
 
+    // ── THERAPIST_PLUS requires the same therapist linkage as THERAPIST (requirements/
+    // Expenses_Requirements_v1.md §3.4) ──
+
+    @Test
+    void createThrowsWhenTherapistPlusRoleHasNoLinkedTherapist() {
+        assertThatThrownBy(() -> userService.create(formFor(AppRole.THERAPIST_PLUS, null, "password1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must be linked to a therapist");
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    void createSucceedsWithValidTherapistLinkageForTherapistPlus() {
+        when(userRepository.findByTherapistId(5L)).thenReturn(Optional.empty());
+        when(userRepository.findByUsernameIgnoreCase("priya")).thenReturn(Optional.empty());
+        when(therapistRepository.findById(5L)).thenReturn(Optional.of(therapist(5L)));
+        when(userRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        User saved = userService.create(formFor(AppRole.THERAPIST_PLUS, 5L, "password1"));
+
+        assertThat(saved.getRole()).isEqualTo(AppRole.THERAPIST_PLUS);
+        assertThat(saved.getTherapist().getId()).isEqualTo(5L);
+    }
+
     // ── Create: duplicate username / weak password ──
 
     @Test
@@ -209,5 +233,31 @@ class UserServiceTests {
         var available = userService.getAvailableTherapistsForLinking(50L);
 
         assertThat(available).extracting(Therapist::getId).containsExactly(1L);
+    }
+
+    // ── verifyOwnPassword — step-up re-auth check (TherapistStepUpAuthFilter) ──
+
+    @Test
+    void verifyOwnPasswordReturnsTrueOnMatch() {
+        User user = User.builder().id(9L).passwordHash("hashed").build();
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correct", "hashed")).thenReturn(true);
+
+        assertThat(userService.verifyOwnPassword(9L, "correct")).isTrue();
+    }
+
+    @Test
+    void verifyOwnPasswordReturnsFalseOnMismatch() {
+        User user = User.builder().id(9L).passwordHash("hashed").build();
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThat(userService.verifyOwnPassword(9L, "wrong")).isFalse();
+    }
+
+    @Test
+    void verifyOwnPasswordReturnsFalseWhenPasswordIsNull() {
+        assertThat(userService.verifyOwnPassword(9L, null)).isFalse();
+        verify(userRepository, never()).findById(any());
     }
 }

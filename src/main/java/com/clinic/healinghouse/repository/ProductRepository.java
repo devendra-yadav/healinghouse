@@ -33,6 +33,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
 
     long countByTagsId(Long tagId);
 
+    boolean existsByNameIgnoreCase(String name);
+
     @Query("SELECT p FROM Product p WHERE p.active = true AND p.stockQuantity <= p.reorderLevel ORDER BY p.stockQuantity ASC")
     List<Product> findLowStockProducts();
 

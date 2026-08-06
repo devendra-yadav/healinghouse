@@ -1,10 +1,12 @@
 package com.clinic.healinghouse.config;
 
 import com.clinic.healinghouse.entity.AppRole;
+import com.clinic.healinghouse.entity.ExpenseCategory;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.RolePermission;
 import com.clinic.healinghouse.entity.User;
+import com.clinic.healinghouse.repository.ExpenseCategoryRepository;
 import com.clinic.healinghouse.repository.RolePermissionRepository;
 import com.clinic.healinghouse.repository.UserRepository;
 import com.clinic.healinghouse.security.PermissionService;
@@ -28,7 +30,8 @@ import static com.clinic.healinghouse.entity.PermissionAction.*;
  * users and zero RolePermission rows, so without this there would be no way to log in, and every
  * @RequiresPermission check would deny everyone once Phase B's enforcement went live.
  * Always-on (not @Profile-gated like DataSeeder) — test/preprod/prod all need this seed exactly
- * like dev does, mirroring OwnerFlagBackfill's always-on, idempotent one-time-fixup pattern.
+ * like dev does, same always-on idempotent one-time-fixup pattern as the other self-healing
+ * config/ runners.
  * Deliberately fails startup with a clear message rather than seeding a guessable default password
  * — HEALING_HOUSE_OWNER_PASSWORD is required in every profile, dev included (§11 decision, §7 dev note).
  */
@@ -39,6 +42,7 @@ public class SecuritySeeder implements CommandLineRunner {
 
     private final UserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
+    private final ExpenseCategoryRepository expenseCategoryRepository;
     private final PasswordEncoder passwordEncoder;
     private final HealingHouseProperties properties;
     private final PermissionService permissionService;
@@ -54,7 +58,12 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillTherapistWalletAndPackageCreate();
         backfillTherapistWalletAndPackageApprove();
         revokeReportsForNonAdminRoles();
+        backfillOwnerAdminExpenseModules();
+        backfillTherapistPlusPermissions();
+        backfillAuditLogPermission();
         backfillFullAccessMatrix();
+        seedExpenseCategories();
+        splitSalariesAndCommissionCategory();
         // PermissionService's own @PostConstruct cache load already ran (and found an empty table)
         // before this CommandLineRunner executes — Spring always finishes all @PostConstruct calls
         // before invoking any CommandLineRunner, regardless of runner order. Without this, a
@@ -122,8 +131,12 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, OWNER, WALLET, VIEW, CREATE, APPROVE);
         grant(defaults, OWNER, REPORTS_STANDARD, VIEW, EXPORT);
         grant(defaults, OWNER, REPORTS_REVENUE, VIEW, EXPORT);
+        grant(defaults, OWNER, REPORTS_PROFIT_LOSS, VIEW, EXPORT);
+        grant(defaults, OWNER, EXPENSE_CATEGORIES, VIEW, CREATE, EDIT, DELETE, APPROVE);
+        grant(defaults, OWNER, EXPENSES, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, USER_MANAGEMENT, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, ACCESS_MATRIX, VIEW, EDIT);
+        grant(defaults, OWNER, AUDIT_LOG, VIEW);
 
         // ── ADMIN — same operational access as OWNER; Access Matrix is read-only ──
         // (ADMIN can't act on OWNER-role User accounts — enforced in the Phase D user-management
@@ -141,6 +154,9 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, ADMIN, WALLET, VIEW, CREATE, APPROVE);
         grant(defaults, ADMIN, REPORTS_STANDARD, VIEW, EXPORT);
         grant(defaults, ADMIN, REPORTS_REVENUE, VIEW, EXPORT);
+        grant(defaults, ADMIN, REPORTS_PROFIT_LOSS, VIEW, EXPORT);
+        grant(defaults, ADMIN, EXPENSE_CATEGORIES, VIEW, CREATE, EDIT, DELETE, APPROVE);
+        grant(defaults, ADMIN, EXPENSES, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, ADMIN, USER_MANAGEMENT, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, ADMIN, ACCESS_MATRIX, VIEW);
 
@@ -178,13 +194,34 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST, WALLET, VIEW, CREATE, APPROVE);
 
+        // ── THERAPIST_PLUS — identical to THERAPIST in every respect above (same "own schedule/
+        // earnings only" row-level scoping) plus the ability to record/view day-to-day clinic
+        // expenses, and (unlike THERAPIST) full catalog management (add/edit/deactivate, not
+        // permanent-delete) on Services/Products/Combos/Package Templates. Deliberately NOT granted
+        // EXPENSE_CATEGORIES (master category management stays an Owner/Admin admin task) or
+        // REPORTS_PROFIT_LOSS (this role never sees revenue/profit figures — see ExpenseService's
+        // restricted-category filtering for the additional, non-permission-matrix scoping that hides
+        // Salaries/Commission entries from it) ──
+        grant(defaults, THERAPIST_PLUS, DASHBOARD, VIEW);
+        grant(defaults, THERAPIST_PLUS, PATIENTS, VIEW, CREATE, EDIT);
+        grant(defaults, THERAPIST_PLUS, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
+        grant(defaults, THERAPIST_PLUS, THERAPISTS, VIEW);
+        grant(defaults, THERAPIST_PLUS, SERVICES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, PRODUCTS, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, COMBOS, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
+        grant(defaults, THERAPIST_PLUS, WALLET, VIEW, CREATE, APPROVE);
+        grant(defaults, THERAPIST_PLUS, EXPENSES, VIEW, CREATE, EDIT, DELETE);
+
         rolePermissionRepository.saveAll(defaults);
         log.info("Seeded {} default role-permission rows.", defaults.size());
     }
 
     /**
-     * One-time idempotent fix-up (mirrors OwnerFlagBackfill's pattern) for databases that already
-     * had RolePermission rows seeded before package-template permanent-delete existed — since
+     * One-time idempotent fix-up (same always-on backfill pattern as the other self-healing config/
+     * runners) for databases that already had RolePermission rows seeded before package-template
+     * permanent-delete existed — since
      * seedRolePermissions() short-circuits on a non-empty table, those installs would otherwise
      * never get the new PACKAGE_TEMPLATES/APPROVE row and the permanent-delete button would 403
      * even for OWNER/ADMIN. Grants it exactly where COMBOS/APPROVE is already granted above.
@@ -299,6 +336,87 @@ public class SecuritySeeder implements CommandLineRunner {
     }
 
     /**
+     * One-time idempotent fix-up for databases seeded before the Expenses feature existed —
+     * {@link #seedRolePermissions()} short-circuits on a non-empty table, so OWNER/ADMIN's new
+     * EXPENSE_CATEGORIES/EXPENSES/REPORTS_PROFIT_LOSS grants defined in that method never actually
+     * land on such a database; without this, {@link #backfillFullAccessMatrix()} is the only thing
+     * that touches these cells and it only ever inserts them as granted=false. Find-or-create (not
+     * a plain existence check) because backfillFullAccessMatrix may have already inserted these
+     * exact cells as granted=false on a prior boot, mirroring
+     * {@link #backfillTherapistWalletAndPackageCreate()}'s reasoning.
+     */
+    private void backfillOwnerAdminExpenseModules() {
+        List<RolePermission> toSave = new ArrayList<>();
+        for (AppRole role : new AppRole[]{OWNER, ADMIN}) {
+            grantIfMissing(toSave, role, EXPENSE_CATEGORIES, VIEW, CREATE, EDIT, DELETE, APPROVE);
+            grantIfMissing(toSave, role, EXPENSES, VIEW, CREATE, EDIT, DELETE);
+            grantIfMissing(toSave, role, REPORTS_PROFIT_LOSS, VIEW, EXPORT);
+        }
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} OWNER/ADMIN expense-module role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before THERAPIST_PLUS existed (or before its
+     * catalog-management grants were added). Seeds the role's *entire* permission block — mirrors
+     * the THERAPIST_PLUS block in {@link #seedRolePermissions()} exactly — since
+     * {@link #seedRolePermissions()}'s short-circuit on a non-empty table means none of it would
+     * otherwise land, and {@link #backfillFullAccessMatrix()} would insert any still-missing cell
+     * as granted=false, silently locking a THERAPIST_PLUS login out of it. {@link #grantIfMissing}
+     * is a no-op for any (role, module, action) already granted, so re-running this after the
+     * SERVICES/PRODUCTS/COMBOS/PACKAGE_TEMPLATES CREATE/EDIT/DELETE grants were added is safe on
+     * a database that already had the role's earlier (VIEW-only-on-those-modules) permission set.
+     */
+    private void backfillTherapistPlusPermissions() {
+        List<RolePermission> toSave = new ArrayList<>();
+        grantIfMissing(toSave, THERAPIST_PLUS, DASHBOARD, VIEW);
+        grantIfMissing(toSave, THERAPIST_PLUS, PATIENTS, VIEW, CREATE, EDIT);
+        grantIfMissing(toSave, THERAPIST_PLUS, APPOINTMENTS, VIEW, CREATE, EDIT, APPROVE);
+        grantIfMissing(toSave, THERAPIST_PLUS, THERAPISTS, VIEW);
+        grantIfMissing(toSave, THERAPIST_PLUS, SERVICES, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, PRODUCTS, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, COMBOS, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, PACKAGE_TEMPLATES, VIEW, CREATE, EDIT, DELETE);
+        grantIfMissing(toSave, THERAPIST_PLUS, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
+        grantIfMissing(toSave, THERAPIST_PLUS, WALLET, VIEW, CREATE, APPROVE);
+        grantIfMissing(toSave, THERAPIST_PLUS, EXPENSES, VIEW, CREATE, EDIT, DELETE);
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} THERAPIST_PLUS role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before the {@code AuditLog} feature existed —
+     * OWNER-only, mirroring requirements/Security_RBAC_Requirements_v1.md §6.4 ("Visible read-only
+     * ... OWNER only"). Not granted to ADMIN, unlike most other admin-ish modules.
+     */
+    private void backfillAuditLogPermission() {
+        List<RolePermission> toSave = new ArrayList<>();
+        grantIfMissing(toSave, OWNER, AUDIT_LOG, VIEW);
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} OWNER/AUDIT_LOG role-permission row(s).", toSave.size());
+        }
+    }
+
+    /** Find-or-create-and-flip-true helper shared by the two backfill methods above — see
+     *  {@link #backfillTherapistWalletAndPackageCreate()}'s javadoc for why a plain existence
+     *  check isn't sufficient once {@link #backfillFullAccessMatrix()} may have already run. */
+    private void grantIfMissing(List<RolePermission> toSave, AppRole role, Module module, PermissionAction... actions) {
+        for (PermissionAction action : actions) {
+            RolePermission rp = rolePermissionRepository.findByRoleAndModuleAndAction(role, module, action)
+                    .orElseGet(() -> RolePermission.builder().role(role).module(module).action(action).granted(false).build());
+            if (!rp.isGranted()) {
+                rp.setGranted(true);
+                toSave.add(rp);
+            }
+        }
+    }
+
+    /**
      * Ensures every (role, module, action) triple has a RolePermission row — the Access Matrix
      * UI (requirements/Security_RBAC_Requirements_v1.md §8.2) only renders a checkbox for cells
      * that already have a row, so any combination the original seed didn't anticipate was
@@ -321,6 +439,58 @@ public class SecuritySeeder implements CommandLineRunner {
             rolePermissionRepository.saveAll(toAdd);
             log.info("Backfilled {} missing role-permission row(s) so the Access Matrix covers every cell.", toAdd.size());
         }
+    }
+
+    /**
+     * Seeds a starter Expense Category list (requirements/Expenses_Requirements_v1.md §11) —
+     * real operational master data needed in every environment including prod, unlike DataSeeder's
+     * dev/test-only sample patients/therapists, so it lives here (always-on) rather than there.
+     * "Salaries" and "Commission" are seeded restrictedVisibility=true — hidden from THERAPIST_PLUS
+     * (§5.4, §5.5). Only-if-empty, same gate as seedRolePermissions() — an Owner who has already
+     * renamed/deleted these is never overwritten.
+     */
+    private void seedExpenseCategories() {
+        if (expenseCategoryRepository.count() > 0) {
+            return;
+        }
+        List<ExpenseCategory> categories = List.of(
+                ExpenseCategory.builder().name("Raw Materials").build(),
+                ExpenseCategory.builder().name("Equipment").build(),
+                ExpenseCategory.builder().name("Maintenance").build(),
+                ExpenseCategory.builder().name("Utilities").build(),
+                ExpenseCategory.builder().name("Rent").restrictedVisibility(true).build(),
+                ExpenseCategory.builder().name("Salaries").restrictedVisibility(true).build(),
+                ExpenseCategory.builder().name("Commission").restrictedVisibility(true).build(),
+                ExpenseCategory.builder().name("Other").build()
+        );
+        expenseCategoryRepository.saveAll(categories);
+        log.info("Seeded {} starter expense categories.", categories.size());
+    }
+
+    /**
+     * One-time idempotent fix-up (same always-on backfill pattern as the other self-healing config/
+     * runners) for databases seeded before this split: the single "Salaries & Commission" category is renamed IN PLACE to
+     * "Salaries" (same row id, so every historical Expense.category FK stays valid and those old
+     * payout expenses now display under "Salaries"), and a new sibling "Commission" category is
+     * inserted alongside it. Matches by name, exactly once; a no-op on every later startup
+     * (including a fresh install, where seedExpenseCategories() already seeds "Salaries" and
+     * "Commission" directly and this finds nothing to rename).
+     */
+    private void splitSalariesAndCommissionCategory() {
+        expenseCategoryRepository.findAll().stream()
+                .filter(c -> "Salaries & Commission".equals(c.getName()))
+                .findFirst()
+                .ifPresent(existing -> {
+                    existing.setName("Salaries");
+                    expenseCategoryRepository.save(existing);
+                    log.info("Renamed expense category id={} from 'Salaries & Commission' to 'Salaries'.", existing.getId());
+
+                    if (expenseCategoryRepository.findAll().stream().noneMatch(c -> "Commission".equals(c.getName()))) {
+                        ExpenseCategory commission = expenseCategoryRepository.save(
+                                ExpenseCategory.builder().name("Commission").restrictedVisibility(true).build());
+                        log.info("Inserted new expense category id={} name='Commission'.", commission.getId());
+                    }
+                });
     }
 
     private void grant(List<RolePermission> list, AppRole role, Module module, PermissionAction... actions) {

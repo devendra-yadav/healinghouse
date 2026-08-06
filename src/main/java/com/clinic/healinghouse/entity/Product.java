@@ -53,6 +53,7 @@ public class Product {
     @Column(nullable = false)
     private int stockQuantity = 0;
 
+    @Min(0)
     @Builder.Default
     @Column(nullable = false)
     private int reorderLevel = 5;

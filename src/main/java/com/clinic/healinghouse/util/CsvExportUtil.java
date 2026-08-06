@@ -2,6 +2,11 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Patient;
+import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.entity.Tag;
 import com.opencsv.CSVWriter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -12,6 +17,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -174,6 +180,192 @@ public class CsvExportUtil {
             }
         }
         return sw.toString();
+    }
+
+    public String generateExpenseListCsv(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Expense List - " + dateFrom.format(dateFormatter()) +
+                    " to " + dateTo.format(dateFormatter()));
+            writer.writeNext(new String[]{"Date", "Label", "Category", "Amount", "Vendor", "Payment Method",
+                    "Status", "Recorded By", "Recurring"});
+            for (ExpenseListRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        row.expenseDate().format(dateFormatter()),
+                        row.label() != null ? sanitize(row.label()) : "N/A",
+                        sanitize(row.categoryName()),
+                        formatCurrency(row.amount()),
+                        sanitize(row.vendorName()),
+                        row.paymentMethod() != null ? row.paymentMethod().name() : "N/A",
+                        row.status().name(),
+                        row.recordedByUsername() != null ? sanitize(row.recordedByUsername()) : "N/A",
+                        row.recurring() ? "Yes" : "No"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateProfitLossReportCsv(ProfitLossReportDTO report) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Profit & Loss Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
+            writeProfitLossSummary(writer, report);
+
+            if (report.expensesByCategory() != null && !report.expensesByCategory().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Expenses by Category"});
+                writer.writeNext(new String[]{"Category", "Amount"});
+                for (ExpenseCategoryBreakdownDTO row : report.expensesByCategory()) {
+                    writer.writeNext(new String[]{sanitize(row.categoryName()), formatCurrency(row.amount())});
+                }
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Trend"});
+                writer.writeNext(new String[]{"Period", "Revenue", "Expenses", "Profit"});
+                for (ProfitLossTrendPointDTO point : report.trend()) {
+                    writer.writeNext(new String[]{
+                            sanitize(point.periodLabel()), formatCurrency(point.revenue()),
+                            formatCurrency(point.expenses()), formatCurrency(point.profit())
+                    });
+                }
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateProductListCsv(List<Product> products) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Product List");
+            writer.writeNext(new String[]{"Name", "Description", "Tags", "Price", "Stock Quantity", "Reorder Level", "Status"});
+            for (Product p : products) {
+                writer.writeNext(new String[]{
+                        sanitize(p.getName()),
+                        sanitize(p.getDescription()),
+                        sanitize(tagNames(p.getSortedTags())),
+                        formatCurrency(p.getPrice()),
+                        String.valueOf(p.getStockQuantity()),
+                        String.valueOf(p.getReorderLevel()),
+                        p.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateServiceListCsv(List<ClinicService> services) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Service List");
+            writer.writeNext(new String[]{"Name", "Description", "Tags", "Duration (min)", "Price", "Status"});
+            for (ClinicService s : services) {
+                writer.writeNext(new String[]{
+                        sanitize(s.getName()),
+                        sanitize(s.getDescription()),
+                        sanitize(tagNames(s.getSortedTags())),
+                        s.getDurationMinutes() != null ? String.valueOf(s.getDurationMinutes()) : "N/A",
+                        formatCurrency(s.getPrice()),
+                        s.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateComboListCsv(List<ComboExportRowDTO> rows) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Combo List");
+            writer.writeNext(new String[]{"Name", "Description", "Items", "Original Price", "Combo Price", "Savings", "Status"});
+            for (ComboExportRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        sanitize(row.name()),
+                        sanitize(row.description()),
+                        sanitize(row.itemsSummary()),
+                        formatCurrency(row.originalPrice()),
+                        formatCurrency(row.comboPrice()),
+                        formatCurrency(row.savings()),
+                        row.active() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generatePackageTemplateListCsv(List<PackageTemplateExportRowDTO> rows) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Package Template List");
+            writer.writeNext(new String[]{"Name", "Description", "Items", "Suggested Price", "Status"});
+            for (PackageTemplateExportRowDTO row : rows) {
+                writer.writeNext(new String[]{
+                        sanitize(row.name()),
+                        sanitize(row.description()),
+                        sanitize(row.itemsSummary()),
+                        formatCurrency(row.suggestedPrice()),
+                        row.active() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generatePatientListCsv(List<Patient> patients) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Patient List");
+            writer.writeNext(new String[]{"Full Name", "Phone", "Email", "Gender", "Age", "Address", "Status"});
+            for (Patient p : patients) {
+                writer.writeNext(new String[]{
+                        sanitize(p.getFullName()),
+                        p.getPhone() != null ? sanitize(p.getPhone()) : "N/A",
+                        p.getEmail() != null ? sanitize(p.getEmail()) : "N/A",
+                        p.getGender() != null ? p.getGender().name() : "N/A",
+                        p.getAge() != null ? String.valueOf(p.getAge()) : "N/A",
+                        p.getAddress() != null ? sanitize(p.getAddress()) : "N/A",
+                        p.isActive() ? "Active" : "Inactive"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    public String generateAppointmentListCsv(List<Appointment> appointments) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Appointment List");
+            writer.writeNext(new String[]{"Date/Time", "Patient", "Phone", "Therapist", "Status",
+                    "Grand Total", "Amount Paid", "Balance Due", "Payment Method"});
+            for (Appointment a : appointments) {
+                writer.writeNext(new String[]{
+                        a.getAppointmentDateTime().format(dateTimeFormatter()),
+                        sanitize(a.getPatient().getFullName()),
+                        a.getPatient().getPhone() != null ? sanitize(a.getPatient().getPhone()) : "N/A",
+                        sanitize(a.getTherapist().getFullName()),
+                        a.getStatus().name(),
+                        formatCurrency(a.getGrandTotal()),
+                        formatCurrency(a.getAmountPaid()),
+                        formatCurrency(a.getBalanceDue()),
+                        a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "N/A"
+                });
+            }
+        }
+        return sw.toString();
+    }
+
+    private String tagNames(List<Tag> tags) {
+        return tags.stream().map(Tag::getName).collect(Collectors.joining(", "));
+    }
+
+    private void writeProfitLossSummary(CSVWriter writer, ProfitLossReportDTO report) throws IOException {
+        writer.writeNext(new String[]{"Summary"});
+        writer.writeNext(new String[]{"Net Revenue", formatCurrency(report.netRevenue())});
+        writer.writeNext(new String[]{"Total Expenses", formatCurrency(report.totalExpenses())});
+        writer.writeNext(new String[]{"Net Profit", formatCurrency(report.netProfit())});
     }
 
     private void writeRevenueSummary(CSVWriter writer, RevenueSummaryDTO summary) throws IOException {

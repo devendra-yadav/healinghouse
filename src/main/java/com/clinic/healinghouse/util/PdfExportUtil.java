@@ -2,6 +2,11 @@ package com.clinic.healinghouse.util;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.*;
+import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.ClinicService;
+import com.clinic.healinghouse.entity.Patient;
+import com.clinic.healinghouse.entity.Product;
+import com.clinic.healinghouse.entity.Tag;
 import com.itextpdf.io.font.FontProgram;
 import com.itextpdf.io.font.FontProgramFactory;
 import com.itextpdf.io.font.PdfEncodings;
@@ -43,6 +48,7 @@ import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -62,6 +68,7 @@ public class PdfExportUtil {
     private static final Color ROW_SHADE = new DeviceRgb(0xF8, 0xEF, 0xEE);
     private static final Color BORDER_COLOR = new DeviceRgb(0xDD, 0xDD, 0xDD);
     private static final Color POSITIVE = new DeviceRgb(0x2E, 0x7D, 0x32);
+    private static final Color NEGATIVE = new DeviceRgb(0xC6, 0x28, 0x28);
 
     private static final float MARGIN_TOP = 30f;
     private static final float MARGIN_SIDE = 28f;
@@ -265,6 +272,301 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
+    public byte[] generateExpenseListPdf(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Expense List", "From " + dateFrom.format(displayDateFormatter()) +
+                    "  to  " + dateTo.format(displayDateFormatter()));
+            document.add(buildExpenseListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    private Table buildExpenseListTable(List<ExpenseListRowDTO> rows) {
+        Table table = newTable(new float[]{1, 1.3f, 1.6f, 1, 1.4f, 1.2f, 0.9f, 1.2f, 0.9f}, 8f);
+
+        addHeaderCell(table, "Date", TextAlignment.LEFT);
+        addHeaderCell(table, "Label", TextAlignment.LEFT);
+        addHeaderCell(table, "Category", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+        addHeaderCell(table, "Vendor", TextAlignment.LEFT);
+        addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+        addHeaderCell(table, "Recorded By", TextAlignment.LEFT);
+        addHeaderCell(table, "Recurring", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ExpenseListRowDTO row : rows) {
+            addDataCell(table, row.expenseDate().format(displayDateFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.label() != null ? row.label() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.categoryName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.amount()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, row.vendorName() != null ? row.vendorName() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.paymentMethod() != null ? row.paymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.status().name(), TextAlignment.CENTER, shaded);
+            addDataCell(table, row.recordedByUsername() != null ? row.recordedByUsername() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.recurring() ? "Yes" : "No", TextAlignment.CENTER, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    public byte[] generateProfitLossReportPdf(ProfitLossReportDTO report) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, false);
+        try {
+            addLetterhead(document, "Profit & Loss Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addProfitLossSummaryTable(document, report);
+
+            if (report.expensesByCategory() != null && !report.expensesByCategory().isEmpty()) {
+                addSection(document, "Expenses by Category", buildExpenseCategoryBreakdownTable(report.expensesByCategory()));
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                addSection(document, "Trend", buildProfitLossTrendTable(report.trend()));
+            }
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateProductListPdf(List<Product> products) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Product List", products.size() + " product(s)");
+            document.add(buildProductListTable(products));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateServiceListPdf(List<ClinicService> services) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Service List", services.size() + " service(s)");
+            document.add(buildServiceListTable(services));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateComboListPdf(List<ComboExportRowDTO> rows) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Combo List", rows.size() + " combo(s)");
+            document.add(buildComboListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generatePackageTemplateListPdf(List<PackageTemplateExportRowDTO> rows) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Package Template List", rows.size() + " template(s)");
+            document.add(buildPackageTemplateListTable(rows));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generatePatientListPdf(List<Patient> patients) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Patient List", patients.size() + " patient(s)");
+            document.add(buildPatientListTable(patients));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    public byte[] generateAppointmentListPdf(List<Appointment> appointments) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Appointment List", appointments.size() + " appointment(s)");
+            document.add(buildAppointmentListTable(appointments));
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    private Table buildProductListTable(List<Product> products) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 1.4f, 0.9f, 0.7f, 0.9f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Tags", TextAlignment.LEFT);
+        addHeaderCell(table, "Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Stock", TextAlignment.CENTER);
+        addHeaderCell(table, "Reorder Lvl", TextAlignment.CENTER);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (Product p : products) {
+            addDataCell(table, p.getName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getDescription() != null ? p.getDescription() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, joinTagNames(p.getSortedTags()), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(p.getPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, String.valueOf(p.getStockQuantity()), TextAlignment.CENTER, shaded);
+            addDataCell(table, String.valueOf(p.getReorderLevel()), TextAlignment.CENTER, shaded);
+            addBadgeCell(table, p.isActive() ? "Active" : "Inactive", p.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildServiceListTable(List<ClinicService> services) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 1.4f, 1, 0.9f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Tags", TextAlignment.LEFT);
+        addHeaderCell(table, "Duration", TextAlignment.CENTER);
+        addHeaderCell(table, "Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ClinicService s : services) {
+            addDataCell(table, s.getName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, s.getDescription() != null ? s.getDescription() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, joinTagNames(s.getSortedTags()), TextAlignment.LEFT, shaded);
+            addDataCell(table, s.getDurationMinutes() != null ? s.getDurationMinutes() + " min" : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(s.getPrice()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, s.isActive() ? "Active" : "Inactive", s.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildComboListTable(List<ComboExportRowDTO> rows) {
+        Table table = newTable(new float[]{1.5f, 2f, 2f, 1, 1, 1, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Items", TextAlignment.LEFT);
+        addHeaderCell(table, "Original Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Combo Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Savings", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (ComboExportRowDTO row : rows) {
+            addDataCell(table, row.name(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.description() != null ? row.description() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.itemsSummary(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.originalPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.comboPrice()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(row.savings()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, row.active() ? "Active" : "Inactive", row.active(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildPackageTemplateListTable(List<PackageTemplateExportRowDTO> rows) {
+        Table table = newTable(new float[]{1.6f, 2.2f, 2.2f, 1.1f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Items", TextAlignment.LEFT);
+        addHeaderCell(table, "Suggested Price", TextAlignment.RIGHT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (PackageTemplateExportRowDTO row : rows) {
+            addDataCell(table, row.name(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.description() != null ? row.description() : "", TextAlignment.LEFT, shaded);
+            addDataCell(table, row.itemsSummary(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.suggestedPrice()), TextAlignment.RIGHT, shaded);
+            addBadgeCell(table, row.active() ? "Active" : "Inactive", row.active(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildPatientListTable(List<Patient> patients) {
+        Table table = newTable(new float[]{1.8f, 1.2f, 1.8f, 0.9f, 0.6f, 2.2f, 0.8f}, 8.5f);
+
+        addHeaderCell(table, "Full Name", TextAlignment.LEFT);
+        addHeaderCell(table, "Phone", TextAlignment.LEFT);
+        addHeaderCell(table, "Email", TextAlignment.LEFT);
+        addHeaderCell(table, "Gender", TextAlignment.CENTER);
+        addHeaderCell(table, "Age", TextAlignment.CENTER);
+        addHeaderCell(table, "Address", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+
+        boolean shaded = false;
+        for (Patient p : patients) {
+            addDataCell(table, p.getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getPhone() != null ? p.getPhone() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getEmail() != null ? p.getEmail() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, p.getGender() != null ? p.getGender().name() : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, p.getAge() != null ? String.valueOf(p.getAge()) : "N/A", TextAlignment.CENTER, shaded);
+            addDataCell(table, p.getAddress() != null ? p.getAddress() : "N/A", TextAlignment.LEFT, shaded);
+            addBadgeCell(table, p.isActive() ? "Active" : "Inactive", p.isActive(), shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildAppointmentListTable(List<Appointment> appointments) {
+        Table table = newTable(new float[]{1.3f, 1.4f, 1.2f, 1.4f, 0.9f, 1, 1, 1, 1.1f}, 8f);
+
+        addHeaderCell(table, "Date/Time", TextAlignment.LEFT);
+        addHeaderCell(table, "Patient", TextAlignment.LEFT);
+        addHeaderCell(table, "Phone", TextAlignment.LEFT);
+        addHeaderCell(table, "Therapist", TextAlignment.LEFT);
+        addHeaderCell(table, "Status", TextAlignment.CENTER);
+        addHeaderCell(table, "Grand Total", TextAlignment.RIGHT);
+        addHeaderCell(table, "Amount Paid", TextAlignment.RIGHT);
+        addHeaderCell(table, "Balance Due", TextAlignment.RIGHT);
+        addHeaderCell(table, "Payment Method", TextAlignment.LEFT);
+
+        boolean shaded = false;
+        for (Appointment a : appointments) {
+            addDataCell(table, a.getAppointmentDateTime().format(rowDateTimeFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getPatient().getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getPatient().getPhone() != null ? a.getPatient().getPhone() : "N/A", TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getTherapist().getFullName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, a.getStatus().name(), TextAlignment.CENTER, shaded);
+            addDataCell(table, formatCurrency(a.getGrandTotal()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(a.getAmountPaid()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(a.getBalanceDue()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, a.getPaymentMethod() != null ? a.getPaymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private String joinTagNames(List<Tag> tags) {
+        return tags.stream().map(Tag::getName).collect(java.util.stream.Collectors.joining(", "));
+    }
+
     // ---- document scaffolding ----------------------------------------------------------
 
     private Document newDocument(PdfDocument pdfDoc, boolean landscape) throws IOException {
@@ -290,15 +592,22 @@ public class PdfExportUtil {
     }
 
     private void finish(Document document, PdfDocument pdfDoc) {
-        // The "of N" total page count isn't known until every page has been laid out, so each
-        // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
-        // the real count once, right before close — safe because the XObject is its own
-        // indirect object and isn't flushed just because the page referencing it already was.
-        CURRENT_FOOTER_HANDLER.get().writeTotalPageCount(pdfDoc);
-        document.close();
-        CURRENT_REGULAR_FONT.remove();
-        CURRENT_BOLD_FONT.remove();
-        CURRENT_FOOTER_HANDLER.remove();
+        // try/finally so a failure in writeTotalPageCount/document.close() can't mask the real
+        // export error under a stack trace pointing here, and can't leave this thread's
+        // ThreadLocal font/handler pinned to a now-closed PdfDocument for the next export that
+        // thread handles (Bug_Report_v6.md Finding 17).
+        try {
+            // The "of N" total page count isn't known until every page has been laid out, so each
+            // page's footer reserves a blank placeholder XObject during END_PAGE, and this fills in
+            // the real count once, right before close — safe because the XObject is its own
+            // indirect object and isn't flushed just because the page referencing it already was.
+            CURRENT_FOOTER_HANDLER.get().writeTotalPageCount(pdfDoc);
+            document.close();
+        } finally {
+            CURRENT_REGULAR_FONT.remove();
+            CURRENT_BOLD_FONT.remove();
+            CURRENT_FOOTER_HANDLER.remove();
+        }
     }
 
     private void addLetterhead(Document document, String title, String subtitle) {
@@ -466,7 +775,7 @@ public class PdfExportUtil {
                                             boolean includeAllColumns) {
         Table table = includeAllColumns
                 ? newTable(new float[]{1.6f, 1, 1, 0.7f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f)
-                : newTable(new float[]{1.6f, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
+                : newTable(new float[]{1.6f, 1, 1.1f, 0.7f, 1, 1, 1, 0.7f, 1, 1, 1}, 7.5f);
 
         addHeaderCell(table, "Therapist", TextAlignment.LEFT);
         if (includeAllColumns) {
@@ -599,6 +908,64 @@ public class PdfExportUtil {
         addDataCell(table, formatCurrency(summary.advanceReceived()), TextAlignment.RIGHT, false);
 
         document.add(table);
+    }
+
+    private void addProfitLossSummaryTable(Document document, ProfitLossReportDTO report) {
+        Table table = newTable(new float[]{2, 1, 2, 1}, 9.5f);
+
+        addLabelCell(table, "Net Revenue", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(report.netRevenue()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Total Expenses", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(report.totalExpenses()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Net Profit", TextAlignment.LEFT);
+        Cell netProfitCell = new Cell().add(new Paragraph(formatCurrency(report.netProfit()))
+                .setFont(boldFont()).setFontColor(report.netProfit().signum() < 0 ? NEGATIVE : POSITIVE));
+        netProfitCell.setTextAlignment(TextAlignment.RIGHT);
+        netProfitCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        netProfitCell.setBorder(Border.NO_BORDER);
+        netProfitCell.setBorderBottom(new SolidBorder(BORDER_COLOR, 0.5f));
+        netProfitCell.setBackgroundColor(ROW_SHADE);
+        netProfitCell.setPadding(4.5f);
+        table.addCell(netProfitCell);
+        addBlankCell(table);
+        addBlankCell(table);
+
+        document.add(table);
+    }
+
+    private Table buildExpenseCategoryBreakdownTable(List<ExpenseCategoryBreakdownDTO> items) {
+        Table table = newTable(new float[]{2, 1}, 9.5f);
+
+        addHeaderCell(table, "Category", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (ExpenseCategoryBreakdownDTO item : items) {
+            addDataCell(table, item.categoryName(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(item.amount()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildProfitLossTrendTable(List<ProfitLossTrendPointDTO> trend) {
+        Table table = newTable(new float[]{1.3f, 1, 1, 1}, 9.5f);
+
+        addHeaderCell(table, "Period", TextAlignment.LEFT);
+        addHeaderCell(table, "Revenue", TextAlignment.RIGHT);
+        addHeaderCell(table, "Expenses", TextAlignment.RIGHT);
+        addHeaderCell(table, "Profit", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (ProfitLossTrendPointDTO point : trend) {
+            addDataCell(table, point.periodLabel(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(point.revenue()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.expenses()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.profit()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
     }
 
     private Table buildPaymentMethodTable(List<RevenueByPaymentMethodDTO> byPaymentMethod) {

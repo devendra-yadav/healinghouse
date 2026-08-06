@@ -18,19 +18,25 @@ import com.clinic.healinghouse.service.PatientHistoryService;
 import com.clinic.healinghouse.service.PatientService;
 import com.clinic.healinghouse.service.TherapistService;
 import com.clinic.healinghouse.service.WalletService;
+import com.clinic.healinghouse.util.CsvExportUtil;
 import com.clinic.healinghouse.util.PaginationUtil;
+import com.clinic.healinghouse.util.PdfExportUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -51,6 +57,8 @@ public class PatientController {
     private final HealingHouseProperties properties;
     private final PaginationUtil        paginationUtil;
     private final PermissionService     permissionService;
+    private final CsvExportUtil         csvExportUtil;
+    private final PdfExportUtil         pdfExportUtil;
 
     @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
     @GetMapping
@@ -68,6 +76,37 @@ public class PatientController {
         model.addAttribute("showInactive", showInactive);
         model.addAttribute("pageTitle", "Patients");
         return "patients/list";
+    }
+
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
+    @GetMapping("/export-csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
+        String csv = csvExportUtil.generatePatientListCsv(exportList(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=patients-" + LocalDate.now() + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.PATIENTS, action = PermissionAction.VIEW)
+    @GetMapping("/export-pdf")
+    public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
+                                            @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
+        byte[] pdf = pdfExportUtil.generatePatientListPdf(exportList(q, includeInactive));
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=patients-" + LocalDate.now() + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    /** Mirrors {@link #list}'s own filter precedence, unpaged; {@code includeInactive} then strips
+     *  out inactive rows unless explicitly requested — export defaults to active-only. */
+    private List<Patient> exportList(String q, boolean includeInactive) {
+        List<Patient> rows = includeInactive
+                ? patientService.findAllIncludingInactive(Pageable.unpaged()).getContent()
+                : patientService.search(q, Pageable.unpaged()).getContent();
+        return includeInactive ? rows : rows.stream().filter(Patient::isActive).toList();
     }
 
     /** JSON autocomplete endpoint backing the name/phone search box on the patients list. */

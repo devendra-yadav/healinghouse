@@ -137,8 +137,8 @@
                 </div>
             </div>
         </div>
-        <!-- Lifetime financials -->
-        <div class="col-md-3">
+        <!-- Lifetime financials — OWNER/ADMIN only -->
+        <div class="col-md-3" th:if="${@perm.isOwnerOrAdmin()}">
             <div class="card shadow-sm h-100">
                 <div class="card-body">
                     <div class="text-muted small fw-semibold mb-1">
@@ -198,8 +198,8 @@
                 </div>
             </div>
         </div>
-        <!-- Period spend -->
-        <div class="col-md-6">
+        <!-- Period spend — OWNER/ADMIN only -->
+        <div class="col-md-6" th:if="${@perm.isOwnerOrAdmin()}">
             <div class="card shadow-sm h-100">
                 <div class="card-body d-flex justify-content-between align-items-center">
                     <div>
@@ -561,7 +561,7 @@
                                       th:classappend="${a.status.name() == 'COMPLETED'} ? 'bg-success' :
                                                       (${a.status.name() == 'CANCELLED'}  ? 'bg-danger'  :
                                                       (${a.status.name() == 'NO_SHOW'}    ? 'bg-warning text-dark' :
-                                                                                            'bg-primary'))">
+                                                                                            'badge-scheduled'))">
                                 </span>
                             </td>
                             <td class="text-center text-nowrap">

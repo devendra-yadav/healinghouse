@@ -57,4 +57,13 @@ public class Combo {
     @OneToMany(mappedBy = "combo", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ComboProductItem> productItems = new ArrayList<>();
+
+    /** Guards the "a combo can never have zero items while active" invariant against concurrent
+     *  service+product deactivation (Bug_Report_v6.md Finding 10) — mirrors PatientPackage's
+     *  @Version. Like PatientPackage's sessionsUsed, the mutation that matters here (removing an
+     *  item from serviceItems/productItems) lives on the inverse side of a mappedBy collection, so
+     *  a plain save() wouldn't dirty this row or bump this column; ComboService.removeFromCombos
+     *  force-increments it explicitly. */
+    @Version
+    private Long version;
 }
