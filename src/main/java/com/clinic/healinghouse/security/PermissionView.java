@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.security;
 
+import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
 import lombok.RequiredArgsConstructor;
@@ -28,5 +29,14 @@ public class PermissionView {
      *  controller-side model attribute. */
     public Long currentTherapistId() {
         return permissionService.currentTherapistId();
+    }
+
+    /** OWNER/ADMIN only — gates the patient-financial figures (Lifetime Revenue, This Month's/Year's
+     *  Spend on {@code patients/detail.html}) that RECEPTIONIST/THERAPIST/THERAPIST_PLUS must never
+     *  see, regardless of their PATIENTS module grant. A fixed role check rather than a data-driven
+     *  RolePermission row since this must never be editable via the Access Matrix. */
+    public boolean isOwnerOrAdmin() {
+        AppRole role = permissionService.currentRole();
+        return role == AppRole.OWNER || role == AppRole.ADMIN;
     }
 }

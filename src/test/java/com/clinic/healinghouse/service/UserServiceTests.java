@@ -234,4 +234,30 @@ class UserServiceTests {
 
         assertThat(available).extracting(Therapist::getId).containsExactly(1L);
     }
+
+    // ── verifyOwnPassword — step-up re-auth check (TherapistStepUpAuthFilter) ──
+
+    @Test
+    void verifyOwnPasswordReturnsTrueOnMatch() {
+        User user = User.builder().id(9L).passwordHash("hashed").build();
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("correct", "hashed")).thenReturn(true);
+
+        assertThat(userService.verifyOwnPassword(9L, "correct")).isTrue();
+    }
+
+    @Test
+    void verifyOwnPasswordReturnsFalseOnMismatch() {
+        User user = User.builder().id(9L).passwordHash("hashed").build();
+        when(userRepository.findById(9L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("wrong", "hashed")).thenReturn(false);
+
+        assertThat(userService.verifyOwnPassword(9L, "wrong")).isFalse();
+    }
+
+    @Test
+    void verifyOwnPasswordReturnsFalseWhenPasswordIsNull() {
+        assertThat(userService.verifyOwnPassword(9L, null)).isFalse();
+        verify(userRepository, never()).findById(any());
+    }
 }

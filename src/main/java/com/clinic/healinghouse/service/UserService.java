@@ -217,6 +217,17 @@ public class UserService {
         log.info("User id={} username='{}' changed their own password", user.getId(), user.getUsername());
     }
 
+    /** Step-up re-authentication check (TherapistStepUpAuthFilter) — confirms the caller still
+     *  knows their own password before showing sensitive data on an already-open session, without
+     *  changing anything. Read-only counterpart to {@link #changeOwnPassword}. */
+    public boolean verifyOwnPassword(Long userId, String password) {
+        if (userId == null || password == null) {
+            return false;
+        }
+        User user = getById(userId);
+        return passwordEncoder.matches(password, user.getPasswordHash());
+    }
+
     /** Force-expires every live session belonging to {@code userId} — see {@code SecurityConfig}'s
      *  {@code SessionRegistry} bean for why this is needed (UserDetails is otherwise only re-checked
      *  at login, not per-request). A no-op for a user with no open session. */
