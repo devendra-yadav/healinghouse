@@ -189,6 +189,7 @@
                             <td class="text-muted ps-0">Status</td>
                             <td>
                                 <span class="badge bg-success">Approved</span>
+                                <span th:if="${currentContract.acknowledgedAt == null}" class="badge bg-warning text-dark ms-1">Acknowledgement Pending</span>
                                 <span th:if="${currentContract.acknowledgedAt != null}" class="badge bg-info text-dark ms-1">Acknowledged</span>
                             </td>
                         </tr>

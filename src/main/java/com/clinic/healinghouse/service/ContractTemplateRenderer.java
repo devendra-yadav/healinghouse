@@ -129,7 +129,12 @@ public class ContractTemplateRenderer {
     private String buildTerminationClause(EmploymentContractForm form) {
         return "<h4>7. TERMINATION</h4><ul>"
                 + item("Notice Period", form.getNoticePeriodMonths() + " month(s) written notice, required from either party")
-                + "</ul>";
+                + "</ul>"
+                + "<p>Either party may terminate this Agreement by serving the notice period stated above in writing. "
+                + "The Clinic reserves the right to terminate this Agreement immediately, without notice or pay in lieu "
+                + "thereof, in cases of proven misconduct, breach of confidentiality, or gross negligence. Upon termination, "
+                + "the Employee shall settle all outstanding dues, hand over any Clinic property in their possession, and "
+                + "shall continue to be bound by the Confidentiality clause above.</p>";
     }
 
     private String item(String label, String value) {

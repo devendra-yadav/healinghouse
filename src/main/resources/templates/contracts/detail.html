@@ -25,12 +25,17 @@
             <div class="card shadow-sm">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
                     <h6 class="mb-0" th:text="${contract.contractNumber}"></h6>
-                    <span class="badge"
-                          th:classappend="${contract.status.name() == 'APPROVED'} ? 'bg-success' :
-                                          (${contract.status.name() == 'DRAFT'} ? 'bg-warning text-dark' :
-                                          (${contract.status.name() == 'CANCELLED'} ? 'bg-danger' : 'bg-secondary'))"
-                          th:text="${contract.status}">
-                    </span>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge"
+                              th:classappend="${contract.status.name() == 'APPROVED'} ? 'bg-success' :
+                                              (${contract.status.name() == 'DRAFT'} ? 'bg-warning text-dark' :
+                                              (${contract.status.name() == 'CANCELLED'} ? 'bg-danger' : 'bg-secondary'))"
+                              th:text="${contract.status}">
+                        </span>
+                        <span th:if="${contract.status.name() == 'APPROVED' and contract.acknowledgedAt == null}"
+                              class="badge bg-warning text-dark">Acknowledgement Pending</span>
+                        <span th:if="${contract.acknowledgedAt != null}" class="badge bg-info text-dark">Acknowledged</span>
+                    </div>
                 </div>
                 <div class="card-body">
                     <table class="table table-sm table-borderless mb-3 small">
@@ -58,6 +63,10 @@
                             <tr th:if="${contract.approvedAt != null}">
                                 <td class="text-muted ps-0">Approved</td>
                                 <td th:text="${#temporals.format(contract.approvedAt, 'dd MMM yyyy, hh:mm a')} + ' by ' + ${contract.approvedBy.fullName}"></td>
+                            </tr>
+                            <tr th:if="${contract.status.name() == 'APPROVED' and contract.acknowledgedAt == null}">
+                                <td class="text-muted ps-0">Acknowledgement</td>
+                                <td><span class="text-warning">Pending</span> — employee hasn't acknowledged this contract yet</td>
                             </tr>
                             <tr th:if="${contract.acknowledgedAt != null}">
                                 <td class="text-muted ps-0">Acknowledged</td>
