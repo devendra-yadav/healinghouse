@@ -61,6 +61,7 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillOwnerAdminExpenseModules();
         backfillTherapistPlusPermissions();
         backfillAuditLogPermission();
+        backfillContractsPermission();
         backfillFullAccessMatrix();
         seedExpenseCategories();
         splitSalariesAndCommissionCategory();
@@ -137,6 +138,10 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, OWNER, USER_MANAGEMENT, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, ACCESS_MATRIX, VIEW, EDIT);
         grant(defaults, OWNER, AUDIT_LOG, VIEW);
+        // Employment Contracts (requirements/Employment_Contracts_Requirements_v1.md §5.1) —
+        // Owner-exclusive: every action. ADMIN/RECEPTIONIST get no grant at all, deliberately
+        // narrower than every other OWNER/ADMIN-shared module.
+        grant(defaults, OWNER, CONTRACTS, VIEW, CREATE, EDIT, DELETE, APPROVE);
 
         // ── ADMIN — same operational access as OWNER; Access Matrix is read-only ──
         // (ADMIN can't act on OWNER-role User accounts — enforced in the Phase D user-management
@@ -193,6 +198,8 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST, PACKAGE_TEMPLATES, VIEW);
         grant(defaults, THERAPIST, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST, WALLET, VIEW, CREATE, APPROVE);
+        // View-only, own contract only (row-level scoping in ContractController, §5.1).
+        grant(defaults, THERAPIST, CONTRACTS, VIEW);
 
         // ── THERAPIST_PLUS — identical to THERAPIST in every respect above (same "own schedule/
         // earnings only" row-level scoping) plus the ability to record/view day-to-day clinic
@@ -213,6 +220,7 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, THERAPIST_PLUS, PATIENT_PACKAGES, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST_PLUS, WALLET, VIEW, CREATE, APPROVE);
         grant(defaults, THERAPIST_PLUS, EXPENSES, VIEW, CREATE, EDIT, DELETE);
+        grant(defaults, THERAPIST_PLUS, CONTRACTS, VIEW);
 
         rolePermissionRepository.saveAll(defaults);
         log.info("Seeded {} default role-permission rows.", defaults.size());
@@ -399,6 +407,23 @@ public class SecuritySeeder implements CommandLineRunner {
         if (!toSave.isEmpty()) {
             rolePermissionRepository.saveAll(toSave);
             log.info("Backfilled {} OWNER/AUDIT_LOG role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before the Employment Contracts feature
+     * existed — OWNER-exclusive/THERAPIST(+)-view-own-only, mirroring
+     * requirements/Employment_Contracts_Requirements_v1.md §5.1. ADMIN and RECEPTIONIST get no
+     * grant at all, deliberately narrower than every other OWNER/ADMIN-shared module.
+     */
+    private void backfillContractsPermission() {
+        List<RolePermission> toSave = new ArrayList<>();
+        grantIfMissing(toSave, OWNER, CONTRACTS, VIEW, CREATE, EDIT, DELETE, APPROVE);
+        grantIfMissing(toSave, THERAPIST, CONTRACTS, VIEW);
+        grantIfMissing(toSave, THERAPIST_PLUS, CONTRACTS, VIEW);
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} CONTRACTS role-permission row(s).", toSave.size());
         }
     }
 

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/therapists}">Therapists</a></li>
+            <li class="breadcrumb-item"><a th:href="@{/therapists/{id}(id=${therapist.id})}" th:text="${therapist.fullName}"></a></li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-9">
+
+            <!-- ── Read-only therapist info panel ─────────────────────────── -->
+            <div class="card shadow-sm mb-3">
+                <div class="card-header py-2 fw-semibold">
+                    <i class="bi bi-person-vcard me-1"></i>Employee
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 small">
+                        <div class="col-md-3"><span class="text-muted">Name:</span> <span th:text="${therapist.fullName}"></span></div>
+                        <div class="col-md-3"><span class="text-muted">Phone:</span> <span th:text="${therapist.phone ?: '—'}"></span></div>
+                        <div class="col-md-3"><span class="text-muted">Email:</span> <span th:text="${therapist.email ?: '—'}"></span></div>
+                        <div class="col-md-3"><span class="text-muted">Specialization:</span> <span th:text="${therapist.specialization ?: '—'}"></span></div>
+                        <div class="col-md-3"><span class="text-muted">Aadhaar:</span> <span th:text="${therapist.aadhaarNumber ?: '—'}"></span></div>
+                        <div class="col-md-3"><span class="text-muted">PAN:</span> <span th:text="${therapist.panNumber ?: '—'}"></span></div>
+                        <div class="col-12"><span class="text-muted">Address:</span> <span th:text="${therapist.address ?: '—'}"></span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── Contract term entry ─────────────────────────────────────── -->
+            <div class="card shadow-sm">
+                <div class="card-header py-3">
+                    <h5 class="mb-0" th:text="${pageTitle}"></h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger" th:if="${errorMessage}" th:text="${errorMessage}"></div>
+
+                    <form th:action="${renewal}
+                              ? @{/therapists/{id}/contracts/renew(id=${therapist.id})}
+                              : @{/therapists/{id}/contracts(id=${therapist.id})}"
+                          th:object="${contractForm}" method="post" id="contractTermsForm">
+                        <input th:if="${renewal}" type="hidden" name="previousContractId" th:value="${previousContractId}"/>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Joining Date <span class="text-danger">*</span></label>
+                                <input type="date" th:field="*{joiningDate}" class="form-control" required/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Position <span class="text-danger">*</span></label>
+                                <input type="text" th:field="*{position}" class="form-control" placeholder="e.g. Senior Therapist" required/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Contract Period (months)</label>
+                                <input type="number" th:field="*{contractPeriodMonths}" class="form-control" min="1" placeholder="Leave blank for open-ended"/>
+                            </div>
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input type="checkbox" th:field="*{probationApplicable}" class="form-check-input" id="probationApplicable" onchange="onProbationToggle()"/>
+                            <label class="form-check-label fw-semibold" for="probationApplicable">Start with probation</label>
+                        </div>
+
+                        <div id="probationFieldsBlock" class="row g-3 mb-3 d-none">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Probation Period (months)</label>
+                                <select th:field="*{probationPeriodMonths}" id="probationPeriodMonths" class="form-select">
+                                    <option value="">Select…</option>
+                                    <option th:each="m : ${#numbers.sequence(1, 6)}" th:value="${m}" th:text="${m}"></option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Salary During Probation (₹)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" th:field="*{probationSalary}" id="probationSalary" class="form-control" step="0.01" min="0.01"/>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" id="monthlySalaryLabel">Monthly Salary <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" th:field="*{monthlySalary}" class="form-control" step="0.01" min="0.01" required/>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Commission (%)</label>
+                                <div class="input-group">
+                                    <input type="number" th:field="*{commissionPercent}" class="form-control" step="0.01" min="0" max="100" placeholder="Leave blank if not applicable"/>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Performance Bonus Threshold (sessions/month)</label>
+                                <input type="number" th:field="*{performanceBonusThreshold}" id="performanceBonusThreshold" class="form-control" min="1" placeholder="e.g. 100"/>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Performance Bonus Amount (₹)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₹</span>
+                                    <input type="number" th:field="*{performanceBonusAmount}" id="performanceBonusAmount" class="form-control" step="0.01" min="0.01"/>
+                                </div>
+                            </div>
+                        </div>
+                        <p class="small text-muted mb-3">
+                            * Paid as a one-time addition to that month's salary when the therapist completes at least the
+                            specified number of sessions within a calendar month; not paid in months where the threshold isn't met.
+                        </p>
+                        <div id="bonusPairWarning" class="alert alert-warning small d-none">
+                            Please provide both a threshold and an amount for the performance bonus, or leave both blank.
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Notice Period (months) <span class="text-danger">*</span></label>
+                            <input type="number" th:field="*{noticePeriodMonths}" class="form-control" min="1" style="max-width:200px" required/>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3">
+                            <a th:href="@{/therapists/{id}(id=${therapist.id})}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-hh">
+                                <i class="bi bi-file-earmark-text me-1"></i>Generate Contract
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+
+<script th:inline="javascript">
+    function onProbationToggle() {
+        const checked = document.getElementById('probationApplicable').checked;
+        document.getElementById('probationFieldsBlock').classList.toggle('d-none', !checked);
+        document.getElementById('probationPeriodMonths').required = checked;
+        document.getElementById('probationSalary').required = checked;
+        document.getElementById('monthlySalaryLabel').firstChild.textContent =
+            checked ? 'Monthly Salary (after probation) ' : 'Monthly Salary ';
+    }
+
+    function checkBonusPair() {
+        const threshold = document.getElementById('performanceBonusThreshold').value;
+        const amount = document.getElementById('performanceBonusAmount').value;
+        const mismatched = (threshold && !amount) || (!threshold && amount);
+        document.getElementById('bonusPairWarning').classList.toggle('d-none', !mismatched);
+        return !mismatched;
+    }
+
+    document.getElementById('performanceBonusThreshold').addEventListener('input', checkBonusPair);
+    document.getElementById('performanceBonusAmount').addEventListener('input', checkBonusPair);
+    document.getElementById('contractTermsForm').addEventListener('submit', function (e) {
+        if (!checkBonusPair()) {
+            e.preventDefault();
+        }
+    });
+
+    onProbationToggle();
+</script>
+</body>
+</html>

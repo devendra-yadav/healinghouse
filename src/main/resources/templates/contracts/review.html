@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+    <!-- Quill.js: CDN-only rich-text editor, no npm/build step -->
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
+    <style>
+        /* Bootstrap's dark-theme --bs-heading-color is white app-wide (see clinic.css) — the
+           contract body's <h2>/<h4> headings inherit it and vanish against this editor's white
+           background unless overridden here. */
+        #editor { background: #fff; color: #212529; min-height: 60vh; }
+        #editor h2, #editor h3, #editor h4, #editor h5, #editor h6 { color: #6F201C; }
+        #editor strong { color: inherit; }
+    </style>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/therapists}">Therapists</a></li>
+            <li class="breadcrumb-item">
+                <a th:href="@{/therapists/{id}(id=${contract.therapist.id})}" th:text="${contract.therapist.fullName}"></a>
+            </li>
+            <li class="breadcrumb-item active" th:text="${pageTitle}"></li>
+        </ol>
+    </nav>
+
+    <div class="card shadow-sm">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h5 class="mb-0" th:text="${pageTitle}"></h5>
+            <span class="badge bg-warning text-dark">Draft — not yet approved</span>
+        </div>
+        <div class="card-body">
+            <p class="text-muted small">
+                Freely edit the contract text below — add, edit, or delete anything. Save your changes as a draft
+                as many times as needed. Approving locks the content and generates the final signed PDF.
+            </p>
+
+            <div id="editor"></div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end border-top pt-3 mt-3">
+                <a th:href="@{/therapists/{id}(id=${contract.therapist.id})}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <button type="button" class="btn btn-outline-primary" onclick="saveDraft()">
+                    <i class="bi bi-save me-1"></i>Save Draft
+                </button>
+                <button type="button" class="btn btn-hh" data-bs-toggle="modal" data-bs-target="#approveModal">
+                    <i class="bi bi-check-circle me-1"></i>Approve
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden forms actually submitted — Quill's content is copied into #contractBodyHtml first -->
+    <form id="saveDraftForm" th:action="@{/contracts/{id}/content(id=${contract.id})}" method="post" class="d-none">
+        <input type="hidden" name="id" th:value="${contract.id}"/>
+        <input type="hidden" name="contractBodyHtml" id="contractBodyHtml"/>
+    </form>
+    <form id="approveForm" th:action="@{/contracts/{id}/approve(id=${contract.id})}" method="post" class="d-none"></form>
+</main>
+
+<!-- Approve Confirmation Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title"><i class="bi bi-check-circle text-success me-2"></i>Approve Contract</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Approving locks the contract text and generates the final signed PDF. This cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-hh" onclick="approveContract()">
+                    <i class="bi bi-check-circle me-1"></i>Approve
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+
+<script th:inline="javascript">
+    const quill = new Quill('#editor', { theme: 'snow' });
+    // Setting quill.root.innerHTML directly leaves Quill's internal Delta model out of sync with
+    // the DOM (Quill never parsed this content), so on its next internal re-render — e.g. plain
+    // <li> elements with no data-list attribute aren't recognized as list content — it can silently
+    // drop pieces of the manually-injected HTML. dangerouslyPasteHTML runs the HTML through Quill's
+    // own HTML-to-Delta parser, so list/heading/paragraph formats are all correctly recognized.
+    quill.clipboard.dangerouslyPasteHTML(/*[[${contract.contractBodyHtml}]]*/ '');
+
+    function copyContentToHiddenField() {
+        document.getElementById('contractBodyHtml').value = quill.root.innerHTML;
+    }
+
+    function saveDraft() {
+        copyContentToHiddenField();
+        document.getElementById('saveDraftForm').submit();
+    }
+
+    function approveContract() {
+        copyContentToHiddenField();
+        // Fire the save first (so any unsaved edit is captured), then submit the Approve form.
+        fetch(document.getElementById('saveDraftForm').action, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams(new FormData(document.getElementById('saveDraftForm')))
+        }).finally(function () {
+            document.getElementById('approveForm').submit();
+        });
+    }
+</script>
+</body>
+</html>

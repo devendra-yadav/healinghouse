@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Therapists')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+    <th:block th:replace="~{fragments/layout :: alerts}"/>
+
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a th:href="@{/therapists}">Therapists</a></li>
+            <li class="breadcrumb-item">
+                <a th:href="@{/therapists/{id}(id=${contract.therapist.id})}" th:text="${contract.therapist.fullName}"></a>
+            </li>
+            <li class="breadcrumb-item active" th:text="${contract.contractNumber}"></li>
+        </ol>
+    </nav>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h6 class="mb-0" th:text="${contract.contractNumber}"></h6>
+                    <span class="badge"
+                          th:classappend="${contract.status.name() == 'APPROVED'} ? 'bg-success' :
+                                          (${contract.status.name() == 'DRAFT'} ? 'bg-warning text-dark' :
+                                          (${contract.status.name() == 'CANCELLED'} ? 'bg-danger' : 'bg-secondary'))"
+                          th:text="${contract.status}">
+                    </span>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-3 small">
+                        <tbody>
+                            <tr><td class="text-muted ps-0" style="width:160px">Position</td><td th:text="${contract.position}"></td></tr>
+                            <tr><td class="text-muted ps-0">Joining Date</td><td th:text="${#temporals.format(contract.joiningDate, 'dd MMM yyyy')}"></td></tr>
+                            <tr>
+                                <td class="text-muted ps-0">Contract Period</td>
+                                <td th:text="${contract.contractPeriodMonths != null} ? ${contract.contractPeriodMonths} + ' month(s)' : 'Open-ended'"></td>
+                            </tr>
+                            <tr th:if="${contract.probationApplicable}">
+                                <td class="text-muted ps-0">Probation</td>
+                                <td th:text="${contract.probationPeriodMonths} + ' month(s) — ₹' + ${#numbers.formatDecimal(contract.probationSalary, 1, 2)} + '/mo'"></td>
+                            </tr>
+                            <tr><td class="text-muted ps-0">Monthly Salary</td><td th:text="'₹ ' + ${#numbers.formatDecimal(contract.monthlySalary, 1, 2)}"></td></tr>
+                            <tr th:if="${contract.commissionPercent != null}">
+                                <td class="text-muted ps-0">Commission</td>
+                                <td th:text="${#numbers.formatDecimal(contract.commissionPercent, 1, 2)} + '%'"></td>
+                            </tr>
+                            <tr th:if="${contract.performanceBonusThreshold != null}">
+                                <td class="text-muted ps-0">Performance Bonus</td>
+                                <td th:text="'₹ ' + ${#numbers.formatDecimal(contract.performanceBonusAmount, 1, 2)} + ' at ' + ${contract.performanceBonusThreshold} + '+ sessions/month'"></td>
+                            </tr>
+                            <tr><td class="text-muted ps-0">Notice Period</td><td th:text="${contract.noticePeriodMonths} + ' month(s)'"></td></tr>
+                            <tr th:if="${contract.approvedAt != null}">
+                                <td class="text-muted ps-0">Approved</td>
+                                <td th:text="${#temporals.format(contract.approvedAt, 'dd MMM yyyy, hh:mm a')} + ' by ' + ${contract.approvedBy.fullName}"></td>
+                            </tr>
+                            <tr th:if="${contract.acknowledgedAt != null}">
+                                <td class="text-muted ps-0">Acknowledged</td>
+                                <td th:text="${#temporals.format(contract.acknowledgedAt, 'dd MMM yyyy, hh:mm a')} + ' by ' + ${contract.therapist.fullName}"></td>
+                            </tr>
+                            <tr th:if="${contract.cancelledAt != null}">
+                                <td class="text-muted ps-0">Cancelled</td>
+                                <td th:text="${#temporals.format(contract.cancelledAt, 'dd MMM yyyy, hh:mm a')} + ' by ' + ${contract.cancelledBy.fullName}"></td>
+                            </tr>
+                            <tr th:if="${contract.cancellationReason != null and !contract.cancellationReason.isBlank()}">
+                                <td class="text-muted ps-0">Reason</td>
+                                <td th:text="${contract.cancellationReason}"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <div class="d-flex flex-wrap gap-2 border-top pt-3">
+                        <a th:href="@{/therapists/{id}(id=${contract.therapist.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Back
+                        </a>
+                        <a th:if="${contract.status.name() == 'DRAFT' and @perm.has('CONTRACTS','EDIT')}"
+                           th:href="@{/contracts/{id}/review(id=${contract.id})}" class="btn btn-sm btn-hh">
+                            <i class="bi bi-pencil-square me-1"></i>Continue Editing
+                        </a>
+                        <form th:if="${contract.status.name() == 'DRAFT' and @perm.has('CONTRACTS','DELETE')}"
+                              th:action="@{/contracts/{id}/delete(id=${contract.id})}" method="post"
+                              onsubmit="return confirm('Delete this draft contract? This cannot be undone.');">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                <i class="bi bi-trash me-1"></i>Delete Draft
+                            </button>
+                        </form>
+                        <a th:if="${contract.status.name() == 'APPROVED' and @perm.has('CONTRACTS','CREATE')}"
+                           th:href="@{/therapists/{id}/contracts/renew(id=${contract.therapist.id})}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-arrow-repeat me-1"></i>Renew
+                        </a>
+                        <button th:if="${contract.status.name() == 'APPROVED' and @perm.has('CONTRACTS','APPROVE')}"
+                                type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#cancelModal">
+                            <i class="bi bi-x-circle me-1"></i>Cancel Contract
+                        </button>
+                        <form th:if="${contract.status.name() == 'APPROVED' and contract.acknowledgedAt == null and ownTherapistId != null and ownTherapistId == contract.therapist.id}"
+                              th:action="@{/contracts/{id}/acknowledge(id=${contract.id})}" method="post">
+                            <button type="submit" class="btn btn-sm btn-hh">
+                                <i class="bi bi-check2-circle me-1"></i>Acknowledge
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12 col-lg-7">
+            <div class="card shadow-sm h-100" th:if="${contract.status.name() == 'APPROVED'}">
+                <div class="card-header py-2 fw-semibold">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Contract PDF
+                </div>
+                <div class="card-body p-0">
+                    <embed th:src="@{/contracts/{id}/pdf(id=${contract.id})}" type="application/pdf"
+                           style="width:100%; min-height:75vh; border:0;"/>
+                </div>
+            </div>
+            <div class="card shadow-sm" th:unless="${contract.status.name() == 'APPROVED'}">
+                <div class="card-body text-center text-muted py-5">
+                    <i class="bi bi-file-earmark-text fs-1 d-block mb-2"></i>
+                    No PDF yet — the PDF is generated once this contract is approved.
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Cancel Confirmation Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form th:action="@{/contracts/{id}/cancel(id=${contract.id})}" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title"><i class="bi bi-exclamation-triangle text-danger me-2"></i>Cancel Contract</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to cancel this contract?</p>
+                    <label class="form-label small">Reason (optional)</label>
+                    <textarea name="cancellationReason" class="form-control" rows="2" placeholder="e.g. Therapist resigned"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-danger">Cancel Contract</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+</body>
+</html>
