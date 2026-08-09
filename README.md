@@ -36,8 +36,9 @@ Everything else in the system exists to support that loop:
 - **Costs** — one-off and recurring clinic expenses (rent, salaries, supplies) against an admin-managed category list, netted against revenue in a Profit & Loss report.
 - **Scheduling** — a per-therapist calendar and an all-therapists overlay calendar, with drag-to-reschedule, conflict warnings (not hard blocks), and duration tracking.
 - **Payroll input** — therapist commission is computed from tagged, completed appointment lines, per line-item therapist (not just the main therapist on the appointment).
+- **Employment Contracts** — the Owner generates a branded PDF employment contract per therapist (salary, commission %, bonus, probation, notice period), free-form reviews/edits it, then approves it — locking the content, rendering the PDF, and syncing those terms onto the therapist's live payroll fields.
 - **Reporting** — seven report types (daily, period, comparison, patient acquisition, performance, actual revenue, profit & loss) each exportable to CSV/PDF.
-- **Security** — session-based login, five fixed roles, a data-driven permission matrix, and therapist "own data only" scoping.
+- **Security** — session-based login, five fixed roles, a data-driven permission matrix, and therapist "own data only" scoping (plus a short-lived password re-confirmation before a therapist can view their own earnings page).
 
 ---
 
@@ -51,7 +52,8 @@ Everything else in the system exists to support that loop:
 | Frontend | Bootstrap 5.3 (CDN), vanilla JS, Chart.js (CDN), FullCalendar v6 (CDN) — **no npm/node build step** |
 | Database | MySQL 8+ (Hibernate `ddl-auto: update`, no migration tool yet) |
 | Auth | Spring Security — session/form login, BCrypt passwords |
-| Exports | OpenCSV (CSV), iText 7 (branded PDF reports) |
+| Exports | OpenCSV (CSV), iText 7 (branded PDF reports), iText `html2pdf` (rich-text contract PDFs) |
+| Rich text | Quill.js (CDN) — employment contract free-form editor |
 | Build | Maven (`mvnw`), `maven-assembly-plugin` produces a deployable zip |
 | Boilerplate | Lombok (`@Data`, `@Builder`, etc.) |
 
@@ -168,6 +170,10 @@ erDiagram
     RECURRING_EXPENSE_TEMPLATE ||--o{ EXPENSE : "auto-generates (nullable)"
     THERAPIST ||--o{ EXPENSE : "payout (nullable)"
     APP_USER ||--o{ EXPENSE : "recorded by"
+
+    THERAPIST ||--o{ EMPLOYMENT_CONTRACT : "history"
+    EMPLOYMENT_CONTRACT }o--o| EMPLOYMENT_CONTRACT : "previousContract (renewal chain, nullable)"
+    APP_USER ||--o{ EMPLOYMENT_CONTRACT : "created/approved/cancelled by"
 ```
 
 **Key modeling decisions** (see `CLAUDE.md` for full detail):
@@ -183,6 +189,7 @@ erDiagram
 - **Discounts** — one whole-appointment discount (percentage or flat), proportionally distributed across lines; never affects commission (which stays on undiscounted `priceAtTime`/`lineTotal`).
 - **Optimistic locking** (`@Version`) on `Appointment` and `PatientWallet`/`PatientPackage` guards against double-submit races (e.g. double-cancel double-reversing a wallet debit).
 - **Expenses** — a cost-side ledger, structurally independent of the revenue catalog. Soft-void, never hard-deleted; recurring templates auto-generate actual expenses on a daily schedule (the app's first background job); a category flag hides sensitive rows (salary payouts) from the `THERAPIST_PLUS` role.
+- **Employment Contracts** — DRAFT (freely re-editable, no PDF) → APPROVED (locked, PDF rendered, payroll fields synced onto `Therapist`) → CANCELLED/SUPERSEDED (terminal). One `APPROVED` contract per therapist; renewing supersedes the old one only once the new one is approved. Owner-exclusive module — ADMIN gets no access at all, not even view.
 
 ---
 
@@ -197,6 +204,8 @@ Five fixed roles, no custom role creation:
 | **RECEPTIONIST** | Booking, patients, payments — no reports/financial admin (data-driven, see matrix) |
 | **THERAPIST** | Scoped to their **own** appointments/earnings only |
 | **THERAPIST_PLUS** | A THERAPIST plus expense recording/catalog management — never sees Revenue/Profit & Loss reports or salary-payout expenses |
+
+`CONTRACTS` (employment contracts) is the one module ADMIN has **zero** access to, not even view — Owner-exclusive by design, given how sensitive signed employment terms are. THERAPIST/THERAPIST_PLUS can view (and download the PDF of) only their own contract.
 
 - Permissions are **data-driven**: `RolePermission(role, module, action) → granted`, seeded by `SecuritySeeder`, editable at runtime via `/admin/access-matrix` (OWNER edits, ADMIN read-only), cached in memory.
 - Enforced twice: `@RequiresPermission` + `PermissionAspect` (server-side, hard gate) and the `perm` Thymeleaf bean (hides nav links/buttons a user can't use).
@@ -246,7 +255,23 @@ stateDiagram-v2
     NO_SHOW --> [*]
 ```
 
-Only `SCHEDULED`/`COMPLETED` appointments count toward double-booking conflicts; discount editing and line-item changes are only allowed while still `SCHEDULED`.
+Only `SCHEDULED`/`COMPLETED` appointments count toward double-booking conflicts; discount editing and line-item changes are only allowed while still `SCHEDULED`. The conflict check only runs at **creation** — editing an already-saved appointment no longer re-warns on every subsequent save, since the accept-or-override call was already made once.
+
+### Employment contract lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> DRAFT: Owner "Generate Contract" (pre-filled from therapist profile)
+    DRAFT --> DRAFT: Save Draft (free-form Quill.js edit, any number of times)
+    DRAFT --> APPROVED: Approve — locks content,<br/>renders PDF, syncs commission/salary/bonus onto Therapist
+    DRAFT --> [*]: Delete (DRAFT only, hard delete)
+    APPROVED --> CANCELLED: Cancel (payroll fields untouched)
+    APPROVED --> DRAFT: Renew (new draft, previousContract set)
+    DRAFT --> APPROVED: Approve the renewal → old contract flips SUPERSEDED
+    CANCELLED --> [*]
+```
+
+Only OWNER can create/edit/approve/cancel/renew/delete — ADMIN has no access to this module at all, not even to view a contract. The therapist it belongs to can view their own `APPROVED` contract's PDF and self-service "Acknowledge" it (replacing a wet signature); nothing else.
 
 ---
 
@@ -291,7 +316,9 @@ healinghouse/
 ├── src/main/resources/
 │   ├── templates/     Thymeleaf views (fragments/layout.html + per-domain folders)
 │   ├── application*.yml   Per-profile config (default/test/preprod/prod)
-│   └── static/        (if any) CSS/JS assets
+│   ├── static/        css/, js/ (tag-input.js), images/ (clinic logo/stamp/owner signature — used
+│   │                   by branded report + contract PDFs)
+│   └── fonts/         DejaVu Sans TTFs (PDF export text rendering)
 ├── src/main/linux/    Deployment scripts (start/stop, logback) for Linux hosts
 ├── requirements/      Authoritative spec docs (v1 requirements + bug reports)
 ├── CLAUDE.md          Deep implementation notes for AI-assisted development
@@ -410,7 +437,7 @@ PDF exports carry a branded letterhead, footer with page numbers, and a confiden
 ./mvnw test
 ```
 
-102/102 tests passing as of the Expenses/Profit & Loss feature (2026-07-27), up from 73/73 at the last full RBAC security pass (2026-07-19). See `requirements/Bug_Report_v1.md` through `v6.md` for the historical findings/fixes trail — all findings through v6 are fixed or closed not-a-bug.
+103/103 tests passing as of the Audit Log feature (2026-07-30), up from 73/73 at the last full RBAC security pass (2026-07-19). Test coverage has since grown further with Employment Contracts (`ContractServiceTests`) and the therapist step-up re-auth filter (`TherapistStepUpAuthFilterTests`) — rerun `./mvnw test` for the current count. See `requirements/Bug_Report_v1.md` through `v6.md` for the historical findings/fixes trail — all findings through v6 are fixed or closed not-a-bug.
 
 ---
 
@@ -418,6 +445,6 @@ PDF exports carry a branded letterhead, footer with page numbers, and a confiden
 
 - **`CLAUDE.md`** — the single most detailed doc in this repo: every non-obvious business rule (discounts, combos, packages, wallet, commission, RBAC) with the *why* behind each design decision. Read this before making any change to money/commission/scheduling logic.
 - **`requirements/Healing_House_Clinic_Requirements_v1.md`** — the authoritative v1.2 spec, phase-by-phase.
-- **`requirements/*_Requirements_v1.md`** — feature-specific specs (Combos, Packages, Wallet, Tags, RBAC, Calendar, Expenses, etc.) for anything not fully covered above.
+- **`requirements/*_Requirements_v1.md`** — feature-specific specs (Combos, Packages, Wallet, Tags, RBAC, Calendar, Expenses, Employment Contracts, etc.) for anything not fully covered above.
 - **`requirements/Bug_Report_v1.md`–`v6.md`** — historical bug findings and fixes, useful context for *why* certain code looks defensive.
 - **`HELP.md`** — Spring Boot / Maven wrapper reference links (auto-generated by Spring Initializr).

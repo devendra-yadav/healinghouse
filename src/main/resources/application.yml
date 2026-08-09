@@ -6,7 +6,7 @@ spring:
     import: "optional:file:${hh_external_properties:}"
 
   datasource:
-    url: jdbc:mysql://localhost:3306/healing_house_clinic?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/healing_house_clinic?useSSL=false&serverTimezone=Asia/Kolkata&allowPublicKeyRetrieval=true&maxAllowedPacket=67108864
     username: clinic_user
     password: StrongPass123!
     driver-class-name: com.mysql.cj.jdbc.Driver
