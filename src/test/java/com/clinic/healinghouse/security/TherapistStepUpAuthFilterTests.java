@@ -118,6 +118,50 @@ class TherapistStepUpAuthFilterTests {
     }
 
     @Test
+    void contractDetailWithNoPriorConfirmationIsRedirectedToConfirmPassword() throws Exception {
+        authenticateAs(AppRole.THERAPIST);
+        HttpServletRequest request = requestFor("GET", "/contracts/17");
+        when(request.getSession(false)).thenReturn(null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain, never()).doFilter(request, response);
+        verify(response).sendRedirect("/account/confirm-password?returnUrl=%2Fcontracts%2F17");
+    }
+
+    @Test
+    void contractPdfWithNoPriorConfirmationIsRedirectedToConfirmPassword() throws Exception {
+        authenticateAs(AppRole.THERAPIST_PLUS);
+        HttpServletRequest request = requestFor("GET", "/contracts/17/pdf");
+        when(request.getSession(false)).thenReturn(null);
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain, never()).doFilter(request, response);
+        verify(response).sendRedirect("/account/confirm-password?returnUrl=%2Fcontracts%2F17%2Fpdf");
+    }
+
+    @Test
+    void contractDetailWithRecentConfirmationPassesThrough() throws Exception {
+        authenticateAs(AppRole.THERAPIST);
+        HttpServletRequest request = requestFor("GET", "/contracts/17");
+        HttpSession session = mock(HttpSession.class);
+        when(request.getSession(false)).thenReturn(session);
+        when(session.getAttribute(TherapistStepUpAuthFilter.SESSION_ATTR)).thenReturn(Instant.now());
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        verify(chain).doFilter(request, response);
+        verify(response, never()).sendRedirect(anyString());
+    }
+
+    @Test
     void therapistWithExpiredConfirmationIsRedirectedAgain() throws Exception {
         authenticateAs(AppRole.THERAPIST);
         HttpServletRequest request = requestFor("GET", "/therapists/1");

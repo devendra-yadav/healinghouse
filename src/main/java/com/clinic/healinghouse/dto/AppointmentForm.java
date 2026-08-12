@@ -41,6 +41,15 @@ public class AppointmentForm {
     private BigDecimal prepaidCorrection;
 
     /**
+     * Only meaningful alongside a prepaidCorrection that lowers the total — staff's explicit
+     * confirmation that cash was physically handed back to the patient, as opposed to the
+     * correction just fixing a data-entry mistake (no cash moved). Defaults false (assume a
+     * data-entry fix) since that's the far more common reason staff use this pencil-edit; only a
+     * checked box makes AppointmentService/CashFlowReportAggregator count it as real cash outflow.
+     */
+    private boolean prepaidCorrectionCashReturned;
+
+    /**
      * Total wallet-sourced amount this appointment should carry — a target, not a delta
      * (unlike newPaymentAmount). Null/absent on create means 0; on edit it is pre-populated
      * from the appointment's current walletAmountApplied. AppointmentService computes the

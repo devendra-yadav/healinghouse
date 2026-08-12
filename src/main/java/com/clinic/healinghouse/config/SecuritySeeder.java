@@ -62,6 +62,7 @@ public class SecuritySeeder implements CommandLineRunner {
         backfillTherapistPlusPermissions();
         backfillAuditLogPermission();
         backfillContractsPermission();
+        backfillCashFlowReportPermission();
         backfillFullAccessMatrix();
         seedExpenseCategories();
         splitSalariesAndCommissionCategory();
@@ -138,6 +139,10 @@ public class SecuritySeeder implements CommandLineRunner {
         grant(defaults, OWNER, USER_MANAGEMENT, VIEW, CREATE, EDIT, DELETE);
         grant(defaults, OWNER, ACCESS_MATRIX, VIEW, EDIT);
         grant(defaults, OWNER, AUDIT_LOG, VIEW);
+        // Cash Flow report — real money-movement ledger (appointment cash payments, wallet top-ups/
+        // refunds, package purchases/refunds, expenses), deliberately Owner-exclusive like Contracts/
+        // Audit Log rather than shared with ADMIN the way REPORTS_PROFIT_LOSS is.
+        grant(defaults, OWNER, REPORTS_CASH_FLOW, VIEW, EXPORT);
         // Employment Contracts (requirements/Employment_Contracts_Requirements_v1.md §5.1) —
         // Owner-exclusive: every action. ADMIN/RECEPTIONIST get no grant at all, deliberately
         // narrower than every other OWNER/ADMIN-shared module.
@@ -424,6 +429,19 @@ public class SecuritySeeder implements CommandLineRunner {
         if (!toSave.isEmpty()) {
             rolePermissionRepository.saveAll(toSave);
             log.info("Backfilled {} CONTRACTS role-permission row(s).", toSave.size());
+        }
+    }
+
+    /**
+     * One-time idempotent fix-up for databases seeded before the Cash Flow report existed —
+     * Owner-exclusive, mirroring {@link #backfillAuditLogPermission()}.
+     */
+    private void backfillCashFlowReportPermission() {
+        List<RolePermission> toSave = new ArrayList<>();
+        grantIfMissing(toSave, OWNER, REPORTS_CASH_FLOW, VIEW, EXPORT);
+        if (!toSave.isEmpty()) {
+            rolePermissionRepository.saveAll(toSave);
+            log.info("Backfilled {} OWNER/REPORTS_CASH_FLOW role-permission row(s).", toSave.size());
         }
     }
 

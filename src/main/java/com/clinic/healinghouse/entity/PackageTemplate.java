@@ -57,4 +57,16 @@ public class PackageTemplate {
     @OneToMany(mappedBy = "packageTemplate", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<PackageTemplateProductItem> productItems = new ArrayList<>();
+
+    /** Guards the "a template can never have zero items while active" invariant against concurrent
+     *  service+product deactivation — mirrors Combo's identical @Version (Bug_Report_v6.md
+     *  Finding 10) and closes the same gap for PackageTemplate, which had been left without it even
+     *  though PackageTemplateService.handleServiceDeactivated/handleProductDeactivated (added for
+     *  Bug_Report_v6.md Finding 9) use the exact same strip-items-then-auto-deactivate-if-empty
+     *  pattern (Bug_Report_v7.md Finding 10). Like Combo's version, the mutation that matters here
+     *  (removing an item from serviceItems/productItems) lives on the inverse side of a mappedBy
+     *  collection, so a plain save() wouldn't dirty this row or bump this column;
+     *  PackageTemplateService.removeFromTemplates force-increments it explicitly. */
+    @Version
+    private Long version;
 }

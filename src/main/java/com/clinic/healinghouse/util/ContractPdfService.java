@@ -4,6 +4,7 @@ import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.entity.EmploymentContract;
 import com.itextpdf.html2pdf.ConverterProperties;
 import com.itextpdf.html2pdf.HtmlConverter;
+import com.itextpdf.styledxmlparser.resolver.resource.IResourceRetriever;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Component;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Base64;
 
 /**
@@ -33,6 +35,25 @@ public class ContractPdfService {
     private String stampDataUri;
     private String signatureDataUri;
 
+    /** Denies every actual network/file resource fetch html2pdf might otherwise attempt for an
+     *  {@code <img src="http://...">} (or similar) appearing in Owner-edited {@code contractBodyHtml}
+     *  — that content is freely editable via the Quill review editor with no server-side HTML
+     *  sanitization, so a live SSRF/resource-fetch vector existed here with no guard at all
+     *  (Bug_Report_v7.md Finding 14). Safe to block unconditionally: every image this class itself
+     *  embeds (logo/stamp/signature) is inlined as a {@code data:} URI, which iText's resource
+     *  resolver decodes directly and never routes through this retriever in the first place. */
+    private static final IResourceRetriever BLOCKING_RESOURCE_RETRIEVER = new IResourceRetriever() {
+        @Override
+        public InputStream getInputStreamByUrl(URL url) {
+            return null;
+        }
+
+        @Override
+        public byte[] getByteArrayByUrl(URL url) {
+            return null;
+        }
+    };
+
     @PostConstruct
     void loadBrandImages() {
         logoDataUri = loadAsDataUri("/static/images/clinic_logo.png", "image/png");
@@ -43,7 +64,9 @@ public class ContractPdfService {
     public byte[] render(EmploymentContract contract) {
         String html = buildFullHtml(contract);
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        HtmlConverter.convertToPdf(html, out, new ConverterProperties());
+        ConverterProperties converterProperties = new ConverterProperties();
+        converterProperties.setResourceRetriever(BLOCKING_RESOURCE_RETRIEVER);
+        HtmlConverter.convertToPdf(html, out, converterProperties);
         return out.toByteArray();
     }
 

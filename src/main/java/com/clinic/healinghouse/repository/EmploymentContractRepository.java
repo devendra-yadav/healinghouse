@@ -18,6 +18,9 @@ public interface EmploymentContractRepository extends JpaRepository<EmploymentCo
 
     List<EmploymentContract> findByTherapist_IdOrderByCreatedAtDesc(Long therapistId);
 
-    @Query("SELECT COUNT(c) FROM EmploymentContract c WHERE c.createdAt >= :yearStart AND c.createdAt < :yearEnd")
-    long countCreatedBetween(@Param("yearStart") LocalDateTime yearStart, @Param("yearEnd") LocalDateTime yearEnd);
+    // Used to derive the next contract number from the highest sequence actually used this year,
+    // not a row count — a row count silently collides once any non-last contract of the year is
+    // deleted (Bug_Report_v7.md Finding 1).
+    @Query("SELECT c.contractNumber FROM EmploymentContract c WHERE c.createdAt >= :yearStart AND c.createdAt < :yearEnd")
+    List<String> findContractNumbersCreatedBetween(@Param("yearStart") LocalDateTime yearStart, @Param("yearEnd") LocalDateTime yearEnd);
 }

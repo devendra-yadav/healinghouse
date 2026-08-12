@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.dto.CashFlowReportDTO;
 import com.clinic.healinghouse.dto.ProfitLossReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportFilter;
@@ -10,6 +11,7 @@ import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
+import com.clinic.healinghouse.service.CashFlowReportAggregator;
 import com.clinic.healinghouse.service.ProductService;
 import com.clinic.healinghouse.service.ProfitLossReportAggregator;
 import com.clinic.healinghouse.service.ReportService;
@@ -52,6 +54,7 @@ public class ReportController {
     private final TagService tagService;
     private final PermissionService permissionService;
     private final ProfitLossReportAggregator profitLossReportAggregator;
+    private final CashFlowReportAggregator cashFlowReportAggregator;
 
     /** Daily/period/comparison/patients/performance are clinic-wide aggregates — every therapist's
      *  revenue and commission, not just the caller's own. THERAPIST no longer holds REPORTS_STANDARD
@@ -531,6 +534,66 @@ public class ReportController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                     "attachment;filename=profit-loss-report-" + from + "-to-" + to + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
+    @RequiresPermission(module = Module.REPORTS_CASH_FLOW, action = PermissionAction.VIEW)
+    @GetMapping("/cash-flow")
+    public String cashFlow(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
+                            @RequestParam(defaultValue = "0") int page,
+                            @RequestParam(defaultValue = "20") int size,
+                            Model model) {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        int pageSize = paginationUtil.clampPageSize(size);
+        page = paginationUtil.clampPage(page);
+        CashFlowReportDTO report = cashFlowReportAggregator.getCashFlowReport(from, to, PageRequest.of(page, pageSize));
+
+        model.addAttribute("pageTitle", "Cash Flow");
+        model.addAttribute("selectedDateFrom", from);
+        model.addAttribute("selectedDateTo", to);
+        model.addAttribute("report", report);
+        return "reports/cash-flow";
+    }
+
+    @RequiresPermission(module = Module.REPORTS_CASH_FLOW, action = PermissionAction.EXPORT)
+    @GetMapping("/cash-flow/export-csv")
+    public ResponseEntity<byte[]> exportCashFlowReportCsv(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws IOException {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        CashFlowReportDTO report = cashFlowReportAggregator.getCashFlowReport(from, to, Pageable.unpaged());
+        String csv = csvExportUtil.generateCashFlowReportCsv(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=cash-flow-report-" + from + "-to-" + to + ".csv")
+                .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
+                .body(csv.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    @RequiresPermission(module = Module.REPORTS_CASH_FLOW, action = PermissionAction.EXPORT)
+    @GetMapping("/cash-flow/export-pdf")
+    public ResponseEntity<byte[]> exportCashFlowReportPdf(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo) throws Exception {
+        LocalDate today = LocalDate.now();
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
+        LocalDate to = dateTo != null ? dateTo : today;
+
+        CashFlowReportDTO report = cashFlowReportAggregator.getCashFlowReport(from, to, Pageable.unpaged());
+        byte[] pdf = pdfExportUtil.generateCashFlowReportPdf(report);
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment;filename=cash-flow-report-" + from + "-to-" + to + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
                 .body(pdf);
     }

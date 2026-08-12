@@ -97,6 +97,13 @@ public class ContractController {
                          @RequestParam Long previousContractId,
                          RedirectAttributes ra) {
         try {
+            // A crafted/stale POST could otherwise name a previousContractId belonging to a
+            // different therapist than the one in the URL, silently attaching the new renewal
+            // draft to the wrong therapist (Bug_Report_v7.md Finding 15) — only OWNER can reach
+            // this route, so not a privilege-escalation path, but a real data-integrity foot-gun.
+            if (!contractService.belongsToTherapist(previousContractId, therapistId)) {
+                throw new IllegalArgumentException("This contract does not belong to the specified therapist.");
+            }
             EmploymentContract draft = contractService.renewDraft(previousContractId, form, currentUser());
             return "redirect:/contracts/" + draft.getId() + "/review";
         } catch (IllegalArgumentException | IllegalStateException ex) {
@@ -176,7 +183,7 @@ public class ContractController {
 
     @PostMapping("/contracts/{id}/acknowledge")
     public String acknowledge(@PathVariable Long id, RedirectAttributes ra) {
-        enforceOwnContract(id);
+        enforceAcknowledgingTherapistOwnsContract(id);
         contractService.acknowledge(id, currentUser());
         ra.addFlashAttribute("successMessage", "Contract acknowledged.");
         return "redirect:/contracts/" + id;
@@ -212,11 +219,27 @@ public class ContractController {
     }
 
     /** THERAPIST/THERAPIST_PLUS is scoped to their own linked therapist's contracts only — mirrors
-     *  TherapistController.enforceOwnTherapist. A no-op for OWNER (currentTherapistId() is null). */
+     *  TherapistController.enforceOwnTherapist. A no-op for OWNER (currentTherapistId() is null),
+     *  which is correct for read access since OWNER already holds full CONTRACTS/VIEW. Do NOT reuse
+     *  this for acknowledge() — see enforceAcknowledgingTherapistOwnsContract below. */
     private void enforceOwnContract(Long id) {
         Long ownTherapistId = permissionService.currentTherapistId();
         if (ownTherapistId != null && !contractService.belongsToTherapist(id, ownTherapistId)) {
             throw new AccessDeniedException("You don't have access to this contract.");
+        }
+    }
+
+    /** acknowledge() is a stand-in for a wet signature, so unlike read access it must never be a
+     *  no-op: the caller must actually BE the linked therapist the contract belongs to, not merely
+     *  "not a mismatched therapist." enforceOwnContract's null-is-ok short-circuit (correct for
+     *  OWNER's read access above) would otherwise let ADMIN/RECEPTIONIST — who hold zero CONTRACTS
+     *  grant — acknowledge any therapist's contract, since acknowledge() is intentionally not
+     *  @RequiresPermission-gated for THERAPIST/THERAPIST_PLUS self-service (Bug_Report_v7.md
+     *  Finding 3). */
+    private void enforceAcknowledgingTherapistOwnsContract(Long id) {
+        Long ownTherapistId = permissionService.currentTherapistId();
+        if (ownTherapistId == null || !contractService.belongsToTherapist(id, ownTherapistId)) {
+            throw new AccessDeniedException("Only the therapist this contract belongs to can acknowledge it.");
         }
     }
 }

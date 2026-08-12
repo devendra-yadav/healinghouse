@@ -400,6 +400,14 @@
                                                min="0" step="0.01"
                                                th:value="${appointment.amountPaid != null ? appointment.amountPaid : 0}"
                                                oninput="updateBalance()">
+                                        <div class="form-check form-check-sm text-start mt-1 d-none" id="prepaidCorrectionCashReturnedWrap">
+                                            <input class="form-check-input" type="checkbox" value="true"
+                                                   id="prepaidCorrectionCashReturnedInput" name="prepaidCorrectionCashReturned">
+                                            <label class="form-check-label small text-muted" for="prepaidCorrectionCashReturnedInput">
+                                                Cash was physically returned to the patient
+                                                (leave unchecked if this is just fixing a data-entry mistake)
+                                            </label>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr>
@@ -1050,6 +1058,8 @@ function togglePrepaidEdit() {
     const walletInput = document.getElementById('walletAppliedInput');
     const walletAdditionalInput = document.getElementById('walletAdditionalInput');
     const editWalletBtn = document.getElementById('editWalletAppliedBtn');
+    const cashReturnedWrap = document.getElementById('prepaidCorrectionCashReturnedWrap');
+    const cashReturnedInput = document.getElementById('prepaidCorrectionCashReturnedInput');
     const editing = !input.classList.contains('d-none');
     if (editing) {
         input.value = EXISTING_AMOUNT_PAID;
@@ -1059,6 +1069,10 @@ function togglePrepaidEdit() {
         if (walletInput) walletInput.disabled = false;
         if (walletAdditionalInput) walletAdditionalInput.disabled = false;
         if (editWalletBtn) editWalletBtn.disabled = false;
+        // Closing the pencil-edit without submitting should reset the flag rather than leave a
+        // stale "cash returned" checkbox state around for the next time it's opened.
+        if (cashReturnedWrap) cashReturnedWrap.classList.add('d-none');
+        if (cashReturnedInput) cashReturnedInput.checked = false;
     } else {
         display.classList.add('d-none');
         input.classList.remove('d-none');
@@ -1069,6 +1083,9 @@ function togglePrepaidEdit() {
         if (walletInput) walletInput.disabled = true;
         if (walletAdditionalInput) walletAdditionalInput.disabled = true;
         if (editWalletBtn) editWalletBtn.disabled = true;
+        // Only relevant while actually correcting the figure — server-side only consults this flag
+        // when the correction actually lowers the cash portion (Bug_Report_v7.md Finding 8).
+        if (cashReturnedWrap) cashReturnedWrap.classList.remove('d-none');
     }
     updateBalance();
 }

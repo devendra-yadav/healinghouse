@@ -183,7 +183,15 @@ public class AppointmentController {
                 therapistIds, parseCalendarBound(start), parseCalendarBound(end));
     }
 
-    /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date. */
+    /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date.
+     *  Reviewed for Bug_Report_v7.md Finding 18 ("trusts a client-supplied UTC offset"): confirmed
+     *  {@code OffsetDateTime.toLocalDateTime()} discards whatever offset accompanied the string
+     *  rather than converting by it — the wall-clock digits are taken as-is regardless of offset, so
+     *  a skewed client-supplied offset has no effect on the resulting bound either way. Kept as
+     *  {@code OffsetDateTime.parse} rather than {@code LocalDateTime.parse} purely so an
+     *  offset-suffixed string still parses at all; do not "fix" this into an actual zone conversion
+     *  (e.g. via {@code toInstant()}/{@code atZone()}) without re-deriving this against the app's
+     *  forced Asia/Kolkata JVM default first. */
     private LocalDateTime parseCalendarBound(String raw) {
         try {
             return OffsetDateTime.parse(raw).toLocalDateTime();

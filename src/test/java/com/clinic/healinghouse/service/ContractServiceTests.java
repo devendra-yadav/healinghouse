@@ -37,12 +37,13 @@ class ContractServiceTests {
     @Mock private TherapistService therapistService;
     @Mock private ContractTemplateRenderer templateRenderer;
     @Mock private ContractPdfService pdfService;
+    @Mock private ContractNumberAssigner contractNumberAssigner;
 
     private ContractService service;
 
     @BeforeEach
     void setUp() {
-        service = new ContractService(contractRepository, therapistService, templateRenderer, pdfService, new HealingHouseProperties());
+        service = new ContractService(contractRepository, therapistService, templateRenderer, pdfService, new HealingHouseProperties(), contractNumberAssigner);
     }
 
     private Therapist therapist(long id) {
@@ -232,6 +233,62 @@ class ContractServiceTests {
         assertThatThrownBy(() -> service.generateDraft(1L, validForm(), user(1L)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("already has an active contract");
+    }
+
+    @Test
+    void generateDraftRejectsZeroOrNegativeContractPeriodMonths() {
+        Therapist t = therapist(1L);
+        when(therapistService.getById(1L)).thenReturn(t);
+        when(contractRepository.findByTherapist_IdAndStatus(1L, ContractStatus.APPROVED)).thenReturn(List.of());
+        when(contractRepository.findByTherapist_IdAndStatus(1L, ContractStatus.DRAFT)).thenReturn(List.of());
+
+        EmploymentContractForm form = validForm();
+        form.setContractPeriodMonths(0);
+
+        assertThatThrownBy(() -> service.generateDraft(1L, form, user(1L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Contract period must be greater than zero");
+    }
+
+    @Test
+    void generateDraftRejectsNegativeCommissionPercent() {
+        Therapist t = therapist(1L);
+        when(therapistService.getById(1L)).thenReturn(t);
+        when(contractRepository.findByTherapist_IdAndStatus(1L, ContractStatus.APPROVED)).thenReturn(List.of());
+        when(contractRepository.findByTherapist_IdAndStatus(1L, ContractStatus.DRAFT)).thenReturn(List.of());
+
+        EmploymentContractForm form = validForm();
+        form.setCommissionPercent(BigDecimal.valueOf(-5));
+
+        assertThatThrownBy(() -> service.generateDraft(1L, form, user(1L)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Commission percent cannot be negative");
+    }
+
+    // ── renewDraft() ──
+
+    @Test
+    void renewDraftReopensExistingDraftInsteadOfDuplicating() {
+        EmploymentContract approved = contractBuilder(3L, ContractStatus.APPROVED).build();
+        when(contractRepository.findById(3L)).thenReturn(Optional.of(approved));
+        EmploymentContract existingDraft = contractBuilder(5L, ContractStatus.DRAFT).build();
+        when(contractRepository.findByTherapist_IdAndStatus(1L, ContractStatus.DRAFT)).thenReturn(List.of(existingDraft));
+
+        EmploymentContract result = service.renewDraft(3L, validForm(), user(1L));
+
+        assertThat(result).isSameAs(existingDraft);
+        verify(contractRepository, never()).save(any());
+        verify(contractNumberAssigner, never()).saveInNewTransaction(any());
+    }
+
+    @Test
+    void renewDraftThrowsWhenCurrentContractNotApproved() {
+        EmploymentContract draft = contractBuilder(3L, ContractStatus.DRAFT).build();
+        when(contractRepository.findById(3L)).thenReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> service.renewDraft(3L, validForm(), user(1L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("approved contract can be renewed");
     }
 
     // ── acknowledge() ──

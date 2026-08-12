@@ -22,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 
 /**
@@ -205,7 +206,7 @@ public class RecurringExpenseTemplateService {
                 .build();
         expenseRepository.save(expense);
 
-        LocalDate nextDue = advance(template.getNextDueDate(), template.getFrequency());
+        LocalDate nextDue = advance(template.getNextDueDate(), template.getStartDate(), template.getFrequency());
         template.setNextDueDate(nextDue);
         if (template.getEndDate() != null && nextDue.isAfter(template.getEndDate())) {
             template.setActive(false);
@@ -222,11 +223,27 @@ public class RecurringExpenseTemplateService {
                 template.getId(), template.getLabel(), expense.getAmount(), expense.getExpenseDate());
     }
 
-    private LocalDate advance(LocalDate date, com.clinic.healinghouse.entity.RecurrenceFrequency frequency) {
-        return switch (frequency) {
-            case MONTHLY -> date.plusMonths(1);
-            case QUARTERLY -> date.plusMonths(3);
-            case YEARLY -> date.plusYears(1);
+    /**
+     * Advances to the next due date, anchored to the template's original {@code startDate} day-of-
+     * month rather than chained off {@code currentDueDate}'s own day. {@code LocalDate.plusMonths}
+     * clamps to the target month's last valid day instead of overflowing — chaining off the
+     * previous (already-clamped) due date would permanently pin a template due on the 29th-31st to
+     * whatever shorter day it first landed on the first time it crossed a shorter month, never
+     * recovering even once a long-enough month comes back around (Bug_Report_v7.md Finding 11). Only
+     * {@code currentDueDate}'s year/month is used here (via {@link YearMonth}) to determine which
+     * period to land in; the day-of-month is always freshly computed from {@code startDate}, clamped
+     * to whatever the target month actually allows — e.g. a template anchored to the 31st correctly
+     * lands on Feb 28, then recovers to Mar 31 the very next generation, rather than staying pinned
+     * at the 28th forever.
+     */
+    private LocalDate advance(LocalDate currentDueDate, LocalDate startDate, com.clinic.healinghouse.entity.RecurrenceFrequency frequency) {
+        int monthsToAdd = switch (frequency) {
+            case MONTHLY -> 1;
+            case QUARTERLY -> 3;
+            case YEARLY -> 12;
         };
+        YearMonth targetMonth = YearMonth.from(currentDueDate).plusMonths(monthsToAdd);
+        int targetDay = Math.min(startDate.getDayOfMonth(), targetMonth.lengthOfMonth());
+        return targetMonth.atDay(targetDay);
     }
 }

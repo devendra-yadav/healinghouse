@@ -14,7 +14,10 @@ import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.PackageTemplateRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,6 +47,7 @@ public class PackageTemplateService {
     private final ProductRepository productRepository;
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<PackageTemplate> findAllActive() {
@@ -216,6 +220,18 @@ public class PackageTemplateService {
         return removeFromTemplates(templates, t -> t.getProductItems().removeIf(pi -> pi.getProduct().getId().equals(productId)));
     }
 
+    /**
+     * The "empty after removal" check below reads each template's in-transaction collection state,
+     * which two concurrent deactivations (one removing the template's last service, the other its
+     * last product) can both evaluate against stale data under MySQL's default REPEATABLE READ —
+     * each sees the other item still present, so neither trips the auto-deactivate branch and the
+     * template silently ends up with zero items while still active. This mirrors exactly the race
+     * Bug_Report_v6.md Finding 10 fixed for Combo — that fix was never applied here even though
+     * this method already mirrored ComboService.removeFromCombos in every other respect
+     * (Bug_Report_v7.md Finding 10). lockAndPersist force-increments the version on every template
+     * touched here, so the second concurrent call to reach it always loses with a clear "just
+     * updated" error instead of silently completing.
+     */
     private CatalogItemRemovalResult removeFromTemplates(List<PackageTemplate> templates, java.util.function.Consumer<PackageTemplate> removeItem) {
         int autoDeactivated = 0;
         for (PackageTemplate template : templates) {
@@ -226,10 +242,21 @@ public class PackageTemplateService {
                 log.info("Auto-deactivated package template id={} name='{}' — no items left after catalog removal",
                         template.getId(), template.getName());
             }
-            packageTemplateRepository.save(template);
+            lockAndPersist(template);
             log.info("Removed deactivated catalog item from package template id={} name='{}'", template.getId(), template.getName());
         }
         return new CatalogItemRemovalResult(templates.size(), autoDeactivated);
+    }
+
+    private void lockAndPersist(PackageTemplate template) {
+        try {
+            packageTemplateRepository.save(template);
+            entityManager.lock(template, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+            entityManager.flush();
+        } catch (OptimisticLockException ex) {
+            throw new IllegalStateException(
+                    "This package template was just updated by someone else. Please refresh and try again.", ex);
+        }
     }
 
     /** Live sum of current catalog prices x session count across every item — never stored. */

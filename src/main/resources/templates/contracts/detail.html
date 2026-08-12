@@ -118,7 +118,7 @@
         </div>
 
         <div class="col-12 col-lg-7">
-            <div class="card shadow-sm h-100" th:if="${contract.status.name() == 'APPROVED'}">
+            <div class="card shadow-sm h-100" th:if="${contract.pdfContent != null}">
                 <div class="card-header py-2 fw-semibold">
                     <i class="bi bi-file-earmark-pdf me-1"></i>Contract PDF
                 </div>
@@ -127,7 +127,7 @@
                            style="width:100%; min-height:75vh; border:0;"/>
                 </div>
             </div>
-            <div class="card shadow-sm" th:unless="${contract.status.name() == 'APPROVED'}">
+            <div class="card shadow-sm" th:unless="${contract.pdfContent != null}">
                 <div class="card-body text-center text-muted py-5">
                     <i class="bi bi-file-earmark-text fs-1 d-block mb-2"></i>
                     No PDF yet — the PDF is generated once this contract is approved.

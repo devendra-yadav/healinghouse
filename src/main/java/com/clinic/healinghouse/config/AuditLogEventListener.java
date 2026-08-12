@@ -51,7 +51,13 @@ public class AuditLogEventListener implements PostInsertEventListener, PostUpdat
     private static final Set<String> EXCLUDED_ENTITY_NAMES = Set.of(
             "com.clinic.healinghouse.entity.AuditLog",
             "com.clinic.healinghouse.entity.WalletTransaction",
-            "com.clinic.healinghouse.entity.PackageTransaction");
+            "com.clinic.healinghouse.entity.PackageTransaction",
+            // Same append-only, self-auditing ledger pattern as the two above — its own javadoc
+            // describes it that way, but it was left out of this list when it was introduced, so
+            // every RECEIVED/CORRECTED row (including the one-time historical backfill) generated a
+            // redundant generic AuditLog CREATE row alongside the ledger row it already is
+            // (Bug_Report_v7.md Finding 22 — over-logging, not a security gap, but pure noise).
+            "com.clinic.healinghouse.entity.AppointmentPaymentTransaction");
 
     private static final Set<String> SKIPPED_PROPERTY_NAMES = Set.of("version", "updatedAt", "createdAt");
 

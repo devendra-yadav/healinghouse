@@ -44,6 +44,7 @@ public class ContractService {
     private final ContractTemplateRenderer templateRenderer;
     private final ContractPdfService pdfService;
     private final HealingHouseProperties properties;
+    private final ContractNumberAssigner contractNumberAssigner;
 
     @Transactional(readOnly = true)
     public EmploymentContract getById(Long id) {
@@ -111,14 +112,23 @@ public class ContractService {
 
     /** §5.6: only from an APPROVED contract; links previousContract, superseded only once the new
      *  draft is itself APPROVED (§approve below) — an abandoned renewal draft never affects the
-     *  still-APPROVED original. */
+     *  still-APPROVED original. Reopens an existing in-progress renewal draft rather than creating
+     *  a duplicate — mirrors generateDraft's dedup check — so a double-submit (double-click,
+     *  resubmit-on-slow-response) can never produce two DRAFT rows both pointing previousContract
+     *  at the same APPROVED contract, which would otherwise risk two simultaneously APPROVED
+     *  contracts for one therapist if both were later approved (Bug_Report_v7.md Finding 4). */
     public EmploymentContract renewDraft(Long currentContractId, EmploymentContractForm form, User currentUser) {
         EmploymentContract current = getById(currentContractId);
         if (current.getStatus() != ContractStatus.APPROVED) {
             throw new IllegalStateException("Only an approved contract can be renewed.");
         }
-        validateForm(form);
         Therapist therapist = current.getTherapist();
+        List<EmploymentContract> existingDrafts = contractRepository.findByTherapist_IdAndStatus(therapist.getId(), ContractStatus.DRAFT);
+        if (!existingDrafts.isEmpty()) {
+            return existingDrafts.get(0);
+        }
+
+        validateForm(form);
         EmploymentContract draft = EmploymentContract.builder()
                 .therapist(therapist)
                 .status(ContractStatus.DRAFT)
@@ -149,8 +159,13 @@ public class ContractService {
         if (contract.getStatus() != ContractStatus.DRAFT) {
             throw new IllegalStateException("Only a draft contract can be approved.");
         }
-        if (contract.getCommissionPercent() != null && contract.getCommissionPercent().compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new IllegalArgumentException("Commission percent cannot exceed 100%.");
+        if (contract.getCommissionPercent() != null) {
+            if (contract.getCommissionPercent().compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new IllegalArgumentException("Commission percent cannot exceed 100%.");
+            }
+            if (contract.getCommissionPercent().signum() < 0) {
+                throw new IllegalArgumentException("Commission percent cannot be negative.");
+            }
         }
 
         byte[] pdf = pdfService.render(contract);
@@ -213,10 +228,13 @@ public class ContractService {
         log.info("Contract id={} acknowledged by user id={}", id, currentUser.getId());
     }
 
+    /** A contract's PDF is rendered once, at approval, and is never cleared afterwards — so it
+     *  must stay retrievable through CANCELLED/SUPERSEDED too (§7's "history — view PDF only"),
+     *  not just while the contract is still APPROVED. */
     @Transactional(readOnly = true)
     public byte[] getPdf(Long id) {
         EmploymentContract contract = getById(id);
-        if (contract.getStatus() != ContractStatus.APPROVED) {
+        if (contract.getPdfContent() == null) {
             throw new IllegalStateException("This contract has not been approved yet — no PDF available.");
         }
         return contract.getPdfContent();
@@ -236,7 +254,12 @@ public class ContractService {
     }
 
     /** Assigns a contract number and renders the initial body, retrying on a rare concurrent
-     *  numbering collision (§5.6, §10). */
+     *  numbering collision (§5.6, §10). Each attempt's save runs in its own REQUIRES_NEW
+     *  transaction via {@link ContractNumberAssigner} — a unique-constraint violation marks
+     *  Hibernate's persistence context rollback-only even after the caller catches the translated
+     *  exception, so retrying the save inside this method's own outer transaction would make every
+     *  subsequent attempt fail for that unrelated reason instead of the numbering collision itself
+     *  (Bug_Report_v7.md Finding 5). */
     private EmploymentContract persistNewDraft(EmploymentContract draft, Therapist therapist, EmploymentContractForm form) {
         LocalDate generatedDate = LocalDate.now();
         IllegalStateException lastError = null;
@@ -245,7 +268,7 @@ public class ContractService {
             draft.setContractNumber(contractNumber);
             draft.setContractBodyHtml(templateRenderer.render(therapist, form, contractNumber, generatedDate));
             try {
-                EmploymentContract saved = contractRepository.save(draft);
+                EmploymentContract saved = contractNumberAssigner.saveInNewTransaction(draft);
                 log.info("Generated draft contract id={} number={} therapist={}", saved.getId(), saved.getContractNumber(), therapist.getId());
                 return saved;
             } catch (DataIntegrityViolationException e) {
@@ -260,9 +283,27 @@ public class ContractService {
         int year = Year.now().getValue();
         LocalDateTime yearStart = LocalDateTime.of(year, 1, 1, 0, 0);
         LocalDateTime yearEnd = LocalDateTime.of(year + 1, 1, 1, 0, 0);
-        long sequence = contractRepository.countCreatedBetween(yearStart, yearEnd) + 1;
+        long maxSequenceUsed = contractRepository.findContractNumbersCreatedBetween(yearStart, yearEnd).stream()
+                .mapToLong(this::extractSequence)
+                .max()
+                .orElse(0L);
         String prefix = properties.getContracts().getContractNumberPrefix();
-        return String.format("%s-%d-%04d", prefix, year, sequence);
+        return String.format("%s-%d-%04d", prefix, year, maxSequenceUsed + 1);
+    }
+
+    /** Extracts the trailing numeric sequence from a contract number (e.g. "HHC-2026-0007" -> 7).
+     *  Deriving the next number from the highest sequence actually in use — rather than a row
+     *  count — means deleting any draft (even one that isn't the most recently created) can never
+     *  cause a later generation to collide with a number still in use. */
+    private long extractSequence(String contractNumber) {
+        if (contractNumber == null) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(contractNumber.substring(contractNumber.lastIndexOf('-') + 1));
+        } catch (NumberFormatException e) {
+            return 0L;
+        }
     }
 
     private void applyForm(EmploymentContract contract, EmploymentContractForm form) {
@@ -292,6 +333,9 @@ public class ContractService {
         if (form.getNoticePeriodMonths() == null || form.getNoticePeriodMonths() <= 0) {
             throw new IllegalArgumentException("Notice period is required.");
         }
+        if (form.getContractPeriodMonths() != null && form.getContractPeriodMonths() <= 0) {
+            throw new IllegalArgumentException("Contract period must be greater than zero.");
+        }
         if (form.isProbationApplicable()) {
             if (form.getProbationPeriodMonths() == null || form.getProbationPeriodMonths() < 1 || form.getProbationPeriodMonths() > 6) {
                 throw new IllegalArgumentException("Probation period must be between 1 and 6 months.");
@@ -305,8 +349,13 @@ public class ContractService {
         if (hasThreshold != hasAmount) {
             throw new IllegalArgumentException("Performance bonus threshold and amount must be provided together.");
         }
-        if (form.getCommissionPercent() != null && form.getCommissionPercent().compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new IllegalArgumentException("Commission percent cannot exceed 100%.");
+        if (form.getCommissionPercent() != null) {
+            if (form.getCommissionPercent().compareTo(BigDecimal.valueOf(100)) > 0) {
+                throw new IllegalArgumentException("Commission percent cannot exceed 100%.");
+            }
+            if (form.getCommissionPercent().signum() < 0) {
+                throw new IllegalArgumentException("Commission percent cannot be negative.");
+            }
         }
     }
 }

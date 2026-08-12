@@ -30,6 +30,16 @@
                 </a>
             </th:block>
         </div>
+        <div class="col-12 col-sm-6 col-lg-4" th:if="${@perm.has('REPORTS_CASH_FLOW','VIEW')}">
+            <a th:href="@{/reports/cash-flow}"
+               class="card card-kpi p-4 bg-white text-decoration-none h-100 d-flex flex-column">
+                <div class="d-flex align-items-center gap-3 mb-2">
+                    <i class="bi bi-arrow-left-right fs-3 text-success"></i>
+                    <span class="fw-semibold text-dark">Cash Flow</span>
+                </div>
+                <small class="text-muted">Real money in vs. out — appointment payments, package sales, wallet top-ups, expenses, and refunds.</small>
+            </a>
+        </div>
     </div>
 </main>
 

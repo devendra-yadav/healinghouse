@@ -25,8 +25,14 @@ import java.time.Instant;
  * access-control gap; it's a step-up ("confirm it's still you") check layered on top of an otherwise
  * valid session, matching how banks re-prompt for a PIN before showing an account balance.
  *
- * Redirects any GET under {@code /therapists} to {@code /account/confirm-password} unless the session
- * already has a recent (within {@link #VALIDITY}) successful confirmation — see
+ * Also covers {@code /contracts/**} for the same reason: a therapist's own Employment Contract page
+ * shows the identical class of sensitive payout data (salary, commission %, bonus terms) plus the
+ * signed PDF, and is reachable by a link from the very Therapist detail page this filter already
+ * gates — without this, bookmarking or leaving that contract page open would bypass the protection
+ * entirely (Bug_Report_v7.md Finding 6).
+ *
+ * Redirects any matching GET to {@code /account/confirm-password} unless the session already has a
+ * recent (within {@link #VALIDITY}) successful confirmation — see
  * {@code AccountController#confirmPasswordSubmit}, which sets {@link #SESSION_ATTR}. Deliberately
  * short-lived rather than a one-time gate: an indefinitely-trusted session would defeat the point on
  * the very same unattended-computer scenario this exists for.
@@ -42,7 +48,8 @@ public class TherapistStepUpAuthFilter extends OncePerRequestFilter {
         String contextPath = request.getContextPath();
         String path = request.getRequestURI().substring(contextPath.length());
 
-        if (!"GET".equalsIgnoreCase(request.getMethod()) || !path.startsWith("/therapists")) {
+        boolean coveredPath = path.startsWith("/therapists") || path.startsWith("/contracts");
+        if (!"GET".equalsIgnoreCase(request.getMethod()) || !coveredPath) {
             chain.doFilter(request, response);
             return;
         }

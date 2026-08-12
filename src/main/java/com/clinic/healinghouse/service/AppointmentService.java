@@ -52,6 +52,7 @@ public class AppointmentService {
     private final WalletService                    walletService;
     private final PackageService                   packageService;
     private final ComboRepository                  comboRepository;
+    private final AppointmentPaymentTransactionRepository appointmentPaymentTransactionRepository;
     private final HealingHouseProperties           properties;
 
     private static final Sort DATE_DESC =
@@ -449,7 +450,10 @@ public class AppointmentService {
 
         appt.setAppointmentDateTime(newStart);
         appt.setDurationMinutes(newDuration);
-        appointmentRepository.save(appt);
+        // saveWithConflictCheck (not a plain save()) so a double drag-drop racing another edit on
+        // the same appointment surfaces the app's usual friendly "updated by someone else" message
+        // instead of a raw Hibernate optimistic-lock exception (Bug_Report_v7.md Finding 19).
+        saveWithConflictCheck(appt);
         log.info("Appointment id={} rescheduled to start={} duration={}min", id, newStart, newDuration);
         return new RescheduleResponseDTO(true, "Rescheduled.", List.of());
     }
@@ -637,6 +641,19 @@ public class AppointmentService {
 
         Appointment saved = appointmentRepository.save(appointment);
 
+        // Cash-flow ledger: the fresh (non-wallet, non-package) portion actually collected at
+        // booking — mirrors WalletTransaction.TOP_UP/PackageTransaction.PURCHASE as the third real-
+        // money-in event type. newPaymentAmount is already validated non-negative above.
+        if (newPaymentAmount.signum() > 0) {
+            appointmentPaymentTransactionRepository.save(AppointmentPaymentTransaction.builder()
+                    .appointment(saved)
+                    .patient(patient)
+                    .type(AppointmentPaymentTransactionType.RECEIVED)
+                    .amount(newPaymentAmount)
+                    .paymentMethod(paymentMethod)
+                    .build());
+        }
+
         // Debited/consumed last so they're the only steps that can still fail after every other
         // validation passed — @Transactional rolls the whole method back on an insufficient-balance
         // or insufficient-sessions failure, no manual compensation needed.
@@ -776,6 +793,15 @@ public class AppointmentService {
      */
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
+
+        // Snapshot the cash portion (amountPaid minus wallet/package-funded amounts) before any
+        // mutation below, so it can be diffed against the same figure after save — see the
+        // cash-flow ledger write further down for why this before/after diff (rather than hand-
+        // tracking prepaidBase/newPayment/corrections individually) is the only formula that stays
+        // correct across both the plain-new-payment path and the prepaidCorrection pencil-edit path.
+        BigDecimal cashPortionBefore = nz(existing.getAmountPaid())
+                .subtract(nz(existing.getWalletAmountApplied()))
+                .subtract(nz(existing.getPackageAmountApplied()));
 
         // Reject a stale form: the edit page baked amountPaid/walletAmountApplied into hidden fields at
         // load time, and the client computes prepaidCorrection/walletAmountApplied as targets built on
@@ -1000,6 +1026,32 @@ public class AppointmentService {
         }
 
         Appointment saved = saveWithConflictCheck(existing);
+
+        // Cash-flow ledger: record only the fresh-cash delta, whichever path produced it (a plain
+        // "New Payment" entry, a prepaidCorrection pencil-edit, or both combined in one submit).
+        // Wallet/package reversal never reaches here with a non-zero delta, since those move
+        // amountPaid and their own applied field by the same amount (see saved's post-reconciliation
+        // values below being read fresh, after every setter above already ran).
+        BigDecimal cashPortionAfter = nz(saved.getAmountPaid())
+                .subtract(nz(saved.getWalletAmountApplied()))
+                .subtract(nz(saved.getPackageAmountApplied()));
+        BigDecimal cashDelta = cashPortionAfter.subtract(cashPortionBefore);
+        if (cashDelta.signum() != 0) {
+            // A downward correction is ambiguous — fixing a typo vs. cash actually handed back —
+            // so only count it as real outflow when staff explicitly confirmed the latter. Positive
+            // deltas (new payment, or an upward correction) are unambiguously real cash in either way.
+            boolean cashPhysicallyReturned = cashDelta.signum() < 0 && form.isPrepaidCorrectionCashReturned();
+            appointmentPaymentTransactionRepository.save(AppointmentPaymentTransaction.builder()
+                    .appointment(saved)
+                    .patient(saved.getPatient())
+                    .type(form.getPrepaidCorrection() != null
+                            ? AppointmentPaymentTransactionType.CORRECTED
+                            : AppointmentPaymentTransactionType.RECEIVED)
+                    .amount(cashDelta)
+                    .paymentMethod(saved.getPaymentMethod())
+                    .cashPhysicallyReturned(cashPhysicallyReturned)
+                    .build());
+        }
 
         if (walletDelta.signum() > 0) {
             walletService.applyToAppointment(existing.getPatient().getId(), saved.getId(), walletDelta);
