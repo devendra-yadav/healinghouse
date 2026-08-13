@@ -7,6 +7,7 @@ import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.util.ProportionalAllocator;
 import com.clinic.healinghouse.util.TherapistColorUtil;
 import jakarta.annotation.PostConstruct;
@@ -54,6 +55,7 @@ public class AppointmentService {
     private final ComboRepository                  comboRepository;
     private final AppointmentPaymentTransactionRepository appointmentPaymentTransactionRepository;
     private final HealingHouseProperties           properties;
+    private final PermissionService                permissionService;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
@@ -789,10 +791,19 @@ public class AppointmentService {
 
     /**
      * Updates a SCHEDULED appointment in full (lines + stock management).
-     * For non-SCHEDULED appointments only notes and payment info are updated.
+     * Once an appointment leaves SCHEDULED ("closed"), only OWNER may still update it — and OWNER can
+     * update everything, not just notes/payment — every other role is rejected outright, since a
+     * closed appointment's record (including per-line therapist attribution) should be immutable to
+     * anyone but the Owner from that point on.
      */
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
+
+        boolean isOwner = permissionService.currentRole() == AppRole.OWNER;
+        if (existing.getStatus() != AppointmentStatus.SCHEDULED && !isOwner) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can update it now.");
+        }
 
         // Snapshot the cash portion (amountPaid minus wallet/package-funded amounts) before any
         // mutation below, so it can be diffed against the same figure after save — see the
@@ -822,12 +833,10 @@ public class AppointmentService {
                     + "Please refresh and try again.");
         }
 
-        // Once an appointment leaves SCHEDULED, only notes/payment-info stay editable — everything
-        // else (who/when/lines/discount/wallet) is frozen, matching this method's own contract
-        // ("For non-SCHEDULED appointments only notes and payment info are updated"). Previously this
-        // was only enforced for the line-item rebuild below; patient/therapist/date/duration/wallet
-        // were silently editable via this endpoint on any COMPLETED/CANCELLED/NO_SHOW appointment too.
-        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED;
+        // Once an appointment leaves SCHEDULED, everything (who/when/lines/discount/wallet) is
+        // frozen for every role except OWNER, who reaches here having already passed the closed+
+        // non-owner guard above — for OWNER a non-SCHEDULED appointment is still fully editable.
+        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED || isOwner;
 
         Patient patient = existing.getPatient();
         Therapist therapist = existing.getTherapist();
@@ -1117,9 +1126,11 @@ public class AppointmentService {
     private record PendingPackageConsumption(Long serviceItemId, Long productItemId, BigDecimal amount) {}
 
     // ── Per-line therapist reassignment ──────────────────────────────────────
-    // Allowed regardless of appointment status: only the line's therapist changes,
-    // price/quantity/stock are untouched, so commission/revenue recalculates live
-    // even for COMPLETED appointments. Still subject to the same double-booking check as the
+    // OWNER may reassign regardless of appointment status: only the line's therapist changes,
+    // price/quantity/stock are untouched, so commission/revenue recalculates live even for a
+    // COMPLETED appointment. Every other role may only reassign while still SCHEDULED — once an
+    // appointment is closed, its per-line therapist attribution is frozen for anyone but the Owner,
+    // same as the rest of updateAppointment. Still subject to the same double-booking check as the
     // main create/update flow (warn, never hard-block) — see findConflictsForTherapist.
 
     /**
@@ -1136,10 +1147,14 @@ public class AppointmentService {
         if (!line.getAppointment().getId().equals(appointmentId)) {
             throw new IllegalArgumentException("Service line does not belong to this appointment.");
         }
+        Appointment appt = line.getAppointment();
+        if (appt.getStatus() != AppointmentStatus.SCHEDULED && permissionService.currentRole() != AppRole.OWNER) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can reassign therapists on it now.");
+        }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
 
-        Appointment appt = line.getAppointment();
         List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
                 newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
         if (!conflicts.isEmpty() && !forceReassign) {
@@ -1162,10 +1177,14 @@ public class AppointmentService {
         if (!line.getAppointment().getId().equals(appointmentId)) {
             throw new IllegalArgumentException("Product line does not belong to this appointment.");
         }
+        Appointment appt = line.getAppointment();
+        if (appt.getStatus() != AppointmentStatus.SCHEDULED && permissionService.currentRole() != AppRole.OWNER) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can reassign therapists on it now.");
+        }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
 
-        Appointment appt = line.getAppointment();
         List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
                 newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
         if (!conflicts.isEmpty() && !forceReassign) {

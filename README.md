@@ -255,7 +255,7 @@ stateDiagram-v2
     NO_SHOW --> [*]
 ```
 
-Only `SCHEDULED`/`COMPLETED` appointments count toward double-booking conflicts; discount editing and line-item changes are only allowed while still `SCHEDULED`. The conflict check only runs at **creation** — editing an already-saved appointment no longer re-warns on every subsequent save, since the accept-or-override call was already made once.
+Only `SCHEDULED`/`COMPLETED` appointments count toward double-booking conflicts. Once an appointment leaves `SCHEDULED` ("closed"), discount editing, line-item changes, and even per-line therapist reassignment are frozen for every role except OWNER — OWNER can still edit a closed appointment in full. The conflict check only runs at **creation** — editing an already-saved appointment no longer re-warns on every subsequent save, since the accept-or-override call was already made once.
 
 ### Employment contract lifecycle
 

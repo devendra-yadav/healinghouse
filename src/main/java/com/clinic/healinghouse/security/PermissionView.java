@@ -39,4 +39,12 @@ public class PermissionView {
         AppRole role = permissionService.currentRole();
         return role == AppRole.OWNER || role == AppRole.ADMIN;
     }
+
+    /** OWNER only — gates the "edit a closed appointment"/"reassign therapist on a closed
+     *  appointment" affordances that only the Owner may use once an appointment leaves SCHEDULED.
+     *  A fixed role check, mirroring {@link #isOwnerOrAdmin()}, since this must never be editable
+     *  via the Access Matrix. */
+    public boolean isOwner() {
+        return permissionService.currentRole() == AppRole.OWNER;
+    }
 }

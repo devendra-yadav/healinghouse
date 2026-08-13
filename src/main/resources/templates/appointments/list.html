@@ -143,15 +143,16 @@
                                     <i class="bi bi-eye"></i>
                                 </a>
 
+                                <!-- Edit — SCHEDULED and (for a THERAPIST) own appointments only, OR the Owner on any status -->
+                                <a th:if="${(a.status.name() == 'SCHEDULED' and canEdit) or @perm.isOwner()}"
+                                   th:href="@{/appointments/{id}/edit(id=${a.id})}"
+                                   class="btn btn-sm btn-outline-secondary me-1"
+                                   title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+
                                 <!-- SCHEDULED-only actions — a THERAPIST only gets these on appointments they're involved in -->
                                 <span th:if="${a.status.name() == 'SCHEDULED' and canEdit}">
-                                    <!-- Edit -->
-                                    <a th:href="@{/appointments/{id}/edit(id=${a.id})}"
-                                       class="btn btn-sm btn-outline-secondary me-1"
-                                       title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-
                                     <!-- Complete (opens modal for confirmation) -->
                                     <button type="button"
                                             class="btn btn-sm btn-outline-success me-1"

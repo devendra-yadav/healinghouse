@@ -25,6 +25,7 @@ import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.PatientRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -69,6 +70,7 @@ class AppointmentServiceTests {
     @Mock private PackageService packageService;
     @Mock private ComboRepository comboRepository;
     @Mock private AppointmentPaymentTransactionRepository appointmentPaymentTransactionRepository;
+    @Mock private PermissionService permissionService;
 
     private AppointmentService appointmentService;
 
@@ -80,7 +82,7 @@ class AppointmentServiceTests {
         appointmentService = new AppointmentService(appointmentRepository, patientRepository, therapistRepository,
                 clinicServiceRepository, productRepository, appointmentServiceLineRepository,
                 appointmentProductLineRepository, walletService, packageService, comboRepository,
-                appointmentPaymentTransactionRepository, new HealingHouseProperties());
+                appointmentPaymentTransactionRepository, new HealingHouseProperties(), permissionService);
         // lenient: markAsCompleted and updateAppointment's stale-baseline guard-throws-before-lookup
         // tests never reach these patient/therapist lookups.
         lenient().when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));

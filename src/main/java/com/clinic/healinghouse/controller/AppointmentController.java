@@ -420,7 +420,7 @@ public class AppointmentController {
         return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
-    // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    // ── Per-line therapist reassignment (OWNER: any status; other roles: SCHEDULED only) ──
     // Subject to the same double-booking check as create/update (warn, never hard-block): if the
     // new therapist is already busy elsewhere during this appointment's window, the reassignment
     // is NOT applied and the conflict is flashed back for the detail page's warning banner to show,

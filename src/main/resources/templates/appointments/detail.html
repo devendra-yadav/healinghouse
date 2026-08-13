@@ -8,7 +8,9 @@
 <nav th:replace="~{fragments/layout :: navbar('Appointments')}"></nav>
 
 <main class="container-fluid px-4 py-4 flex-grow-1"
-      th:with="canEdit=${@perm.currentTherapistId() == null or @appointmentService.involvesTherapist(appointment, @perm.currentTherapistId())}">
+      th:with="canEdit=${@perm.currentTherapistId() == null or @appointmentService.involvesTherapist(appointment, @perm.currentTherapistId())},
+               isScheduled=${appointment.status.name() == 'SCHEDULED'},
+               canReassign=${canEdit and (isScheduled or @perm.isOwner())}">
     <th:block th:replace="~{fragments/layout :: alerts}"/>
 
     <!-- ── Per-line therapist reassignment conflict warning ─────────────────── -->
@@ -62,12 +64,14 @@
                     data-bs-toggle="modal" data-bs-target="#topUpModal">
                 <i class="bi bi-wallet2 me-1"></i>Top Up Wallet
             </button>
-            <!-- Status actions — SCHEDULED only, and (for a THERAPIST) only on appointments they're involved in -->
-            <span th:if="${appointment.status.name() == 'SCHEDULED' and canEdit}" class="d-flex gap-2">
-                <a th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"
-                   class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-pencil me-1"></i>Edit
-                </a>
+            <!-- Edit — SCHEDULED and (for a THERAPIST) own appointments only, OR the Owner on any status -->
+            <a th:if="${(isScheduled and canEdit) or @perm.isOwner()}"
+               th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"
+               class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil me-1"></i>Edit
+            </a>
+            <!-- Status transition actions — SCHEDULED only regardless of role, and (for a THERAPIST) only on appointments they're involved in -->
+            <span th:if="${isScheduled and canEdit}" class="d-flex gap-2">
                 <button type="button" class="btn btn-success btn-sm"
                         th:disabled="${appointment.balanceDue.signum() > 0}"
                         th:title="${appointment.balanceDue.signum() > 0} ? 'Clear the balance due before completing' : ''"
@@ -274,7 +278,7 @@
                             <tr th:each="sl : ${appointment.getServiceLinesForCombo(ac)}">
                                 <td class="ps-3 fw-semibold" th:text="${sl.service.name}"></td>
                                 <td>
-                                    <form th:if="${canEdit}" method="post"
+                                    <form th:if="${canReassign}" method="post"
                                           th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
                                           class="d-flex align-items-center gap-1">
                                         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -287,7 +291,7 @@
                                             </option>
                                         </select>
                                     </form>
-                                    <span th:unless="${canEdit}" th:text="${sl.therapist.fullName}"></span>
+                                    <span th:unless="${canReassign}" th:text="${sl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${sl.quantity}"></td>
                                 <td class="text-end pe-3 fw-semibold">
@@ -304,7 +308,7 @@
                             <tr th:each="pl : ${appointment.getProductLinesForCombo(ac)}">
                                 <td class="ps-3 fw-semibold" th:text="${pl.product.name}"></td>
                                 <td>
-                                    <form th:if="${canEdit}" method="post"
+                                    <form th:if="${canReassign}" method="post"
                                           th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
                                           class="d-flex align-items-center gap-1">
                                         <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -317,7 +321,7 @@
                                             </option>
                                         </select>
                                     </form>
-                                    <span th:unless="${canEdit}" th:text="${pl.therapist.fullName}"></span>
+                                    <span th:unless="${canReassign}" th:text="${pl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${pl.quantity}"></td>
                                 <td class="text-end pe-3 fw-semibold">
@@ -371,7 +375,7 @@
                             </span>
                         </td>
                         <td>
-                            <form th:if="${canEdit}" method="post"
+                            <form th:if="${canReassign}" method="post"
                                   th:action="@{/appointments/{id}/service-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${sl.id})}"
                                   class="d-flex align-items-center gap-1">
                                 <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -388,7 +392,7 @@
                                     <i class="bi bi-arrow-left-right"></i>
                                 </span>
                             </form>
-                            <span th:unless="${canEdit}" th:text="${sl.therapist.fullName}"></span>
+                            <span th:unless="${canReassign}" th:text="${sl.therapist.fullName}"></span>
                         </td>
                         <td class="text-center text-muted small"
                             th:text="${sl.service.durationMinutes != null
@@ -452,7 +456,7 @@
                             </span>
                         </td>
                         <td>
-                            <form th:if="${canEdit}" method="post"
+                            <form th:if="${canReassign}" method="post"
                                   th:action="@{/appointments/{id}/product-lines/{lineId}/reassign-therapist(id=${appointment.id},lineId=${pl.id})}"
                                   class="d-flex align-items-center gap-1">
                                 <input type="hidden" name="returnUrl" th:if="${returnUrl}" th:value="${returnUrl}">
@@ -469,7 +473,7 @@
                                     <i class="bi bi-arrow-left-right"></i>
                                 </span>
                             </form>
-                            <span th:unless="${canEdit}" th:text="${pl.therapist.fullName}"></span>
+                            <span th:unless="${canReassign}" th:text="${pl.therapist.fullName}"></span>
                         </td>
                         <td class="text-center" th:text="${pl.quantity}"></td>
                         <td class="text-end text-muted small"
