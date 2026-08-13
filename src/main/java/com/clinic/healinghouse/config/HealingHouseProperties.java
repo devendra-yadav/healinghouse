@@ -118,5 +118,7 @@ public class HealingHouseProperties {
         private String contractNumberPrefix = "HHC";
         private String clinicName = "Healing House Clinic & Academy";
         private String clinicAddress = "1st Floor, IOB Complex, 86 MG Road, Muthialpet, Puducherry - 605003";
+        private String clinicPhone = "+91-7540002470";
+        private String clinicEmail = "healinghouseclinic@gmail.com";
     }
 }

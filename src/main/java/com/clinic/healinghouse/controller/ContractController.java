@@ -208,14 +208,19 @@ public class ContractController {
         enforceOwnContract(id);
         EmploymentContract contract = contractService.getById(id);
         byte[] pdf = contractService.getPdf(id);
+        String filename = contract.getContractNumber() + "-" + sanitizeFilename(contract.getTherapist().getFullName()) + ".pdf";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=" + contract.getContractNumber() + ".pdf")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=" + filename)
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }
 
     private User currentUser() {
         return userService.getById(permissionService.currentUserId());
+    }
+
+    private static String sanitizeFilename(String name) {
+        return name.trim().replaceAll("[^a-zA-Z0-9]+", "_");
     }
 
     /** THERAPIST/THERAPIST_PLUS is scoped to their own linked therapist's contracts only — mirrors

@@ -91,6 +91,7 @@ public class ContractPdfService {
                 + ".letterhead img { height: 48px; } "
                 + ".letterhead .clinic-name { font-size: 16px; font-weight: bold; color: #6F201C; margin-top: 6px; } "
                 + ".letterhead .clinic-address { font-size: 10px; color: #888888; } "
+                + ".letterhead .clinic-contact { font-size: 10px; color: #888888; } "
                 + ".signature-block { margin-top: 60px; } "
                 + ".signature-block img.sig { height: 45px; } "
                 + ".signature-block img.stamp { height: 70px; margin-left: 20px; } "
@@ -102,6 +103,7 @@ public class ContractPdfService {
                 + (logoDataUri != null ? "<img src=\"" + logoDataUri + "\">" : "")
                 + "<div class=\"clinic-name\">" + escape(cfg.getClinicName()) + "</div>"
                 + "<div class=\"clinic-address\">" + escape(cfg.getClinicAddress()) + "</div>"
+                + "<div class=\"clinic-contact\">" + escape(cfg.getClinicPhone()) + " | " + escape(cfg.getClinicEmail()) + "</div>"
                 + "</div>";
     }
 

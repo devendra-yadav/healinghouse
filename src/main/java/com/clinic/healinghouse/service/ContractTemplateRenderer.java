@@ -39,6 +39,7 @@ public class ContractTemplateRenderer {
             sb.append(buildProbationClause(form));
         }
         sb.append(buildCompensationClause(form));
+        sb.append(buildLeavePolicyClause());
         sb.append(buildWorkingConditionsClause());
         sb.append(buildConfidentialityClause());
         sb.append(buildTerminationClause(form));
@@ -116,18 +117,39 @@ public class ContractTemplateRenderer {
         return sb.toString();
     }
 
+    private String buildLeavePolicyClause() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<h4>5. LEAVE POLICY</h4><ul>");
+        sb.append(item("Sick Leave", "In the event of illness, the Employee shall promptly inform the Clinic. "
+                + "Sick leave supported by a valid doctor's prescription and/or medical papers shall be treated as "
+                + "paid leave, with no deduction from salary. Sick leave taken without supporting medical documentation "
+                + "shall result in a corresponding salary deduction."));
+        sb.append(item("Casual Leave", "The Employee shall provide the Clinic at least one (1) day's prior notice "
+                + "before availing casual leave. Casual leave shall be unpaid and shall result in a deduction from the "
+                + "fixed component of the Employee's compensation, proportionate to the leave taken."));
+        sb.append(item("Weekly Off", "The Employee shall be entitled to one (1) day off per week. The specific "
+                + "day shall be mutually decided and finalized by the Clinic after considering the weekly-off schedule "
+                + "of other therapists, and may be discussed and revised as operational needs require."));
+        sb.append(item("Working on Weekly Off", "Working on the designated weekly off day is not mandatory. However, "
+                + "where a business requirement arises and the Clinic determines it necessary, the Employee may be given "
+                + "the option to work on their weekly off day. Should the Employee choose to do so, they shall be paid "
+                + "for that day, calculated on the basis of their applicable salary."));
+        sb.append("</ul>");
+        return sb.toString();
+    }
+
     private String buildWorkingConditionsClause() {
-        return "<h4>5. WORKING CONDITIONS</h4><p>The Employee shall observe the Clinic's working hours, "
+        return "<h4>6. WORKING CONDITIONS</h4><p>The Employee shall observe the Clinic's working hours, "
                 + "conduct, and operational policies as communicated from time to time.</p>";
     }
 
     private String buildConfidentialityClause() {
-        return "<h4>6. CONFIDENTIALITY</h4><p>The Employee shall maintain strict confidentiality of all "
+        return "<h4>7. CONFIDENTIALITY</h4><p>The Employee shall maintain strict confidentiality of all "
                 + "patient information and Clinic business information, both during and after the term of this Agreement.</p>";
     }
 
     private String buildTerminationClause(EmploymentContractForm form) {
-        return "<h4>7. TERMINATION</h4><ul>"
+        return "<h4>8. TERMINATION</h4><ul>"
                 + item("Notice Period", form.getNoticePeriodMonths() + " month(s) written notice, required from either party")
                 + "</ul>"
                 + "<p>Either party may terminate this Agreement by serving the notice period stated above in writing. "
