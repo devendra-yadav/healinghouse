@@ -310,6 +310,7 @@ public class AppointmentController {
                         m.put("therapistId", sl.getTherapist().getId());
                         m.put("comboGroupKey", sl.getAppointmentCombo() != null ? "combo-" + sl.getAppointmentCombo().getId() : null);
                         m.put("packageItemId", sl.getPackageServiceItem() != null ? sl.getPackageServiceItem().getId() : null);
+                        m.put("price", sl.getPriceAtTime());
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
@@ -320,6 +321,7 @@ public class AppointmentController {
                         m.put("therapistId", pl.getTherapist().getId());
                         m.put("comboGroupKey", pl.getAppointmentCombo() != null ? "combo-" + pl.getAppointmentCombo().getId() : null);
                         m.put("packageItemId", pl.getPackageProductItem() != null ? pl.getPackageProductItem().getId() : null);
+                        m.put("price", pl.getPriceAtTime());
                         return m;
                     }).toList();
 
@@ -499,6 +501,16 @@ public class AppointmentController {
         }
     }
 
+    /**
+     * Just an optimistic UI hint (renders the per-line price box editable at all) — AppointmentService
+     * is the actual authority, re-checking OWNER-or-main-therapist against the appointment's real main
+     * therapist at save time before honoring any submitted price override.
+     */
+    private boolean canEditLinePrice() {
+        AppRole role = permissionService.currentRole();
+        return role == AppRole.OWNER || role == AppRole.THERAPIST || role == AppRole.THERAPIST_PLUS;
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────
 
     /**
@@ -596,6 +608,7 @@ public class AppointmentController {
 
         model.addAttribute("patients",       patientService.findAll());
         model.addAttribute("therapists",     therapistService.findAll());
+        model.addAttribute("canEditLinePrice", canEditLinePrice());
         model.addAttribute("serviceData",    serviceData);
         model.addAttribute("productData",    productData);
         model.addAttribute("therapistData",  therapistData);

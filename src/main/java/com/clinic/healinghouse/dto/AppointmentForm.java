@@ -112,6 +112,7 @@ public class AppointmentForm {
             s.setServiceId(sl.getService().getId());
             s.setQuantity(sl.getQuantity());
             s.setTherapistId(sl.getTherapist().getId());
+            s.setPrice(sl.getPriceAtTime());
             if (sl.getAppointmentCombo() != null) {
                 s.setComboGroupKey(groupKeyByComboId.get(sl.getAppointmentCombo().getId()));
             }
@@ -125,6 +126,7 @@ public class AppointmentForm {
             p.setProductId(pl.getProduct().getId());
             p.setQuantity(pl.getQuantity());
             p.setTherapistId(pl.getTherapist().getId());
+            p.setPrice(pl.getPriceAtTime());
             if (pl.getAppointmentCombo() != null) {
                 p.setComboGroupKey(groupKeyByComboId.get(pl.getAppointmentCombo().getId()));
             }
@@ -150,6 +152,13 @@ public class AppointmentForm {
          * server-side at save time (never trusted blindly) — see AppointmentService.
          */
         private Long packageItemId;
+        /**
+         * Staff-entered price override for this line, capped server-side to the live catalog price
+         * (discount only, never a markup) and only honored for OWNER or this appointment's main
+         * therapist — see AppointmentService.resolveLinePrice/canOverrideLinePrice. Null (or any
+         * other caller/line type) falls back to the catalog price, same as before this field existed.
+         */
+        private BigDecimal price;
     }
 
     @Data
@@ -162,6 +171,8 @@ public class AppointmentForm {
         private String comboGroupKey;
         /** Product-item mirror of ServiceLineForm.packageItemId. */
         private Long packageItemId;
+        /** Product mirror of ServiceLineForm.price — see that field's javadoc. */
+        private BigDecimal price;
     }
 
     @Data

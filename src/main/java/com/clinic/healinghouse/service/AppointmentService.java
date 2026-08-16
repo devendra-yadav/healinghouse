@@ -487,6 +487,7 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
         Therapist therapist = therapistRepository.findById(form.getTherapistId())
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        boolean canOverridePrice = canOverrideLinePrice(therapist);
 
         // 2. Must have at least one service
         List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
@@ -541,8 +542,10 @@ public class AppointmentService {
             // quantity here would credit packageAmountApplied with N× the line's value while only
             // 1 session is actually deducted from the patient's package.
             int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
-            BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+            boolean identityLocked = lineCombo != null || slf.getPackageItemId() != null;
+            BigDecimal price = resolveLinePrice(cs.getPrice(), slf.getPrice(), null, canOverridePrice, identityLocked);
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageServiceItem packageItem = null;
             if (slf.getPackageItemId() != null) {
@@ -555,7 +558,7 @@ public class AppointmentService {
                             .appointment(appointment)
                             .service(cs)
                             .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
-                            .priceAtTime(cs.getPrice())
+                            .priceAtTime(price)
                             .quantity(qty)
                             .appointmentCombo(lineCombo)
                             .packageServiceItem(packageItem)
@@ -576,8 +579,10 @@ public class AppointmentService {
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Product not found: " + plf.getProductId()));
 
-            BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+            boolean identityLocked = lineCombo != null || plf.getPackageItemId() != null;
+            BigDecimal price = resolveLinePrice(product.getPrice(), plf.getPrice(), null, canOverridePrice, identityLocked);
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageProductItem packageItem = null;
             if (plf.getPackageItemId() != null) {
@@ -591,7 +596,7 @@ public class AppointmentService {
                             .product(product)
                             .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                             .quantity(qty)
-                            .priceAtTime(product.getPrice())
+                            .priceAtTime(price)
                             .lineTotal(lineTotal)
                             .appointmentCombo(lineCombo)
                             .packageProductItem(packageItem)
@@ -908,9 +913,17 @@ public class AppointmentService {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
             validateNoComboPackageOverlap(rawServices, form.getProductLines());
+            boolean canOverridePrice = canOverrideLinePrice(therapist);
 
             oldServiceItemCounts = tallyServicePackageItemCounts(existing.getServiceLines());
             oldProductItemCounts = tallyProductPackageItemCounts(existing.getProductLines());
+
+            // See resolveLinePrice's javadoc — a non-privileged caller's rebuild must carry forward
+            // each line's already-applied price rather than resetting it to the catalog price.
+            Map<Long, java.util.Deque<BigDecimal>> priorServicePrices = canOverridePrice ? Map.of()
+                    : buildPriceHistory(existing.getServiceLines(), sl -> sl.getService().getId(), AppointmentServiceLine::getPriceAtTime);
+            Map<Long, java.util.Deque<BigDecimal>> priorProductPrices = canOverridePrice ? Map.of()
+                    : buildPriceHistory(existing.getProductLines(), pl -> pl.getProduct().getId(), AppointmentProductLine::getPriceAtTime);
 
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
@@ -926,8 +939,12 @@ public class AppointmentService {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
-                BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+                boolean identityLocked = lineCombo != null || slf.getPackageItemId() != null;
+                java.util.Deque<BigDecimal> priorQueue = priorServicePrices.get(cs.getId());
+                BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
+                BigDecimal price = resolveLinePrice(cs.getPrice(), slf.getPrice(), carryForward, canOverridePrice, identityLocked);
+                BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageServiceItem packageItem = null;
                 if (slf.getPackageItemId() != null) {
@@ -942,7 +959,7 @@ public class AppointmentService {
                                 .appointment(existing)
                                 .service(cs)
                                 .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
-                                .priceAtTime(cs.getPrice())
+                                .priceAtTime(price)
                                 .quantity(qty)
                                 .appointmentCombo(lineCombo)
                                 .packageServiceItem(packageItem)
@@ -961,8 +978,12 @@ public class AppointmentService {
                 int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
-                BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+                boolean identityLocked = lineCombo != null || plf.getPackageItemId() != null;
+                java.util.Deque<BigDecimal> priorQueue = priorProductPrices.get(product.getId());
+                BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
+                BigDecimal price = resolveLinePrice(product.getPrice(), plf.getPrice(), carryForward, canOverridePrice, identityLocked);
+                BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageProductItem packageItem = null;
                 if (plf.getPackageItemId() != null) {
@@ -978,7 +999,7 @@ public class AppointmentService {
                                 .product(product)
                                 .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                                 .quantity(qty)
-                                .priceAtTime(product.getPrice())
+                                .priceAtTime(price)
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
                                 .packageProductItem(packageItem)
@@ -1417,6 +1438,55 @@ public class AppointmentService {
         if (lineTherapistId == null) return defaultTherapist;
         return therapistRepository.findById(lineTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
+    }
+
+    /**
+     * Per-line price override rights: OWNER (any appointment), or this appointment's own main
+     * therapist — not a therapist only reassigned to a specific line, and not ADMIN/RECEPTIONIST
+     * despite their general APPOINTMENTS/EDIT grant, since this directly moves commission payout.
+     */
+    private boolean canOverrideLinePrice(Therapist mainTherapist) {
+        if (permissionService.currentRole() == AppRole.OWNER) return true;
+        Long ownTherapistId = permissionService.currentTherapistId();
+        return ownTherapistId != null && ownTherapistId.equals(mainTherapist.getId());
+    }
+
+    /**
+     * Resolves the price actually charged for one line — also what commission is calculated on,
+     * since every commission query reads priceAtTime directly.
+     *   - Combo/package lines are always identity-locked to the catalog price; their pricing
+     *     already comes from elsewhere (the combo's own discount / the package's pre-allocated price).
+     *   - A caller allowed to override (see canOverrideLinePrice) gets their submitted price,
+     *     clamped to [0, catalogPrice] — discount only, never a markup.
+     *   - A caller NOT allowed to override never has their submitted price trusted at all — every
+     *     appointment update clears and rebuilds every line from scratch (see updateAppointment),
+     *     so blindly falling back to the catalog price here would silently erase an already-applied
+     *     therapist discount (and restore full commission) the moment ADMIN/RECEPTIONIST saves an
+     *     unrelated field like notes or payment. Instead it carries forward whatever price the
+     *     matching pre-existing line already had (re-clamped to the current catalog price, in case
+     *     the catalog changed since), or the catalog price if this is a genuinely new line.
+     */
+    private BigDecimal resolveLinePrice(BigDecimal catalogPrice, BigDecimal requestedPrice, BigDecimal carryForwardPrice,
+                                        boolean canOverride, boolean identityLocked) {
+        if (identityLocked) return catalogPrice;
+        if (canOverride) {
+            return requestedPrice != null ? requestedPrice.max(BigDecimal.ZERO).min(catalogPrice) : catalogPrice;
+        }
+        return carryForwardPrice != null ? carryForwardPrice.min(catalogPrice) : catalogPrice;
+    }
+
+    /** Builds a serviceId/productId -> queue-of-priceAtTime map from an appointment's pre-rebuild
+     *  lines, consumed one-at-a-time (oldest-added first) as resolveLinePrice's carryForwardPrice
+     *  for a non-privileged caller's rebuild — see resolveLinePrice's javadoc. */
+    private static <T> Map<Long, java.util.Deque<BigDecimal>> buildPriceHistory(
+            List<T> oldLines,
+            java.util.function.Function<T, Long> keyFn,
+            java.util.function.Function<T, BigDecimal> priceFn) {
+        Map<Long, java.util.Deque<BigDecimal>> map = new LinkedHashMap<>();
+        for (T line : oldLines) {
+            map.computeIfAbsent(keyFn.apply(line), k -> new java.util.ArrayDeque<>()).addLast(priceFn.apply(line));
+        }
+        return map;
     }
 
 
