@@ -104,6 +104,7 @@ public class PackageTemplateService {
                             .packageTemplate(template)
                             .service(cs)
                             .sessionCount(Math.max(1, item.getSessionCount()))
+                            .priceOverride(clampOverride(item.getPrice(), cs.getPrice()))
                             .build());
         }
 
@@ -120,6 +121,7 @@ public class PackageTemplateService {
                             .packageTemplate(template)
                             .product(product)
                             .sessionCount(Math.max(1, item.getSessionCount()))
+                            .priceOverride(clampOverride(item.getPrice(), product.getPrice()))
                             .build());
         }
 
@@ -259,16 +261,37 @@ public class PackageTemplateService {
         }
     }
 
-    /** Live sum of current catalog prices x session count across every item — never stored. */
+    /**
+     * Sum of each item's effective unit price (its own priceOverride if staff set one — discount
+     * only, clamped to catalog price at save time — else the live catalog price) x session count,
+     * across every item. Never stored. Already reflects any per-item discount; the template's own
+     * whole-bundle discount (computeDiscountAmount/computeSuggestedPrice) layers on top of this,
+     * mirroring ComboService.computeOriginalPrice's identical two-phase reasoning.
+     */
     public BigDecimal computeOriginalPrice(PackageTemplate template) {
         BigDecimal total = BigDecimal.ZERO;
         for (PackageTemplateServiceItem si : template.getServiceItems()) {
-            total = total.add(si.getService().getPrice().multiply(BigDecimal.valueOf(si.getSessionCount())));
+            BigDecimal rate = si.getPriceOverride() != null ? si.getPriceOverride() : si.getService().getPrice();
+            total = total.add(rate.multiply(BigDecimal.valueOf(si.getSessionCount())));
         }
         for (PackageTemplateProductItem pi : template.getProductItems()) {
-            total = total.add(pi.getProduct().getPrice().multiply(BigDecimal.valueOf(pi.getSessionCount())));
+            BigDecimal rate = pi.getPriceOverride() != null ? pi.getPriceOverride() : pi.getProduct().getPrice();
+            total = total.add(rate.multiply(BigDecimal.valueOf(pi.getSessionCount())));
         }
         return total;
+    }
+
+    /**
+     * Clamps a staff-entered per-item price to [0, catalogPrice] — discount only, never a markup.
+     * Null/blank input, or a clamped value equal to the catalog price, both mean "no override" (the
+     * form's rate input always carries a numeric value — defaulting to catalog price on an untouched
+     * row — so treating "equals catalog price" as null here is what stops every row from showing a
+     * strikethrough on the detail page just because the form always submits a price).
+     */
+    private BigDecimal clampOverride(BigDecimal requested, BigDecimal catalogPrice) {
+        if (requested == null) return null;
+        BigDecimal clamped = requested.max(BigDecimal.ZERO).min(catalogPrice);
+        return clamped.compareTo(catalogPrice) == 0 ? null : clamped;
     }
 
     /** Original price minus the template's own resolved (capped) discount — a starting point only, never binding. */

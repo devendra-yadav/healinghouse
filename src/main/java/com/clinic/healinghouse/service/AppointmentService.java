@@ -543,8 +543,8 @@ public class AppointmentService {
             // 1 session is actually deducted from the patient's package.
             int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
-            boolean identityLocked = lineCombo != null || slf.getPackageItemId() != null;
-            BigDecimal price = resolveLinePrice(cs.getPrice(), slf.getPrice(), null, canOverridePrice, identityLocked);
+            BigDecimal catalogCeiling = resolveComboServiceCeiling(lineCombo, cs);
+            BigDecimal price = resolveLinePrice(catalogCeiling, slf.getPrice(), null, canOverridePrice);
             BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageServiceItem packageItem = null;
@@ -559,6 +559,7 @@ public class AppointmentService {
                             .service(cs)
                             .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                             .priceAtTime(price)
+                            .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                             .quantity(qty)
                             .appointmentCombo(lineCombo)
                             .packageServiceItem(packageItem)
@@ -580,8 +581,8 @@ public class AppointmentService {
                             "Product not found: " + plf.getProductId()));
 
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
-            boolean identityLocked = lineCombo != null || plf.getPackageItemId() != null;
-            BigDecimal price = resolveLinePrice(product.getPrice(), plf.getPrice(), null, canOverridePrice, identityLocked);
+            BigDecimal catalogCeiling = resolveComboProductCeiling(lineCombo, product);
+            BigDecimal price = resolveLinePrice(catalogCeiling, plf.getPrice(), null, canOverridePrice);
             BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageProductItem packageItem = null;
@@ -597,6 +598,7 @@ public class AppointmentService {
                             .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                             .quantity(qty)
                             .priceAtTime(price)
+                            .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                             .lineTotal(lineTotal)
                             .appointmentCombo(lineCombo)
                             .packageProductItem(packageItem)
@@ -940,10 +942,10 @@ public class AppointmentService {
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
-                boolean identityLocked = lineCombo != null || slf.getPackageItemId() != null;
+                BigDecimal catalogCeiling = resolveComboServiceCeiling(lineCombo, cs);
                 java.util.Deque<BigDecimal> priorQueue = priorServicePrices.get(cs.getId());
                 BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
-                BigDecimal price = resolveLinePrice(cs.getPrice(), slf.getPrice(), carryForward, canOverridePrice, identityLocked);
+                BigDecimal price = resolveLinePrice(catalogCeiling, slf.getPrice(), carryForward, canOverridePrice);
                 BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageServiceItem packageItem = null;
@@ -960,6 +962,7 @@ public class AppointmentService {
                                 .service(cs)
                                 .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
                                 .priceAtTime(price)
+                                .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                                 .quantity(qty)
                                 .appointmentCombo(lineCombo)
                                 .packageServiceItem(packageItem)
@@ -979,10 +982,10 @@ public class AppointmentService {
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
-                boolean identityLocked = lineCombo != null || plf.getPackageItemId() != null;
+                BigDecimal catalogCeiling = resolveComboProductCeiling(lineCombo, product);
                 java.util.Deque<BigDecimal> priorQueue = priorProductPrices.get(product.getId());
                 BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
-                BigDecimal price = resolveLinePrice(product.getPrice(), plf.getPrice(), carryForward, canOverridePrice, identityLocked);
+                BigDecimal price = resolveLinePrice(catalogCeiling, plf.getPrice(), carryForward, canOverridePrice);
                 BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageProductItem packageItem = null;
@@ -1000,6 +1003,7 @@ public class AppointmentService {
                                 .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                                 .quantity(qty)
                                 .priceAtTime(price)
+                                .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
                                 .packageProductItem(packageItem)
@@ -1453,9 +1457,13 @@ public class AppointmentService {
 
     /**
      * Resolves the price actually charged for one line — also what commission is calculated on,
-     * since every commission query reads priceAtTime directly.
-     *   - Combo/package lines are always identity-locked to the catalog price; their pricing
-     *     already comes from elsewhere (the combo's own discount / the package's pre-allocated price).
+     * since every commission query reads priceAtTime directly. Applies uniformly to standalone,
+     * combo, and package lines: a combo/package line's service/product/quantity identity stays
+     * locked (enforced client-side and by the clear-and-rebuild flow itself), but its price is
+     * editable by this same rule. That's a deliberate layering, not a special case — a combo's own
+     * discount (applyComboDiscount) and the whole-appointment discount both already work off
+     * whatever a line's raw lineTotal resolves to, so a per-line override here composes under them
+     * exactly like it already does for a standalone line.
      *   - A caller allowed to override (see canOverrideLinePrice) gets their submitted price,
      *     clamped to [0, catalogPrice] — discount only, never a markup.
      *   - A caller NOT allowed to override never has their submitted price trusted at all — every
@@ -1467,12 +1475,46 @@ public class AppointmentService {
      *     the catalog changed since), or the catalog price if this is a genuinely new line.
      */
     private BigDecimal resolveLinePrice(BigDecimal catalogPrice, BigDecimal requestedPrice, BigDecimal carryForwardPrice,
-                                        boolean canOverride, boolean identityLocked) {
-        if (identityLocked) return catalogPrice;
+                                        boolean canOverride) {
         if (canOverride) {
             return requestedPrice != null ? requestedPrice.max(BigDecimal.ZERO).min(catalogPrice) : catalogPrice;
         }
         return carryForwardPrice != null ? carryForwardPrice.min(catalogPrice) : catalogPrice;
+    }
+
+    /**
+     * The "catalogPrice" ceiling fed into resolveLinePrice for a combo line: the matching
+     * ComboServiceItem's own priceOverride (staff-set at combo-definition time, see
+     * ComboService.save/computeOriginalPrice), or the plain catalog price if this line isn't part
+     * of a combo, or the combo has no override for this exact item. This is what lets a combo's own
+     * item-level discount actually reach the appointment being charged — applyComboDiscount's own
+     * bundle-level distribution needs no change since it already works off whatever raw lineTotal
+     * results from this ceiling.
+     */
+    private BigDecimal resolveComboServiceCeiling(AppointmentCombo lineCombo, ClinicService cs) {
+        if (lineCombo == null) return cs.getPrice();
+        return lineCombo.getCombo().getServiceItems().stream()
+                .filter(si -> si.getService().getId().equals(cs.getId()))
+                .map(si -> si.getPriceOverride() != null ? si.getPriceOverride() : cs.getPrice())
+                .findFirst().orElse(cs.getPrice());
+    }
+
+    /** Product mirror of {@link #resolveComboServiceCeiling}. */
+    private BigDecimal resolveComboProductCeiling(AppointmentCombo lineCombo, Product product) {
+        if (lineCombo == null) return product.getPrice();
+        return lineCombo.getCombo().getProductItems().stream()
+                .filter(pi -> pi.getProduct().getId().equals(product.getId()))
+                .map(pi -> pi.getPriceOverride() != null ? pi.getPriceOverride() : product.getPrice())
+                .findFirst().orElse(product.getPrice());
+    }
+
+    /**
+     * Non-null iff resolvedPrice undercuts catalogPrice — what detail.html strikes the catalog
+     * price through to show alongside a staff-overridden priceAtTime. See resolveLinePrice and
+     * AppointmentServiceLine.originalPriceAtTime's javadoc.
+     */
+    private static BigDecimal originalPriceIfDiscounted(BigDecimal catalogPrice, BigDecimal resolvedPrice) {
+        return resolvedPrice.compareTo(catalogPrice) < 0 ? catalogPrice : null;
     }
 
     /** Builds a serviceId/productId -> queue-of-priceAtTime map from an appointment's pre-rebuild

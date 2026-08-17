@@ -9,6 +9,7 @@ import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Combo;
+import com.clinic.healinghouse.entity.ComboServiceItem;
 import com.clinic.healinghouse.entity.DiscountType;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.PatientPackage;
@@ -97,6 +98,21 @@ class AppointmentServiceTests {
     private Combo combo(Long id, DiscountType discountType, BigDecimal discountValue) {
         return Combo.builder().id(id).name("Combo " + id)
                 .discountType(discountType).discountValue(discountValue).build();
+    }
+
+    /**
+     * Combo fixture carrying one ComboServiceItem with its own priceOverride (staff-set at
+     * combo-definition time — see ComboService.save/computeOriginalPrice) — for asserting the
+     * override actually reaches the booked appointment line (AppointmentService.
+     * resolveComboServiceCeiling), with the combo's own bundle discount still layering on top.
+     */
+    private Combo comboWithServiceOverride(Long id, DiscountType discountType, BigDecimal discountValue,
+                                            ClinicService service, BigDecimal itemPriceOverride) {
+        Combo combo = Combo.builder().id(id).name("Combo " + id)
+                .discountType(discountType).discountValue(discountValue).build();
+        combo.getServiceItems().add(ComboServiceItem.builder()
+                .combo(combo).service(service).quantity(1).priceOverride(itemPriceOverride).build());
+        return combo;
     }
 
     private AppointmentForm.ComboSelectionForm comboSelection(Long comboId, String groupKey) {
@@ -599,6 +615,30 @@ class AppointmentServiceTests {
         assertThat(saved.getDiscountAmount()).isEqualByComparingTo("0"); // manual (whole-appointment) discount untouched
         assertThat(saved.getTotalComboDiscount()).isEqualByComparingTo("100");
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("900");
+    }
+
+    // ── 8b. Combo with a per-item price override — the override must reach the booked line, and
+    // the combo's own bundle discount must layer on top of the overridden (not catalog) price ────
+    @Test
+    void createAppointment_comboWithItemPriceOverride_appliesOverrideThenBundleDiscount() {
+        ClinicService cs = clinicService(1L, BigDecimal.valueOf(1000));
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(cs));
+        when(comboRepository.findById(1L)).thenReturn(Optional.of(
+                comboWithServiceOverride(1L, DiscountType.FLAT, BigDecimal.valueOf(50), cs, BigDecimal.valueOf(800))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getComboSelections().add(comboSelection(1L, "combo-1"));
+        form.getServiceLines().add(serviceLine(1L, 1, "combo-1"));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        // priceAtTime reflects the combo item's own override (800), not the raw catalog price (1000)
+        assertThat(saved.getServiceLines().get(0).getPriceAtTime()).isEqualByComparingTo("800");
+        // the combo's own FLAT 50 bundle discount applies on top of the overridden 800, not raw 1000
+        assertThat(saved.getCombos().get(0).getDiscountAmount()).isEqualByComparingTo("50");
+        assertThat(saved.getServiceLines().get(0).getDiscountedLineTotal()).isEqualByComparingTo("750");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("750");
     }
 
     // ── 9. Single combo + manual whole-appointment discount layered on top ───

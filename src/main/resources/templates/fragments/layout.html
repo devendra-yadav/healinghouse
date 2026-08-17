@@ -198,6 +198,20 @@
      ═══════════════════════════════════════════ -->
 <th:block th:fragment="scripts">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Browsers treat mouse-wheel scrolling over a focused <input type="number"> as up/down-arrow
+        // clicks, silently changing its value by `step` per tick — a real incident on the appointment
+        // form's payment field, where scrolling the page while the field was still focused shaved
+        // ₹0.05 off an entered ₹2000. Blocking the wheel's default action while a number input is
+        // focused disables that behavior app-wide (money, quantity, discount, session-count fields
+        // alike) without touching every template individually.
+        document.addEventListener('wheel', function (e) {
+            var active = document.activeElement;
+            if (active && active.tagName === 'INPUT' && active.type === 'number') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
 </th:block>
 
 <!-- ═══════════════════════════════════════════

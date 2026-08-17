@@ -32,12 +32,14 @@ public class PackageTemplateForm {
             PackageTemplateItemForm item = new PackageTemplateItemForm();
             item.setItemId(si.getService().getId());
             item.setSessionCount(si.getSessionCount());
+            item.setPrice(si.getPriceOverride());
             form.getServiceItems().add(item);
         });
         template.getProductItems().forEach(pi -> {
             PackageTemplateItemForm item = new PackageTemplateItemForm();
             item.setItemId(pi.getProduct().getId());
             item.setSessionCount(pi.getSessionCount());
+            item.setPrice(pi.getPriceOverride());
             form.getProductItems().add(item);
         });
         return form;
@@ -47,5 +49,7 @@ public class PackageTemplateForm {
     public static class PackageTemplateItemForm {
         private Long itemId;
         private int sessionCount = 1;
+        /** Optional per-item price override; null/blank = use catalog price. */
+        private BigDecimal price;
     }
 }

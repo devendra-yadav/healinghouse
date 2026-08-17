@@ -50,6 +50,16 @@ public class AppointmentServiceLine {
     @Column(precision = 10, scale = 2)
     private BigDecimal discountedLineTotal;
 
+    /**
+     * Catalog unit price at the moment a staff price override undercut it; null when priceAtTime
+     * IS the catalog price (no per-line override on this line) — same null-means-unchanged
+     * convention as discountedLineTotal. Lets detail.html show the struck-through original price
+     * next to priceAtTime without depending on the (possibly since-changed) live catalog price.
+     * See AppointmentService.resolveLinePrice.
+     */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal originalPriceAtTime;
+
     /** Non-null when this line came from a combo — groups it for display/removal and the two-phase discount. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "appointment_combo_id")

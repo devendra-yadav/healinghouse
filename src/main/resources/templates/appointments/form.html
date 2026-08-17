@@ -591,14 +591,19 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
         ? `<input type="hidden" class="combo-group-key" name="serviceLines[${i}].comboGroupKey" value="${comboGroupKey}">`
         : '';
 
-    // Combo/package lines stay locked to the catalog/combo price (their pricing already comes from
-    // elsewhere). A standalone line gets an editable price box, capped client-side to the catalog
-    // price — discount only, never a markup — when the logged-in user is allowed to (see
-    // AppointmentController.canEditLinePrice / AppointmentService.canOverrideLinePrice for the real,
-    // server-side-enforced rule this is only an optimistic hint of).
-    const rateCell = (!identityLocked && CAN_EDIT_LINE_PRICE)
-        ? `<input type="number" class="form-control form-control-sm s-rate" step="0.01" min="0"
-                   name="serviceLines[${i}].price" oninput="updateTotals()">`
+    // Service/product/quantity identity stays locked for a combo/package line (enforced above via
+    // selectCell/qtyCell), but its price is editable by the same rule as a standalone line — capped
+    // client-side to the catalog/combo price — discount only, never a markup — when the logged-in
+    // user is allowed to (see AppointmentController.canEditLinePrice / AppointmentService.
+    // canOverrideLinePrice for the real, server-side-enforced rule this is only an optimistic hint of).
+    const rateCell = CAN_EDIT_LINE_PRICE
+        ? `<div class="d-flex align-items-center gap-1">
+               <input type="number" class="form-control form-control-sm s-rate" step="0.01" min="0"
+                      style="min-width:0;flex:1 1 auto;"
+                      name="serviceLines[${i}].price" oninput="updateTotals()">
+               <span class="s-rate-original text-muted text-decoration-line-through small text-nowrap"
+                     style="display:none;flex:0 0 auto;"></span>
+           </div>`
         : `<div class="s-rate text-muted small">—</div>`;
 
     row.innerHTML =
@@ -619,8 +624,17 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
     document.getElementById('servicesContainer').appendChild(row);
     initLineTherapistSelect(row.querySelector('.line-therapist-select'), preselectTherapistId);
     if (identityLocked) {
+        // preselectPrice is the live combo/catalog price (fresh add, or null on an edit-mode
+        // reload — see the dataset.livePrice comment above); preselectStaffPrice is this line's
+        // actual persisted priceAtTime, which may be a staff override of that price.
         const price = preselectPrice != null ? preselectPrice : (serviceMap[preselectId] || {}).price;
-        row.querySelector('.s-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
+        const rateEl = row.querySelector('.s-rate');
+        if (rateEl.tagName === 'INPUT') {
+            rateEl.max = price != null ? price : '';
+            rateEl.value = preselectStaffPrice != null ? preselectStaffPrice : (price != null ? price : '');
+        } else {
+            rateEl.textContent = price != null ? fmt(price) + ' ea.' : '—';
+        }
     } else {
         const sel = row.querySelector('.s-select');
         const choicesInstance = initItemSelect(sel, '— Service —');
@@ -701,9 +715,14 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
         : '';
 
     // See addServiceRow's matching comment re: rateCell/CAN_EDIT_LINE_PRICE.
-    const rateCell = (!identityLocked && CAN_EDIT_LINE_PRICE)
-        ? `<input type="number" class="form-control form-control-sm p-rate" step="0.01" min="0"
-                   name="productLines[${i}].price" oninput="updateTotals()">`
+    const rateCell = CAN_EDIT_LINE_PRICE
+        ? `<div class="d-flex align-items-center gap-1">
+               <input type="number" class="form-control form-control-sm p-rate" step="0.01" min="0"
+                      style="min-width:0;flex:1 1 auto;"
+                      name="productLines[${i}].price" oninput="updateTotals()">
+               <span class="p-rate-original text-muted text-decoration-line-through small text-nowrap"
+                     style="display:none;flex:0 0 auto;"></span>
+           </div>`
         : `<div class="p-rate text-muted small">—</div>`;
 
     row.innerHTML =
@@ -729,13 +748,20 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
     if (identityLocked) {
         const p = productMap[preselectId];
         const badge = row.querySelector('.p-stock');
+        // See addServiceRow's matching comment re: preselectPrice vs preselectStaffPrice.
         const price = preselectPrice != null ? preselectPrice : (p || {}).price;
         if (p) {
             badge.textContent = 'Stock: ' + p.stock;
             badge.className   = 'p-stock badge ' +
                 (p.stock === 0 ? 'bg-danger' : p.stock <= 5 ? 'bg-warning text-dark' : 'bg-secondary');
         }
-        row.querySelector('.p-rate').textContent = price != null ? fmt(price) + ' ea.' : '—';
+        const rateEl = row.querySelector('.p-rate');
+        if (rateEl.tagName === 'INPUT') {
+            rateEl.max = price != null ? price : '';
+            rateEl.value = preselectStaffPrice != null ? preselectStaffPrice : (price != null ? price : '');
+        } else {
+            rateEl.textContent = price != null ? fmt(price) + ' ea.' : '—';
+        }
     } else {
         const sel = row.querySelector('.p-select');
         const choicesInstance = initItemSelect(sel, '— Product —');
@@ -887,6 +913,20 @@ function round2(n) {
     return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
+// Live preview of AppointmentServiceLine/ProductLine.originalPriceAtTime — shows the catalog/combo
+// price struck through under the price box the moment staff type something less than it, mirroring
+// how detail.html displays an already-saved override.
+function updateRateOriginalHint(hintEl, rateInput, referencePrice) {
+    if (!hintEl) return;
+    const entered = rateInput ? parseFloat(rateInput.value) : NaN;
+    if (!isNaN(entered) && referencePrice != null && entered < referencePrice) {
+        hintEl.textContent = fmt(referencePrice);
+        hintEl.style.display = '';
+    } else {
+        hintEl.style.display = 'none';
+    }
+}
+
 function updateTotals() {
     const groupRaw = {}; // groupKey -> raw subtotal across its service+product rows
 
@@ -897,18 +937,18 @@ function updateTotals() {
         const qty = parseInt(row.querySelector('.s-qty').value) || 0;
         const catalogPrice = (sId && serviceMap[sId]) ? serviceMap[sId].price : null;
         const rateInput = row.querySelector('input.s-rate');
-        // Combo rows carry the live price fetched at add-time (see addServiceRow); a standalone row
-        // with an editable price box uses whatever's typed there (capped to the catalog price — this
-        // is just a live-preview mirror of AppointmentService.resolveLinePrice's server-side clamp);
-        // everything else falls back to the page-load SERVICE_DATA snapshot.
+        // Combo/package rows carry the live price fetched at add-time in dataset.livePrice (see
+        // addServiceRow) — used here as the reference/cap instead of the page-load SERVICE_DATA
+        // snapshot, which can go stale. An editable price box (any row type — see rateCell in
+        // addServiceRow) uses whatever's typed there, capped to that reference price; this is just
+        // a live-preview mirror of AppointmentService.resolveLinePrice's server-side clamp.
+        const referencePrice = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice) : catalogPrice;
         let price;
-        if (row.dataset.livePrice != null) {
-            price = parseFloat(row.dataset.livePrice);
-        } else if (rateInput) {
+        if (rateInput) {
             const entered = parseFloat(rateInput.value);
-            price = isNaN(entered) ? catalogPrice : Math.max(0, catalogPrice != null ? Math.min(entered, catalogPrice) : entered);
+            price = isNaN(entered) ? referencePrice : Math.max(0, referencePrice != null ? Math.min(entered, referencePrice) : entered);
         } else {
-            price = catalogPrice;
+            price = referencePrice;
         }
         const line = (sId && price != null) ? price * qty : 0;
         row.querySelector('.s-subtotal').textContent = fmt(line);
@@ -916,6 +956,7 @@ function updateTotals() {
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
         if (row.dataset.packageItem) packageTotal += line;
+        updateRateOriginalHint(row.querySelector('.s-rate-original'), rateInput, referencePrice);
     });
 
     let pTotal = 0;
@@ -924,16 +965,14 @@ function updateTotals() {
         const qty = parseInt(row.querySelector('.p-qty').value) || 0;
         const catalogPrice = (pId && productMap[pId]) ? productMap[pId].price : null;
         const rateInput = row.querySelector('input.p-rate');
-        // See the service-row loop above — combo rows prefer their live add-time price; a standalone
-        // row's editable price box is capped to the catalog price for the preview.
+        // See the service-row loop above.
+        const referencePrice = row.dataset.livePrice != null ? parseFloat(row.dataset.livePrice) : catalogPrice;
         let price;
-        if (row.dataset.livePrice != null) {
-            price = parseFloat(row.dataset.livePrice);
-        } else if (rateInput) {
+        if (rateInput) {
             const entered = parseFloat(rateInput.value);
-            price = isNaN(entered) ? catalogPrice : Math.max(0, catalogPrice != null ? Math.min(entered, catalogPrice) : entered);
+            price = isNaN(entered) ? referencePrice : Math.max(0, referencePrice != null ? Math.min(entered, referencePrice) : entered);
         } else {
-            price = catalogPrice;
+            price = referencePrice;
         }
         const line = (pId && price != null) ? price * qty : 0;
         row.querySelector('.p-subtotal').textContent = fmt(line);
@@ -941,6 +980,7 @@ function updateTotals() {
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
         if (row.dataset.packageItem) packageTotal += line;
+        updateRateOriginalHint(row.querySelector('.p-rate-original'), rateInput, referencePrice);
     });
     currentPackageApplied = round2(packageTotal);
 

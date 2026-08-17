@@ -294,6 +294,16 @@
                                     <span th:unless="${canReassign}" th:text="${sl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${sl.quantity}"></td>
+                                <td class="text-end small">
+                                    <span th:if="${sl.originalPriceAtTime != null}">
+                                        <span class="text-muted text-decoration-line-through d-block"
+                                              th:text="|₹ ${#numbers.formatDecimal(sl.originalPriceAtTime, 1, 2)}|"></span>
+                                        <span class="text-success"
+                                              th:text="|₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|"></span>
+                                    </span>
+                                    <span th:unless="${sl.originalPriceAtTime != null}" class="text-muted"
+                                          th:text="|₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|"></span>
+                                </td>
                                 <td class="text-end pe-3 fw-semibold">
                                     <span th:if="${sl.discountedLineTotal != null}">
                                         <span class="text-muted text-decoration-line-through small d-block"
@@ -324,6 +334,16 @@
                                     <span th:unless="${canReassign}" th:text="${pl.therapist.fullName}"></span>
                                 </td>
                                 <td class="text-center" th:text="${pl.quantity}"></td>
+                                <td class="text-end small">
+                                    <span th:if="${pl.originalPriceAtTime != null}">
+                                        <span class="text-muted text-decoration-line-through d-block"
+                                              th:text="|₹ ${#numbers.formatDecimal(pl.originalPriceAtTime, 1, 2)}|"></span>
+                                        <span class="text-success"
+                                              th:text="|₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|"></span>
+                                    </span>
+                                    <span th:unless="${pl.originalPriceAtTime != null}" class="text-muted"
+                                          th:text="|₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|"></span>
+                                </td>
                                 <td class="text-end pe-3 fw-semibold">
                                     <span th:if="${pl.discountedLineTotal != null}">
                                         <span class="text-muted text-decoration-line-through small d-block"
@@ -399,10 +419,16 @@
                                        ? sl.service.durationMinutes + ' min' : '—'}">
                         </td>
                         <td class="text-center" th:text="${sl.quantity}"></td>
-                        <td class="text-end text-muted small"
-                            th:text="${sl.priceAtTime != null}
-                                      ? |₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|
-                                      : '—'">
+                        <td class="text-end small">
+                            <span th:if="${sl.originalPriceAtTime != null}">
+                                <span class="text-muted text-decoration-line-through d-block"
+                                      th:text="|₹ ${#numbers.formatDecimal(sl.originalPriceAtTime, 1, 2)}|"></span>
+                                <span class="text-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}|"></span>
+                            </span>
+                            <span th:unless="${sl.originalPriceAtTime != null}" class="text-muted"
+                                  th:text="${sl.priceAtTime != null} ? |₹ ${#numbers.formatDecimal(sl.priceAtTime, 1, 2)}| : '—'">
+                            </span>
                         </td>
                         <td class="text-end pe-3 fw-semibold">
                             <span th:if="${sl.discountedLineTotal != null}">
@@ -476,10 +502,16 @@
                             <span th:unless="${canReassign}" th:text="${pl.therapist.fullName}"></span>
                         </td>
                         <td class="text-center" th:text="${pl.quantity}"></td>
-                        <td class="text-end text-muted small"
-                            th:text="${pl.priceAtTime != null}
-                                      ? |₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|
-                                      : '—'">
+                        <td class="text-end small">
+                            <span th:if="${pl.originalPriceAtTime != null}">
+                                <span class="text-muted text-decoration-line-through d-block"
+                                      th:text="|₹ ${#numbers.formatDecimal(pl.originalPriceAtTime, 1, 2)}|"></span>
+                                <span class="text-success"
+                                      th:text="|₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}|"></span>
+                            </span>
+                            <span th:unless="${pl.originalPriceAtTime != null}" class="text-muted"
+                                  th:text="${pl.priceAtTime != null} ? |₹ ${#numbers.formatDecimal(pl.priceAtTime, 1, 2)}| : '—'">
+                            </span>
                         </td>
                         <td class="text-end pe-3 fw-semibold">
                             <span th:if="${pl.discountedLineTotal != null}">
