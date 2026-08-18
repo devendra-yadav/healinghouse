@@ -64,6 +64,12 @@
                     data-bs-toggle="modal" data-bs-target="#topUpModal">
                 <i class="bi bi-wallet2 me-1"></i>Top Up Wallet
             </button>
+            <!-- Invoice — only once the appointment is COMPLETED (nothing to invoice before then) -->
+            <a th:if="${appointment.status.name() == 'COMPLETED'}"
+               th:href="@{/appointments/{id}/invoice/pdf(id=${appointment.id})}" target="_blank"
+               class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-printer me-1"></i>Print Invoice
+            </a>
             <!-- Edit — SCHEDULED and (for a THERAPIST) own appointments only, OR the Owner on any status -->
             <a th:if="${(isScheduled and canEdit) or @perm.isOwner()}"
                th:href="@{/appointments/{id}/edit(id=${appointment.id},returnUrl=${returnUrl})}"

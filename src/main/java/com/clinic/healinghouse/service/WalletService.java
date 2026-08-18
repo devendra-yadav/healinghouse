@@ -47,6 +47,18 @@ public class WalletService {
         return transactionRepository.findByPatientIdOrderByCreatedAtDesc(patientId, pageable);
     }
 
+    /** Backs the wallet receipt PDF — validates the transaction actually belongs to this patient
+     *  before handing it back, same shape as PackageController's own package-ownership check. */
+    @Transactional(readOnly = true)
+    public WalletTransaction getTransactionForPatient(Long patientId, Long transactionId) {
+        WalletTransaction txn = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new EntityNotFoundException("Wallet transaction not found: " + transactionId));
+        if (!txn.getPatient().getId().equals(patientId)) {
+            throw new IllegalArgumentException("This transaction does not belong to the specified patient.");
+        }
+        return txn;
+    }
+
     /** Looks up a patient's wallet, creating it with a zero balance if this is their first use of the feature. */
     private PatientWallet getOrCreateWallet(Long patientId) {
         return walletRepository.findById(patientId)

@@ -364,10 +364,20 @@
                                     <td class="pe-3 text-end fw-semibold text-danger"
                                         id="summaryComboSavingsAmount">- ₹0.00</td>
                                 </tr>
+                                <tr id="summaryLineItemDiscountRow" class="d-none">
+                                    <td class="ps-3 text-muted">Line Item Discount</td>
+                                    <td class="pe-3 text-end fw-semibold text-danger"
+                                        id="summaryLineItemDiscountAmount">- ₹0.00</td>
+                                </tr>
                                 <tr id="summaryDiscountRow" class="d-none">
                                     <td class="ps-3 text-muted">Discount</td>
                                     <td class="pe-3 text-end fw-semibold text-danger"
                                         id="summaryDiscountAmount">- ₹0.00</td>
+                                </tr>
+                                <tr id="summaryTotalDiscountRow" class="d-none">
+                                    <td class="ps-3 text-muted fw-semibold">Total Discount</td>
+                                    <td class="pe-3 text-end fw-bold text-danger"
+                                        id="summaryTotalDiscountAmount">- ₹0.00</td>
                                 </tr>
                                 <tr class="table-active border-top border-2">
                                     <td class="ps-3 fw-bold">Grand Total</td>
@@ -932,6 +942,10 @@ function updateTotals() {
 
     let sTotal = 0;
     let packageTotal = 0;
+    // Sum, across every row, of (referencePrice - entered price) * qty wherever staff typed a
+    // price below the catalog/combo reference — a manual per-line discount that was previously
+    // baked silently into the Services/Products totals with no visible "Discount" line at all.
+    let totalLineItemDiscount = 0;
     document.querySelectorAll('.service-row').forEach(row => {
         const sId = row.querySelector('.s-select').value;
         const qty = parseInt(row.querySelector('.s-qty').value) || 0;
@@ -953,6 +967,7 @@ function updateTotals() {
         const line = (sId && price != null) ? price * qty : 0;
         row.querySelector('.s-subtotal').textContent = fmt(line);
         sTotal += line;
+        if (sId && referencePrice != null && price != null) totalLineItemDiscount += (referencePrice - price) * qty;
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
         if (row.dataset.packageItem) packageTotal += line;
@@ -977,12 +992,14 @@ function updateTotals() {
         const line = (pId && price != null) ? price * qty : 0;
         row.querySelector('.p-subtotal').textContent = fmt(line);
         pTotal += line;
+        if (pId && referencePrice != null && price != null) totalLineItemDiscount += (referencePrice - price) * qty;
         const gk = row.dataset.comboGroup;
         if (gk) groupRaw[gk] = (groupRaw[gk] || 0) + line;
         if (row.dataset.packageItem) packageTotal += line;
         updateRateOriginalHint(row.querySelector('.p-rate-original'), rateInput, referencePrice);
     });
     currentPackageApplied = round2(packageTotal);
+    totalLineItemDiscount = round2(totalLineItemDiscount);
 
     const groupedRawTotal = Object.values(groupRaw).reduce((a, b) => a + b, 0);
     const standaloneRaw = (sTotal + pTotal) - groupedRawTotal;
@@ -1024,8 +1041,15 @@ function updateTotals() {
     set('summaryProductTotal',  fmt(pTotal));
     toggle('summaryComboSavingsRow', totalComboDiscount > 0.001);
     set('summaryComboSavingsAmount', '- ' + fmt(totalComboDiscount));
+    toggle('summaryLineItemDiscountRow', totalLineItemDiscount > 0.001);
+    set('summaryLineItemDiscountAmount', '- ' + fmt(totalLineItemDiscount));
     toggle('summaryDiscountRow', discountAmount > 0.001);
     set('summaryDiscountAmount', '- ' + fmt(discountAmount));
+    // "Total Discount" only adds value when both a line-item price cut and an appointment-level
+    // discount are present — otherwise the single row above already shows the whole story.
+    const combinedDiscount = round2(totalLineItemDiscount + discountAmount);
+    toggle('summaryTotalDiscountRow', totalLineItemDiscount > 0.001 && discountAmount > 0.001);
+    set('summaryTotalDiscountAmount', '- ' + fmt(combinedDiscount));
     set('summaryGrandTotal',    fmt(netGrand));
     set('summaryPackageApplied', fmt(currentPackageApplied));
     updateBalance();

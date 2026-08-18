@@ -12,6 +12,7 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.*;
 import com.clinic.healinghouse.util.CsvExportUtil;
+import com.clinic.healinghouse.util.InvoicePdfService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
 import com.clinic.healinghouse.util.SafeRedirectUtil;
@@ -52,6 +53,7 @@ public class AppointmentController {
     private final PermissionService  permissionService;
     private final CsvExportUtil      csvExportUtil;
     private final PdfExportUtil      pdfExportUtil;
+    private final InvoicePdfService  invoicePdfService;
 
     // ── List ──────────────────────────────────────────────────────────────
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
@@ -288,6 +290,22 @@ public class AppointmentController {
                     "Could not load appointment: " + (e.getMessage() != null ? e.getMessage() : "not found"));
             return "redirect:/appointments";
         }
+    }
+
+    // ── Invoice (COMPLETED only — an appointment that hasn't happened yet has nothing to invoice) ──
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
+    @GetMapping("/{id}/invoice/pdf")
+    public ResponseEntity<byte[]> invoicePdf(@PathVariable Long id) {
+        enforceOwnAppointmentForTherapist(id);
+        Appointment appt = appointmentService.getById(id);
+        if (appt.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("An invoice is only available once the appointment is completed.");
+        }
+        byte[] pdf = invoicePdfService.renderAppointmentInvoice(appt);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=invoice-appointment-" + id + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
     }
 
     // ── Edit form ─────────────────────────────────────────────────────────

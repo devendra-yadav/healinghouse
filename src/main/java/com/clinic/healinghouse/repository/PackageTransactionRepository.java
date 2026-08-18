@@ -16,4 +16,8 @@ public interface PackageTransactionRepository extends JpaRepository<PackageTrans
     Page<PackageTransaction> findByPatientPackage_Patient_IdOrderByCreatedAtDesc(Long patientId, Pageable pageable);
 
     List<PackageTransaction> findByTypeInAndCreatedAtBetween(List<PackageTransactionType> types, LocalDateTime start, LocalDateTime end);
+
+    /** The sale-time record for a package — backs the package invoice's payment-method line. */
+    java.util.Optional<PackageTransaction> findFirstByPatientPackageIdAndTypeOrderByCreatedAtAsc(
+            Long patientPackageId, PackageTransactionType type);
 }
