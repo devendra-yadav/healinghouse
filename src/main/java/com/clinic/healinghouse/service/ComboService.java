@@ -318,6 +318,25 @@ public class ComboService {
     }
 
     /**
+     * True catalog total — quantity x each item's live catalog price, ignoring any priceOverride.
+     * Used only where "Savings" needs to mean "everything the customer is saving vs. buying each
+     * item separately at list price": a per-item priceOverride is a real discount exactly like the
+     * combo-level one, so it must count towards Savings too. computeOriginalPrice deliberately stays
+     * as-is (it's the base computeComboPrice/computeDiscountAmount resolve the combo-level discount
+     * against), so per-item discounts don't get silently netted out of the displayed savings figure.
+     */
+    public BigDecimal computeCatalogPrice(Combo combo) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (ComboServiceItem si : combo.getServiceItems()) {
+            total = total.add(si.getService().getPrice().multiply(BigDecimal.valueOf(si.getQuantity())));
+        }
+        for (ComboProductItem pi : combo.getProductItems()) {
+            total = total.add(pi.getProduct().getPrice().multiply(BigDecimal.valueOf(pi.getQuantity())));
+        }
+        return total;
+    }
+
+    /**
      * Clamps a staff-entered per-item price to [0, catalogPrice] — discount only, never a markup.
      * Null/blank input, or a clamped value equal to the catalog price, both mean "no override" (the
      * form's rate input always carries a numeric value — defaulting to catalog price on an untouched
@@ -355,10 +374,10 @@ public class ComboService {
      * session — acceptable for a small, caller-capped result set (see ComboController.search).
      */
     public ComboSuggestionDTO toSuggestion(Combo combo) {
-        BigDecimal original = computeOriginalPrice(combo);
+        BigDecimal catalogPrice = computeCatalogPrice(combo);
         BigDecimal comboPrice = computeComboPrice(combo);
         return new ComboSuggestionDTO(combo.getId(), combo.getName(), buildItemsSummary(combo),
-                original, comboPrice, original.subtract(comboPrice));
+                catalogPrice, comboPrice, catalogPrice.subtract(comboPrice));
     }
 
     /** Human-readable item list, e.g. "2x Deep Tissue Massage + Massage Oil" — used by the picker

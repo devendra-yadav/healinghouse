@@ -282,6 +282,25 @@ public class PackageTemplateService {
     }
 
     /**
+     * True catalog total — session count x each item's live catalog price, ignoring any
+     * priceOverride. Used only where "Savings" needs to mean "everything saved vs. buying each
+     * session separately at list price" — a per-item priceOverride is a real discount exactly like
+     * the template-level one, so it must count towards Savings too. computeOriginalPrice deliberately
+     * stays as-is (it's the base computeSuggestedPrice/computeDiscountAmount resolve the template-level
+     * discount against), so per-item discounts don't get silently netted out of the displayed savings.
+     */
+    public BigDecimal computeCatalogPrice(PackageTemplate template) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (PackageTemplateServiceItem si : template.getServiceItems()) {
+            total = total.add(si.getService().getPrice().multiply(BigDecimal.valueOf(si.getSessionCount())));
+        }
+        for (PackageTemplateProductItem pi : template.getProductItems()) {
+            total = total.add(pi.getProduct().getPrice().multiply(BigDecimal.valueOf(pi.getSessionCount())));
+        }
+        return total;
+    }
+
+    /**
      * Clamps a staff-entered per-item price to [0, catalogPrice] — discount only, never a markup.
      * Null/blank input, or a clamped value equal to the catalog price, both mean "no override" (the
      * form's rate input always carries a numeric value — defaulting to catalog price on an untouched

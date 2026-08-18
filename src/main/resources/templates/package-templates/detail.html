@@ -55,7 +55,7 @@
                                 <td class="text-muted ps-0">
                                     <i class="bi bi-cash-coin me-1"></i>Original Price
                                 </td>
-                                <td th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template), 1, 2)}|"></td>
+                                <td th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(template), 1, 2)}|"></td>
                             </tr>
                             <tr>
                                 <td class="text-muted ps-0">
@@ -68,10 +68,10 @@
                                     <i class="bi bi-piggy-bank me-1"></i>Savings
                                 </td>
                                 <td>
-                                    <span th:if="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                    <span th:if="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeCatalogPrice(template)) < 0}"
                                           class="badge bg-success"
-                                          th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template).subtract(packageTemplateService.computeSuggestedPrice(template)), 1, 2)} off|"></span>
-                                    <span th:unless="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                          th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(template).subtract(packageTemplateService.computeSuggestedPrice(template)), 1, 2)} off|"></span>
+                                    <span th:unless="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeCatalogPrice(template)) < 0}"
                                           class="text-muted">—</span>
                                 </td>
                             </tr>

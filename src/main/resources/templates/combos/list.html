@@ -65,14 +65,14 @@
                             </td>
                             <td class="small text-muted" th:text="${comboService.toSuggestion(c).itemsSummary}"></td>
                             <td class="text-end"
-                                th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(c), 1, 2)}|"></td>
+                                th:text="|₹ ${#numbers.formatDecimal(comboService.computeCatalogPrice(c), 1, 2)}|"></td>
                             <td class="text-end fw-semibold"
                                 th:text="|₹ ${#numbers.formatDecimal(comboService.computeComboPrice(c), 1, 2)}|"></td>
                             <td class="text-center">
-                                <span th:if="${comboService.computeComboPrice(c).compareTo(comboService.computeOriginalPrice(c)) &lt; 0}"
+                                <span th:if="${comboService.computeComboPrice(c).compareTo(comboService.computeCatalogPrice(c)) &lt; 0}"
                                       class="badge bg-success"
-                                      th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(c).subtract(comboService.computeComboPrice(c)), 1, 2)} off|"></span>
-                                <span th:unless="${comboService.computeComboPrice(c).compareTo(comboService.computeOriginalPrice(c)) &lt; 0}"
+                                      th:text="|₹ ${#numbers.formatDecimal(comboService.computeCatalogPrice(c).subtract(comboService.computeComboPrice(c)), 1, 2)} off|"></span>
+                                <span th:unless="${comboService.computeComboPrice(c).compareTo(comboService.computeCatalogPrice(c)) &lt; 0}"
                                       class="text-muted">—</span>
                             </td>
                             <td class="text-center text-nowrap">

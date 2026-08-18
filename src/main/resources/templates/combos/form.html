@@ -130,6 +130,10 @@
                                             <span>Combo Price</span>
                                             <span id="previewComboPrice">₹0.00</span>
                                         </div>
+                                        <div class="d-flex justify-content-between small text-success">
+                                            <span>Savings</span>
+                                            <span id="previewSavings">₹0.00</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -348,6 +352,7 @@ function onDiscountTypeChange() {
 // top of that — same two-phase reasoning as AppointmentService's combo-then-appointment discount.
 function updatePricePreview() {
     let original = 0;
+    let catalogTotal = 0;
     document.querySelectorAll('.service-item-row').forEach(row => {
         const s = serviceMap[row.querySelector('.si-select').value];
         const qty = parseInt(row.querySelector('.si-qty').value) || 0;
@@ -364,7 +369,7 @@ function updatePricePreview() {
         } else {
             hint.style.display = 'none';
         }
-        if (s) original += lineTotal;
+        if (s) { original += lineTotal; catalogTotal += catalogRate * qty; }
     });
     document.querySelectorAll('.product-item-row').forEach(row => {
         const p = productMap[row.querySelector('.pi-select').value];
@@ -382,7 +387,7 @@ function updatePricePreview() {
         } else {
             hint.style.display = 'none';
         }
-        if (p) original += lineTotal;
+        if (p) { original += lineTotal; catalogTotal += catalogRate * qty; }
     });
 
     const type = document.getElementById('discountTypeSelect').value;
@@ -391,8 +396,12 @@ function updatePricePreview() {
     if (type === 'PERCENTAGE') discount = original * Math.min(raw, 100) / 100;
     else if (type === 'FLAT') discount = Math.min(raw, original);
 
+    const comboPrice = original - discount;
     document.getElementById('previewOriginal').textContent = fmt(original);
-    document.getElementById('previewComboPrice').textContent = fmt(original - discount);
+    document.getElementById('previewComboPrice').textContent = fmt(comboPrice);
+    // Savings vs. true catalog total — includes both the per-item price cut above and this
+    // combo-level discount, mirroring ComboService.computeCatalogPrice/computeComboPrice.
+    document.getElementById('previewSavings').textContent = fmt(Math.max(0, catalogTotal - comboPrice));
 }
 
 // Re-index rows on submit so gaps from deleted rows don't break Spring's indexed binding,

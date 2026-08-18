@@ -98,10 +98,10 @@ public class ComboController {
             combos = combos.stream().filter(Combo::isActive).toList();
         }
         return combos.stream().map(c -> {
-            java.math.BigDecimal original = comboService.computeOriginalPrice(c);
+            java.math.BigDecimal catalogPrice = comboService.computeCatalogPrice(c);
             java.math.BigDecimal comboPrice = comboService.computeComboPrice(c);
             return new ComboExportRowDTO(c.getName(), c.getDescription(), comboService.buildItemsSummary(c),
-                    original, comboPrice, original.subtract(comboPrice), c.isActive());
+                    catalogPrice, comboPrice, catalogPrice.subtract(comboPrice), c.isActive());
         }).toList();
     }
 

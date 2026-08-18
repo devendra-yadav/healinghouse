@@ -55,7 +55,7 @@
                                 <td class="text-muted ps-0">
                                     <i class="bi bi-cash-coin me-1"></i>Original Price
                                 </td>
-                                <td th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(combo), 1, 2)}|"></td>
+                                <td th:text="|₹ ${#numbers.formatDecimal(comboService.computeCatalogPrice(combo), 1, 2)}|"></td>
                             </tr>
                             <tr>
                                 <td class="text-muted ps-0">
@@ -68,10 +68,10 @@
                                     <i class="bi bi-piggy-bank me-1"></i>Savings
                                 </td>
                                 <td>
-                                    <span th:if="${comboService.computeComboPrice(combo).compareTo(comboService.computeOriginalPrice(combo)) < 0}"
+                                    <span th:if="${comboService.computeComboPrice(combo).compareTo(comboService.computeCatalogPrice(combo)) < 0}"
                                           class="badge bg-success"
-                                          th:text="|₹ ${#numbers.formatDecimal(comboService.computeOriginalPrice(combo).subtract(comboService.computeComboPrice(combo)), 1, 2)} off|"></span>
-                                    <span th:unless="${comboService.computeComboPrice(combo).compareTo(comboService.computeOriginalPrice(combo)) < 0}"
+                                          th:text="|₹ ${#numbers.formatDecimal(comboService.computeCatalogPrice(combo).subtract(comboService.computeComboPrice(combo)), 1, 2)} off|"></span>
+                                    <span th:unless="${comboService.computeComboPrice(combo).compareTo(comboService.computeCatalogPrice(combo)) < 0}"
                                           class="text-muted">—</span>
                                 </td>
                             </tr>
