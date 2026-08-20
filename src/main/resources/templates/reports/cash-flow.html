@@ -165,7 +165,9 @@
                 <span class="text-muted">No data in this range.</span>
             </div>
             <div th:unless="${report.trend.empty}" class="card shadow-sm p-3">
-                <canvas id="cashFlowTrendChart" height="90"></canvas>
+                <div style="position:relative; height:360px;">
+                    <canvas id="cashFlowTrendChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
@@ -284,15 +286,20 @@
             data: {
                 labels: trendLabels,
                 datasets: [
-                    { label: 'Inflow', data: trendInflow, borderColor: '#4fae82', backgroundColor: 'rgba(79,174,130,0.1)', tension: 0.3 },
-                    { label: 'Outflow', data: trendOutflow, borderColor: '#e0625f', backgroundColor: 'rgba(224,98,95,0.1)', tension: 0.3 },
-                    { label: 'Net', data: trendNet, borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.1)', tension: 0.3 }
+                    { label: 'Inflow', data: trendInflow, borderColor: '#4fae82', backgroundColor: 'rgba(79,174,130,0.15)', tension: 0.3, fill: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 },
+                    { label: 'Outflow', data: trendOutflow, borderColor: '#e0625f', backgroundColor: 'rgba(224,98,95,0.15)', tension: 0.3, fill: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 },
+                    { label: 'Net', data: trendNet, borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.15)', tension: 0.3, fill: false, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2, borderDash: [5, 3] }
                 ]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: true,
-                plugins: { legend: { display: true } }
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: true, position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true },
+                    x: { ticks: { maxRotation: 0, autoSkip: true } }
+                }
             }
         });
     }
