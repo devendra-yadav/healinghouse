@@ -469,7 +469,7 @@ public class CsvExportUtil {
         for (ExpenseSummaryDTO.CategoryTotal ct : summary.restrictedCategoryTotals()) {
             writer.writeNext(new String[]{sanitize(ct.categoryName()) + " (Restricted)", formatCurrency(ct.amount())});
         }
-        writer.writeNext(new String[]{"Non-Restricted Total", formatCurrency(summary.nonRestrictedTotal())});
+        writer.writeNext(new String[]{"Others", formatCurrency(summary.nonRestrictedTotal())});
         writer.writeNext(new String[]{"TOTAL EXPENSES (All Categories)", formatCurrency(summary.totalAmount())});
         writer.writeNext(new String[]{});
     }

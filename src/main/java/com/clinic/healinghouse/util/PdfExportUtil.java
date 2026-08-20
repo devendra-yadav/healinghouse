@@ -333,7 +333,7 @@ public class PdfExportUtil {
             addLabelCell(table, ct.categoryName() + " (Restricted)", TextAlignment.LEFT);
             addDataCell(table, formatCurrency(ct.amount()), TextAlignment.RIGHT, false);
         }
-        addLabelCell(table, "Non-Restricted Total", TextAlignment.LEFT);
+        addLabelCell(table, "Others", TextAlignment.LEFT);
         addDataCell(table, formatCurrency(summary.nonRestrictedTotal()), TextAlignment.RIGHT, false);
 
         Cell totalLabelCell = new Cell().add(new Paragraph("Total Expenses (All Categories)").setFont(boldFont()).setFontColor(BRAND_DARK));
