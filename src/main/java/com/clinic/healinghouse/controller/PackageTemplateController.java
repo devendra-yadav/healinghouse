@@ -1,5 +1,7 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.dto.PackageTemplateExportRowDTO;
 import com.clinic.healinghouse.dto.PackageTemplateForm;
 import com.clinic.healinghouse.entity.Module;
@@ -36,6 +38,7 @@ public class PackageTemplateController {
     private final PackageTemplateService packageTemplateService;
     private final ClinicServiceRepository clinicServiceRepository;
     private final ProductRepository productRepository;
+    private final HealingHouseProperties properties;
     private final PaginationUtil paginationUtil;
     private final CsvExportUtil csvExportUtil;
     private final PdfExportUtil pdfExportUtil;
@@ -64,7 +67,8 @@ public class PackageTemplateController {
     @GetMapping("/export-csv")
     public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
-        String csv = csvExportUtil.generatePackageTemplateListCsv(exportRows(q, includeInactive));
+        List<PackageTemplateExportRowDTO> rows = exportRows(q, includeInactive);
+        String csv = csvExportUtil.generatePackageTemplateListCsv(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=package-templates-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -75,7 +79,8 @@ public class PackageTemplateController {
     @GetMapping("/export-pdf")
     public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
-        byte[] pdf = pdfExportUtil.generatePackageTemplateListPdf(exportRows(q, includeInactive));
+        List<PackageTemplateExportRowDTO> rows = exportRows(q, includeInactive);
+        byte[] pdf = pdfExportUtil.generatePackageTemplateListPdf(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=package-templates-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -93,6 +98,26 @@ public class PackageTemplateController {
         }
         return templates.stream().map(t -> new PackageTemplateExportRowDTO(t.getName(), t.getDescription(),
                 packageTemplateService.buildItemsSummary(t), packageTemplateService.computeSuggestedPrice(t), t.isActive())).toList();
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String q, boolean includeInactive, List<PackageTemplateExportRowDTO> rows) {
+        long activeCount = rows.stream().filter(PackageTemplateExportRowDTO::active).count();
+        java.math.BigDecimal totalSuggestedPrice = rows.stream().map(PackageTemplateExportRowDTO::suggestedPrice)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (StringUtils.hasText(q)) filterLines.add(ExportInfoBlock.line("Search", q));
+        if (includeInactive) filterLines.add(ExportInfoBlock.line("Status", "Active + Inactive"));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Templates", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Active", String.valueOf(activeCount)),
+                ExportInfoBlock.line("Inactive", String.valueOf(rows.size() - activeCount)),
+                ExportInfoBlock.line("Total Suggested Price", formatCurrency(totalSuggestedPrice)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
+    }
+
+    private String formatCurrency(java.math.BigDecimal value) {
+        return properties.getCurrency().getSymbol() + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     @RequiresPermission(module = Module.PACKAGE_TEMPLATES, action = PermissionAction.CREATE)

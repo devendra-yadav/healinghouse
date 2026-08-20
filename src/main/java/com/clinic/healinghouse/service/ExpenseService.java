@@ -2,6 +2,7 @@ package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.dto.ExpenseFilter;
 import com.clinic.healinghouse.dto.ExpenseForm;
+import com.clinic.healinghouse.dto.ExpenseSummaryDTO;
 import com.clinic.healinghouse.entity.AppRole;
 import com.clinic.healinghouse.entity.Expense;
 import com.clinic.healinghouse.entity.ExpenseCategory;
@@ -19,6 +20,11 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -31,14 +37,40 @@ public class ExpenseService {
 
     @Transactional(readOnly = true)
     public Page<Expense> search(ExpenseFilter filter, Pageable pageable) {
+        return expenseRepository.findAll(buildSpec(filter), pageable);
+    }
+
+    /** Grand total + restricted-category breakdown + combined non-restricted total, over every
+     *  expense matching the same filter/scoping the list page's table uses (not just the current
+     *  page). THERAPIST_PLUS scoping applies here too, so a restricted category never appears. */
+    @Transactional(readOnly = true)
+    public ExpenseSummaryDTO getSummary(ExpenseFilter filter) {
+        List<Expense> expenses = expenseRepository.findAll(buildSpec(filter));
+        BigDecimal total = BigDecimal.ZERO;
+        BigDecimal nonRestrictedTotal = BigDecimal.ZERO;
+        Map<String, BigDecimal> restrictedTotals = new LinkedHashMap<>();
+        for (Expense e : expenses) {
+            total = total.add(e.getAmount());
+            if (e.getCategory().isRestrictedVisibility()) {
+                restrictedTotals.merge(e.getCategory().getName(), e.getAmount(), BigDecimal::add);
+            } else {
+                nonRestrictedTotal = nonRestrictedTotal.add(e.getAmount());
+            }
+        }
+        List<ExpenseSummaryDTO.CategoryTotal> restrictedCategoryTotals = restrictedTotals.entrySet().stream()
+                .map(entry -> new ExpenseSummaryDTO.CategoryTotal(entry.getKey(), entry.getValue()))
+                .toList();
+        return new ExpenseSummaryDTO(total, restrictedCategoryTotals, nonRestrictedTotal);
+    }
+
+    private Specification<Expense> buildSpec(ExpenseFilter filter) {
         Specification<Expense> spec = Specification
                 .where(ExpenseSpec.hasCategoryId(filter.categoryId()))
                 .and(ExpenseSpec.betweenExpenseDates(filter.dateFrom(), filter.dateTo()))
                 .and(ExpenseSpec.hasVendorContains(filter.vendorName()))
                 .and(ExpenseSpec.hasPaymentMethod(filter.paymentMethod()))
                 .and(ExpenseSpec.hasStatus(filter.status()));
-        spec = applyRestrictedCategoryScoping(spec);
-        return expenseRepository.findAll(spec, pageable);
+        return applyRestrictedCategoryScoping(spec);
     }
 
     /** When the caller is THERAPIST_PLUS, every expense under a restricted-visibility category

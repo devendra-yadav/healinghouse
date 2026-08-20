@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.dto.PatientSuggestionDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Gender;
@@ -32,6 +33,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -82,7 +84,8 @@ public class PatientController {
     @GetMapping("/export-csv")
     public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
-        String csv = csvExportUtil.generatePatientListCsv(exportList(q, includeInactive));
+        List<Patient> rows = exportList(q, includeInactive);
+        String csv = csvExportUtil.generatePatientListCsv(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=patients-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -93,7 +96,8 @@ public class PatientController {
     @GetMapping("/export-pdf")
     public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
-        byte[] pdf = pdfExportUtil.generatePatientListPdf(exportList(q, includeInactive));
+        List<Patient> rows = exportList(q, includeInactive);
+        byte[] pdf = pdfExportUtil.generatePatientListPdf(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=patients-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -107,6 +111,19 @@ public class PatientController {
                 ? patientService.findAllIncludingInactive(Pageable.unpaged()).getContent()
                 : patientService.search(q, Pageable.unpaged()).getContent();
         return includeInactive ? rows : rows.stream().filter(Patient::isActive).toList();
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String q, boolean includeInactive, List<Patient> rows) {
+        long activeCount = rows.stream().filter(Patient::isActive).count();
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (StringUtils.hasText(q)) filterLines.add(ExportInfoBlock.line("Search", q));
+        if (includeInactive) filterLines.add(ExportInfoBlock.line("Status", "Active + Inactive"));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Patients", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Active", String.valueOf(activeCount)),
+                ExportInfoBlock.line("Inactive", String.valueOf(rows.size() - activeCount)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
     }
 
     /** JSON autocomplete endpoint backing the name/phone search box on the patients list. */

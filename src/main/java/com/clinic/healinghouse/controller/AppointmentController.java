@@ -1,8 +1,10 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.dto.CalendarActionResponseDTO;
 import com.clinic.healinghouse.dto.CalendarEventDTO;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.dto.RescheduleRequestDTO;
 import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
@@ -49,6 +51,7 @@ public class AppointmentController {
     private final TreatmentService   treatmentService;
     private final ProductService     productService;
     private final ComboService       comboService;
+    private final HealingHouseProperties properties;
     private final PaginationUtil     paginationUtil;
     private final PermissionService  permissionService;
     private final CsvExportUtil      csvExportUtil;
@@ -105,7 +108,9 @@ public class AppointmentController {
                                             @RequestParam(required = false)
                                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                                             @RequestParam(required = false) String patientName) throws java.io.IOException {
-        String csv = csvExportUtil.generateAppointmentListCsv(exportList(status, therapistId, dateFrom, dateTo, patientName));
+        List<Appointment> rows = exportList(status, therapistId, dateFrom, dateTo, patientName);
+        String csv = csvExportUtil.generateAppointmentListCsv(rows,
+                buildExportInfoBlocks(status, therapistId, dateFrom, dateTo, patientName, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=appointments-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -121,7 +126,9 @@ public class AppointmentController {
                                             @RequestParam(required = false)
                                             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
                                             @RequestParam(required = false) String patientName) throws Exception {
-        byte[] pdf = pdfExportUtil.generateAppointmentListPdf(exportList(status, therapistId, dateFrom, dateTo, patientName));
+        List<Appointment> rows = exportList(status, therapistId, dateFrom, dateTo, patientName);
+        byte[] pdf = pdfExportUtil.generateAppointmentListPdf(rows,
+                buildExportInfoBlocks(status, therapistId, dateFrom, dateTo, patientName, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=appointments-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -137,6 +144,35 @@ public class AppointmentController {
             } catch (IllegalArgumentException ignored) {}
         }
         return appointmentService.findByFilters(statusEnum, therapistId, dateFrom, dateTo, patientName);
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String status, Long therapistId, LocalDate dateFrom, LocalDate dateTo,
+                                                         String patientName, List<Appointment> rows) {
+        String therapistName = therapistId != null ? therapistService.getById(therapistId).getFullName() : null;
+        java.math.BigDecimal totalGrandTotal = rows.stream().map(Appointment::getGrandTotal)
+                .filter(java.util.Objects::nonNull).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalCollected = rows.stream().map(Appointment::getAmountPaid)
+                .filter(java.util.Objects::nonNull).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal totalBalanceDue = rows.stream().map(Appointment::getBalanceDue)
+                .filter(java.util.Objects::nonNull).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (status != null && !status.isBlank()) filterLines.add(ExportInfoBlock.line("Status", status));
+        if (therapistName != null) filterLines.add(ExportInfoBlock.line("Therapist", therapistName));
+        if (dateFrom != null) filterLines.add(ExportInfoBlock.line("Date From", dateFrom.toString()));
+        if (dateTo != null) filterLines.add(ExportInfoBlock.line("Date To", dateTo.toString()));
+        if (patientName != null && !patientName.isBlank()) filterLines.add(ExportInfoBlock.line("Patient Name", patientName));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Appointments", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Total Grand Total", formatCurrency(totalGrandTotal)),
+                ExportInfoBlock.line("Total Collected", formatCurrency(totalCollected)),
+                ExportInfoBlock.line("Total Balance Due", formatCurrency(totalBalanceDue)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
+    }
+
+    private String formatCurrency(java.math.BigDecimal value) {
+        return properties.getCurrency().getSymbol() + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     // ── New form ──────────────────────────────────────────────────────────

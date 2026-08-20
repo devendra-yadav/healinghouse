@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.dto.CsvImportResultDTO;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.entity.Product;
@@ -74,7 +75,8 @@ public class ProductController {
     public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
                                             @RequestParam(required = false) String tag,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
-        String csv = csvExportUtil.generateProductListCsv(exportList(q, tag, includeInactive));
+        List<Product> rows = exportList(q, tag, includeInactive);
+        String csv = csvExportUtil.generateProductListCsv(rows, buildExportInfoBlocks(q, tag, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=products-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -86,7 +88,8 @@ public class ProductController {
     public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
                                             @RequestParam(required = false) String tag,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
-        byte[] pdf = pdfExportUtil.generateProductListPdf(exportList(q, tag, includeInactive));
+        List<Product> rows = exportList(q, tag, includeInactive);
+        byte[] pdf = pdfExportUtil.generateProductListPdf(rows, buildExportInfoBlocks(q, tag, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=products-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -100,6 +103,20 @@ public class ProductController {
                 ? productService.search(q, tag, Pageable.unpaged()).getContent()
                 : (includeInactive ? productService.findAllIncludingInactive(Pageable.unpaged()).getContent() : productService.findAll());
         return includeInactive ? rows : rows.stream().filter(Product::isActive).toList();
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String q, String tag, boolean includeInactive, List<Product> rows) {
+        long activeCount = rows.stream().filter(Product::isActive).count();
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (StringUtils.hasText(q)) filterLines.add(ExportInfoBlock.line("Search", q));
+        if (StringUtils.hasText(tag)) filterLines.add(ExportInfoBlock.line("Tag", tag));
+        if (includeInactive) filterLines.add(ExportInfoBlock.line("Status", "Active + Inactive"));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Products", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Active", String.valueOf(activeCount)),
+                ExportInfoBlock.line("Inactive", String.valueOf(rows.size() - activeCount)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
     }
 
     @RequiresPermission(module = Module.PRODUCTS, action = PermissionAction.CREATE)

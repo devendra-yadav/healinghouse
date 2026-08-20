@@ -1,6 +1,7 @@
 package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.dto.CsvImportResultDTO;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
@@ -73,7 +74,8 @@ public class TreatmentController {
     public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
                                             @RequestParam(required = false) String tag,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
-        String csv = csvExportUtil.generateServiceListCsv(exportList(q, tag, includeInactive));
+        List<ClinicService> rows = exportList(q, tag, includeInactive);
+        String csv = csvExportUtil.generateServiceListCsv(rows, buildExportInfoBlocks(q, tag, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=services-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -85,7 +87,8 @@ public class TreatmentController {
     public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
                                             @RequestParam(required = false) String tag,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
-        byte[] pdf = pdfExportUtil.generateServiceListPdf(exportList(q, tag, includeInactive));
+        List<ClinicService> rows = exportList(q, tag, includeInactive);
+        byte[] pdf = pdfExportUtil.generateServiceListPdf(rows, buildExportInfoBlocks(q, tag, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=services-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -99,6 +102,20 @@ public class TreatmentController {
                 ? treatmentService.search(q, tag, Pageable.unpaged()).getContent()
                 : (includeInactive ? treatmentService.findAllIncludingInactive(Pageable.unpaged()).getContent() : treatmentService.findAll());
         return includeInactive ? rows : rows.stream().filter(ClinicService::isActive).toList();
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String q, String tag, boolean includeInactive, List<ClinicService> rows) {
+        long activeCount = rows.stream().filter(ClinicService::isActive).count();
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (StringUtils.hasText(q)) filterLines.add(ExportInfoBlock.line("Search", q));
+        if (StringUtils.hasText(tag)) filterLines.add(ExportInfoBlock.line("Tag", tag));
+        if (includeInactive) filterLines.add(ExportInfoBlock.line("Status", "Active + Inactive"));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Services", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Active", String.valueOf(activeCount)),
+                ExportInfoBlock.line("Inactive", String.valueOf(rows.size() - activeCount)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
     }
 
     @RequiresPermission(module = Module.SERVICES, action = PermissionAction.CREATE)

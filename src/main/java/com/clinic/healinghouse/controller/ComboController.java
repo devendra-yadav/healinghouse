@@ -5,6 +5,7 @@ import com.clinic.healinghouse.dto.ComboDetailDTO;
 import com.clinic.healinghouse.dto.ComboExportRowDTO;
 import com.clinic.healinghouse.dto.ComboForm;
 import com.clinic.healinghouse.dto.ComboSearchResultDTO;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.entity.Combo;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PermissionAction;
@@ -29,6 +30,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
@@ -70,7 +72,8 @@ public class ComboController {
     @GetMapping("/export-csv")
     public ResponseEntity<byte[]> exportCsv(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws java.io.IOException {
-        String csv = csvExportUtil.generateComboListCsv(exportRows(q, includeInactive));
+        List<ComboExportRowDTO> rows = exportRows(q, includeInactive);
+        String csv = csvExportUtil.generateComboListCsv(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=combos-" + LocalDate.now() + ".csv")
                 .header(HttpHeaders.CONTENT_TYPE, "text/csv;charset=UTF-8")
@@ -81,7 +84,8 @@ public class ComboController {
     @GetMapping("/export-pdf")
     public ResponseEntity<byte[]> exportPdf(@RequestParam(required = false) String q,
                                             @RequestParam(defaultValue = "false") boolean includeInactive) throws Exception {
-        byte[] pdf = pdfExportUtil.generateComboListPdf(exportRows(q, includeInactive));
+        List<ComboExportRowDTO> rows = exportRows(q, includeInactive);
+        byte[] pdf = pdfExportUtil.generateComboListPdf(rows, buildExportInfoBlocks(q, includeInactive, rows));
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment;filename=combos-" + LocalDate.now() + ".pdf")
                 .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
@@ -103,6 +107,25 @@ public class ComboController {
             return new ComboExportRowDTO(c.getName(), c.getDescription(), comboService.buildItemsSummary(c),
                     catalogPrice, comboPrice, catalogPrice.subtract(comboPrice), c.isActive());
         }).toList();
+    }
+
+    private List<ExportInfoBlock> buildExportInfoBlocks(String q, boolean includeInactive, List<ComboExportRowDTO> rows) {
+        long activeCount = rows.stream().filter(ComboExportRowDTO::active).count();
+        BigDecimal totalSavings = rows.stream().map(ComboExportRowDTO::savings).reduce(BigDecimal.ZERO, BigDecimal::add);
+        List<ExportInfoBlock.Line> filterLines = new java.util.ArrayList<>();
+        if (StringUtils.hasText(q)) filterLines.add(ExportInfoBlock.line("Search", q));
+        if (includeInactive) filterLines.add(ExportInfoBlock.line("Status", "Active + Inactive"));
+        ExportInfoBlock filters = ExportInfoBlock.ofLines("Filters Applied", filterLines);
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Total Combos", String.valueOf(rows.size())),
+                ExportInfoBlock.line("Active", String.valueOf(activeCount)),
+                ExportInfoBlock.line("Inactive", String.valueOf(rows.size() - activeCount)),
+                ExportInfoBlock.line("Total Savings Offered", formatCurrency(totalSavings)));
+        return java.util.stream.Stream.of(filters, summary).filter(java.util.Objects::nonNull).toList();
+    }
+
+    private String formatCurrency(BigDecimal value) {
+        return properties.getCurrency().getSymbol() + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
     }
 
     @RequiresPermission(module = Module.COMBOS, action = PermissionAction.CREATE)

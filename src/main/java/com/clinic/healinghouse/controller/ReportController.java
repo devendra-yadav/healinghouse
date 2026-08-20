@@ -2,9 +2,12 @@ package com.clinic.healinghouse.controller;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.CashFlowReportDTO;
+import com.clinic.healinghouse.dto.ComparisonReportDTO;
+import com.clinic.healinghouse.dto.ExportInfoBlock;
 import com.clinic.healinghouse.dto.ProfitLossReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportDTO;
 import com.clinic.healinghouse.dto.RevenueReportFilter;
+import com.clinic.healinghouse.dto.TherapistEarningsDTO;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
@@ -35,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -209,6 +213,51 @@ public class ReportController {
         return "reports/revenue";
     }
 
+    private List<ExportInfoBlock> buildComparisonInfoBlocks(ComparisonReportDTO report) {
+        List<TherapistEarningsDTO> earnings = report.therapistEarnings();
+        String therapistNames = earnings.stream()
+                .map(e -> e.therapist().getFullName())
+                .reduce((a, b) -> a + ", " + b).orElse("None");
+        BigDecimal totalRevenue = earnings.stream().map(TherapistEarningsDTO::totalRevenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCommission = earnings.stream().map(TherapistEarningsDTO::totalCommission).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalVariablePay = earnings.stream().map(TherapistEarningsDTO::totalVariablePay).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        ExportInfoBlock filters = ExportInfoBlock.of("Filters Applied",
+                ExportInfoBlock.line("Therapists Compared", therapistNames));
+        ExportInfoBlock summary = ExportInfoBlock.of("Summary",
+                ExportInfoBlock.line("Therapists Compared", String.valueOf(earnings.size())),
+                ExportInfoBlock.line("Combined Revenue (Bonus/Commission tagged)", formatCurrency(totalRevenue)),
+                ExportInfoBlock.line("Combined Commission", formatCurrency(totalCommission)),
+                ExportInfoBlock.line("Combined Variable Pay", formatCurrency(totalVariablePay)));
+        return List.of(filters, summary);
+    }
+
+    /** {@code rawStatus} (the raw, un-resolved request param) is needed alongside {@code filter.status()}
+     *  because {@link #resolveDrilldownStatus} collapses two different "not applied" cases (blank →
+     *  default Completed-only, "ALL" → no status filter) into ambiguous {@code AppointmentStatus}/{@code null}
+     *  values — only the raw param tells us whether staff actually touched this filter. */
+    private ExportInfoBlock buildRevenueFilterBlock(RevenueReportFilter filter, String rawStatus) {
+        String therapistName = filter.therapistId() != null ? therapistService.getById(filter.therapistId()).getFullName() : null;
+        String serviceName = filter.serviceId() != null ? treatmentService.getById(filter.serviceId()).getName() : null;
+        String productName = filter.productId() != null ? productService.getById(filter.productId()).getName() : null;
+        List<ExportInfoBlock.Line> lines = new java.util.ArrayList<>();
+        if (therapistName != null) lines.add(ExportInfoBlock.line("Therapist", therapistName));
+        if (filter.patientName() != null && !filter.patientName().isBlank()) lines.add(ExportInfoBlock.line("Patient Name", filter.patientName()));
+        if (serviceName != null) lines.add(ExportInfoBlock.line("Service", serviceName));
+        if (productName != null) lines.add(ExportInfoBlock.line("Product", productName));
+        if (filter.tagName() != null && !filter.tagName().isBlank()) lines.add(ExportInfoBlock.line("Tag", filter.tagName()));
+        if (filter.paymentMethod() != null) lines.add(ExportInfoBlock.line("Payment Method", filter.paymentMethod().name()));
+        if (rawStatus != null && !rawStatus.isBlank()) {
+            lines.add(ExportInfoBlock.line("Status", filter.status() != null ? filter.status().name() : "All Statuses"));
+        }
+        if (filter.discountedOnly()) lines.add(ExportInfoBlock.line("Discounted Only", "Yes"));
+        return ExportInfoBlock.ofLines("Filters Applied", lines);
+    }
+
+    private String formatCurrency(BigDecimal value) {
+        return properties.getCurrency().getSymbol() + value.setScale(2, java.math.RoundingMode.HALF_UP).toPlainString();
+    }
+
     /** "" / null → default to Completed-only; "ALL" → no status filter (every status shown); otherwise the named status. */
     private static AppointmentStatus resolveDrilldownStatus(String status) {
         if (status == null || status.isBlank()) return AppointmentStatus.COMPLETED;
@@ -309,7 +358,7 @@ public class ReportController {
         }
 
         var report = reportService.getTherapistComparison(selectedIds, from, to);
-        String csv = csvExportUtil.generateComparisonReportCsv(report);
+        String csv = csvExportUtil.generateComparisonReportCsv(report, buildComparisonInfoBlocks(report));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -335,7 +384,7 @@ public class ReportController {
         }
 
         var report = reportService.getTherapistComparison(selectedIds, from, to);
-        byte[] pdf = pdfExportUtil.generateComparisonReportPdf(report);
+        byte[] pdf = pdfExportUtil.generateComparisonReportPdf(report, buildComparisonInfoBlocks(report));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -444,7 +493,7 @@ public class ReportController {
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
         var report = reportService.getRevenueReport(filter, Pageable.unpaged());
-        String csv = csvExportUtil.generateRevenueReportCsv(report);
+        String csv = csvExportUtil.generateRevenueReportCsv(report, buildRevenueFilterBlock(filter, status));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -473,7 +522,7 @@ public class ReportController {
         RevenueReportFilter filter = new RevenueReportFilter(from, to, therapistId, patientName, serviceId, productId,
                 tagName, paymentMethod, resolveDrilldownStatus(status), discountedOnly);
         var report = reportService.getRevenueReport(filter, Pageable.unpaged());
-        byte[] pdf = pdfExportUtil.generateRevenueReportPdf(report);
+        byte[] pdf = pdfExportUtil.generateRevenueReportPdf(report, buildRevenueFilterBlock(filter, status));
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,

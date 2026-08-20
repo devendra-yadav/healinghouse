@@ -16,6 +16,7 @@ import java.io.StringWriter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -69,11 +70,12 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateComparisonReportCsv(ComparisonReportDTO report) throws IOException {
+    public String generateComparisonReportCsv(ComparisonReportDTO report, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Therapist Comparison - " + report.dateFrom().format(dateFormatter()) +
                     " to " + report.dateTo().format(dateFormatter()));
+            writeInfoBlocks(writer, infoBlocks);
             writeTherapistEarnings(writer, report.therapistEarnings(), false);
         }
         return sw.toString();
@@ -106,6 +108,7 @@ public class CsvExportUtil {
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Product/Service Performance - " + report.dateFrom().format(dateFormatter()) +
                     " to " + report.dateTo().format(dateFormatter()));
+            writePerformanceSummary(writer, report);
 
             if (report.services() != null && !report.services().isEmpty()) {
                 writer.writeNext(new String[]{"Service Performance"});
@@ -121,11 +124,12 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateRevenueReportCsv(RevenueReportDTO report) throws IOException {
+    public String generateRevenueReportCsv(RevenueReportDTO report, ExportInfoBlock filters) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Actual Revenue Report - " + report.dateFrom().format(dateFormatter()) +
                     " to " + report.dateTo().format(dateFormatter()));
+            writeInfoBlock(writer, filters);
             writeRevenueSummary(writer, report.summary());
 
             if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
@@ -182,11 +186,15 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateExpenseListCsv(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws IOException {
+    public String generateExpenseListCsv(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo,
+                                         ExpenseExportFilterDTO filterInfo, ExpenseSummaryDTO summary) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Expense List - " + dateFrom.format(dateFormatter()) +
                     " to " + dateTo.format(dateFormatter()));
+            writeExpenseFilters(writer, filterInfo);
+            writeExpenseSummary(writer, summary);
+            writer.writeNext(new String[]{"Expenses"});
             writer.writeNext(new String[]{"Date", "Label", "Category", "Amount", "Vendor", "Payment Method",
                     "Status", "Recorded By", "Recurring"});
             for (ExpenseListRowDTO row : rows) {
@@ -301,10 +309,11 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{"Net Cash Flow", formatCurrency(summary.netCashFlow())});
     }
 
-    public String generateProductListCsv(List<Product> products) throws IOException {
+    public String generateProductListCsv(List<Product> products, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Product List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Name", "Description", "Tags", "Price", "Stock Quantity", "Reorder Level", "Status"});
             for (Product p : products) {
                 writer.writeNext(new String[]{
@@ -321,10 +330,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateServiceListCsv(List<ClinicService> services) throws IOException {
+    public String generateServiceListCsv(List<ClinicService> services, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Service List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Name", "Description", "Tags", "Duration (min)", "Price", "Status"});
             for (ClinicService s : services) {
                 writer.writeNext(new String[]{
@@ -340,10 +350,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateComboListCsv(List<ComboExportRowDTO> rows) throws IOException {
+    public String generateComboListCsv(List<ComboExportRowDTO> rows, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Combo List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Name", "Description", "Items", "Original Price", "Combo Price", "Savings", "Status"});
             for (ComboExportRowDTO row : rows) {
                 writer.writeNext(new String[]{
@@ -360,10 +371,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generatePackageTemplateListCsv(List<PackageTemplateExportRowDTO> rows) throws IOException {
+    public String generatePackageTemplateListCsv(List<PackageTemplateExportRowDTO> rows, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Package Template List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Name", "Description", "Items", "Suggested Price", "Status"});
             for (PackageTemplateExportRowDTO row : rows) {
                 writer.writeNext(new String[]{
@@ -378,10 +390,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generatePatientListCsv(List<Patient> patients) throws IOException {
+    public String generatePatientListCsv(List<Patient> patients, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Patient List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Full Name", "Phone", "Email", "Gender", "Age", "Address", "Status"});
             for (Patient p : patients) {
                 writer.writeNext(new String[]{
@@ -398,10 +411,11 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
-    public String generateAppointmentListCsv(List<Appointment> appointments) throws IOException {
+    public String generateAppointmentListCsv(List<Appointment> appointments, List<ExportInfoBlock> infoBlocks) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {
             writeHeaders(writer, "Appointment List");
+            writeInfoBlocks(writer, infoBlocks);
             writer.writeNext(new String[]{"Date/Time", "Patient", "Phone", "Therapist", "Status",
                     "Grand Total", "Amount Paid", "Balance Due", "Payment Method"});
             for (Appointment a : appointments) {
@@ -425,11 +439,64 @@ public class CsvExportUtil {
         return tags.stream().map(Tag::getName).collect(Collectors.joining(", "));
     }
 
+    /** Writes nothing when no filter deviates from its default — "no need to show All". */
+    private void writeExpenseFilters(CSVWriter writer, ExpenseExportFilterDTO filterInfo) throws IOException {
+        List<String[]> lines = new ArrayList<>();
+        if (filterInfo.categoryName() != null) {
+            lines.add(new String[]{"Category", sanitize(filterInfo.categoryName())});
+        }
+        if (filterInfo.vendorName() != null && !filterInfo.vendorName().isBlank()) {
+            lines.add(new String[]{"Vendor", sanitize(filterInfo.vendorName())});
+        }
+        if (filterInfo.paymentMethod() != null) {
+            lines.add(new String[]{"Payment Method", filterInfo.paymentMethod().name()});
+        }
+        if (filterInfo.showVoided()) {
+            lines.add(new String[]{"Status", "Active + Voided"});
+        }
+        if (lines.isEmpty()) return;
+        writer.writeNext(new String[]{"Filters"});
+        for (String[] line : lines) {
+            writer.writeNext(line);
+        }
+        writer.writeNext(new String[]{});
+    }
+
+    /** Category breakdown first, "TOTAL EXPENSES" last — it's the sum of every row above it, not
+     *  just another category, so it's ordered and labeled to read as a grand total, not a peer line. */
+    private void writeExpenseSummary(CSVWriter writer, ExpenseSummaryDTO summary) throws IOException {
+        writer.writeNext(new String[]{"Summary"});
+        for (ExpenseSummaryDTO.CategoryTotal ct : summary.restrictedCategoryTotals()) {
+            writer.writeNext(new String[]{sanitize(ct.categoryName()) + " (Restricted)", formatCurrency(ct.amount())});
+        }
+        writer.writeNext(new String[]{"Non-Restricted Total", formatCurrency(summary.nonRestrictedTotal())});
+        writer.writeNext(new String[]{"TOTAL EXPENSES (All Categories)", formatCurrency(summary.totalAmount())});
+        writer.writeNext(new String[]{});
+    }
+
     private void writeProfitLossSummary(CSVWriter writer, ProfitLossReportDTO report) throws IOException {
         writer.writeNext(new String[]{"Summary"});
         writer.writeNext(new String[]{"Net Revenue", formatCurrency(report.netRevenue())});
         writer.writeNext(new String[]{"Total Expenses", formatCurrency(report.totalExpenses())});
         writer.writeNext(new String[]{"Net Profit", formatCurrency(report.netProfit())});
+    }
+
+    private void writePerformanceSummary(CSVWriter writer, PerformanceReportDTO report) throws IOException {
+        List<ServicePerformanceDTO> services = report.services() != null ? report.services() : List.of();
+        List<ProductPerformanceDTO> products = report.products() != null ? report.products() : List.of();
+        BigDecimal serviceRevenue = services.stream().map(ServicePerformanceDTO::revenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal productRevenue = products.stream().map(ProductPerformanceDTO::revenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long totalBookings = services.stream().mapToLong(ServicePerformanceDTO::bookingsCount).sum();
+        long totalUnitsSold = products.stream().mapToLong(ProductPerformanceDTO::unitsSold).sum();
+
+        writer.writeNext(new String[]{"Summary"});
+        writer.writeNext(new String[]{"Services Tracked", String.valueOf(services.size())});
+        writer.writeNext(new String[]{"Total Service Bookings", String.valueOf(totalBookings)});
+        writer.writeNext(new String[]{"Total Service Revenue", formatCurrency(serviceRevenue)});
+        writer.writeNext(new String[]{"Products Tracked", String.valueOf(products.size())});
+        writer.writeNext(new String[]{"Total Units Sold", String.valueOf(totalUnitsSold)});
+        writer.writeNext(new String[]{"Total Product Revenue", formatCurrency(productRevenue)});
+        writer.writeNext(new String[]{});
     }
 
     private void writeRevenueSummary(CSVWriter writer, RevenueSummaryDTO summary) throws IOException {
@@ -460,6 +527,24 @@ public class CsvExportUtil {
         writer.writeNext(new String[]{title});
         writer.writeNext(new String[]{"Generated: " + LocalDate.now().format(dateFormatter())});
         writer.writeNext(new String[]{});
+    }
+
+    /** Renders a "Filters Applied"/"Summary"-style block (see {@link ExportInfoBlock}) identically
+     *  across every export — a title row followed by one label/value row per line, blank-line terminated. */
+    private void writeInfoBlock(CSVWriter writer, ExportInfoBlock block) throws IOException {
+        if (block == null || block.lines().isEmpty()) return;
+        writer.writeNext(new String[]{block.title()});
+        for (ExportInfoBlock.Line line : block.lines()) {
+            writer.writeNext(new String[]{line.label(), line.value()});
+        }
+        writer.writeNext(new String[]{});
+    }
+
+    private void writeInfoBlocks(CSVWriter writer, List<ExportInfoBlock> blocks) throws IOException {
+        if (blocks == null) return;
+        for (ExportInfoBlock block : blocks) {
+            writeInfoBlock(writer, block);
+        }
     }
 
     private void writePeriodSummary(CSVWriter writer, PeriodSummaryDTO summary) throws IOException {

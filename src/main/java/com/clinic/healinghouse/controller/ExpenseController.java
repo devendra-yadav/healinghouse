@@ -1,5 +1,6 @@
 package com.clinic.healinghouse.controller;
 
+import com.clinic.healinghouse.dto.ExpenseExportFilterDTO;
 import com.clinic.healinghouse.dto.ExpenseFilter;
 import com.clinic.healinghouse.dto.ExpenseForm;
 import com.clinic.healinghouse.dto.ExpenseListRowDTO;
@@ -44,7 +45,6 @@ public class ExpenseController {
     private final PaginationUtil paginationUtil;
     private final CsvExportUtil csvExportUtil;
     private final PdfExportUtil pdfExportUtil;
-    private final com.clinic.healinghouse.config.HealingHouseProperties properties;
 
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.VIEW)
     @GetMapping
@@ -59,14 +59,18 @@ public class ExpenseController {
                        Model model) {
         int pageSize = paginationUtil.clampPageSize(size);
         page = paginationUtil.clampPage(page);
+        LocalDate today = LocalDate.now();
+        LocalDate effectiveFrom = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
+        LocalDate effectiveTo = dateTo != null ? dateTo : today;
         ExpenseStatus status = showVoided ? null : ExpenseStatus.ACTIVE;
-        ExpenseFilter filter = new ExpenseFilter(dateFrom, dateTo, categoryId, vendorName, paymentMethod, status);
+        ExpenseFilter filter = new ExpenseFilter(effectiveFrom, effectiveTo, categoryId, vendorName, paymentMethod, status);
         var expenses = expenseService.search(filter, PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "expenseDate")))
                 .map(ExpenseListRowDTO::from);
         model.addAttribute("expenses", expenses);
+        model.addAttribute("summary", expenseService.getSummary(filter));
         model.addAttribute("categories", expenseCategoryService.findAllActiveVisible());
-        model.addAttribute("dateFrom", dateFrom);
-        model.addAttribute("dateTo", dateTo);
+        model.addAttribute("dateFrom", effectiveFrom);
+        model.addAttribute("dateTo", effectiveTo);
         model.addAttribute("categoryId", categoryId);
         model.addAttribute("vendorName", vendorName);
         model.addAttribute("paymentMethod", paymentMethod);
@@ -85,10 +89,15 @@ public class ExpenseController {
                                             @RequestParam(required = false) PaymentMethod paymentMethod,
                                             @RequestParam(defaultValue = "false") boolean showVoided) throws IOException {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
-        List<ExpenseListRowDTO> rows = exportRows(dateFrom, dateTo, categoryId, vendorName, paymentMethod, showVoided);
-        String csv = csvExportUtil.generateExpenseListCsv(rows, from, to);
+        ExpenseFilter filter = new ExpenseFilter(from, to, categoryId, vendorName, paymentMethod,
+                showVoided ? null : ExpenseStatus.ACTIVE);
+        List<ExpenseListRowDTO> rows = expenseService.search(filter, Pageable.unpaged())
+                .map(ExpenseListRowDTO::from).getContent();
+        var summary = expenseService.getSummary(filter);
+        var filterInfo = buildExportFilterInfo(categoryId, vendorName, paymentMethod, showVoided);
+        String csv = csvExportUtil.generateExpenseListCsv(rows, from, to, filterInfo, summary);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -106,10 +115,15 @@ public class ExpenseController {
                                             @RequestParam(required = false) PaymentMethod paymentMethod,
                                             @RequestParam(defaultValue = "false") boolean showVoided) throws Exception {
         LocalDate today = LocalDate.now();
-        LocalDate from = dateFrom != null ? dateFrom : today.minusDays(properties.getReports().getDefaultRangeDays() - 1);
+        LocalDate from = dateFrom != null ? dateFrom : today.withDayOfMonth(1);
         LocalDate to = dateTo != null ? dateTo : today;
-        List<ExpenseListRowDTO> rows = exportRows(dateFrom, dateTo, categoryId, vendorName, paymentMethod, showVoided);
-        byte[] pdf = pdfExportUtil.generateExpenseListPdf(rows, from, to);
+        ExpenseFilter filter = new ExpenseFilter(from, to, categoryId, vendorName, paymentMethod,
+                showVoided ? null : ExpenseStatus.ACTIVE);
+        List<ExpenseListRowDTO> rows = expenseService.search(filter, Pageable.unpaged())
+                .map(ExpenseListRowDTO::from).getContent();
+        var summary = expenseService.getSummary(filter);
+        var filterInfo = buildExportFilterInfo(categoryId, vendorName, paymentMethod, showVoided);
+        byte[] pdf = pdfExportUtil.generateExpenseListPdf(rows, from, to, filterInfo, summary);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -118,13 +132,10 @@ public class ExpenseController {
                 .body(pdf);
     }
 
-    private List<ExpenseListRowDTO> exportRows(LocalDate dateFrom, LocalDate dateTo, Long categoryId,
-                                               String vendorName, PaymentMethod paymentMethod, boolean showVoided) {
-        ExpenseStatus status = showVoided ? null : ExpenseStatus.ACTIVE;
-        ExpenseFilter filter = new ExpenseFilter(dateFrom, dateTo, categoryId, vendorName, paymentMethod, status);
-        return expenseService.search(filter, Pageable.unpaged())
-                .map(ExpenseListRowDTO::from)
-                .getContent();
+    private ExpenseExportFilterDTO buildExportFilterInfo(Long categoryId, String vendorName,
+                                                          PaymentMethod paymentMethod, boolean showVoided) {
+        String categoryName = categoryId != null ? expenseCategoryService.getById(categoryId).getName() : null;
+        return new ExpenseExportFilterDTO(categoryName, vendorName, paymentMethod, showVoided);
     }
 
     @RequiresPermission(module = Module.EXPENSES, action = PermissionAction.CREATE)

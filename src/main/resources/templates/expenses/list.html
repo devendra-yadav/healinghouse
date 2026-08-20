@@ -22,6 +22,40 @@
         </div>
     </div>
 
+    <div class="row g-3 mb-2">
+        <div class="col-12 col-sm-6 col-lg-4">
+            <div class="card card-kpi p-3 bg-white border-primary">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-primary"><i class="bi bi-receipt"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(summary.totalAmount, 1, 2)}|"></div>
+                        <small class="text-muted">Total Expenses (All Categories)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="text-muted small mb-1">Breakdown by Category</div>
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2">
+                    <div class="text-muted small">Non-Restricted Total</div>
+                    <div class="fw-semibold fs-5" th:text="|₹ ${#numbers.formatDecimal(summary.nonRestrictedTotal, 1, 2)}|"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3" th:each="ct : ${summary.restrictedCategoryTotals}">
+            <div class="card shadow-sm h-100 border-warning-subtle">
+                <div class="card-body py-2">
+                    <div class="text-muted small"><i class="bi bi-lock-fill text-warning me-1"></i><span th:text="${ct.categoryName}"></span></div>
+                    <div class="fw-semibold fs-5" th:text="|₹ ${#numbers.formatDecimal(ct.amount, 1, 2)}|"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="card shadow-sm mb-3">
         <div class="card-body">
             <form th:action="@{/expenses}" method="get" class="row g-2 align-items-end">
@@ -103,7 +137,11 @@
                         <tr th:each="e : ${expenses}">
                             <td th:text="${e.expenseDate}"></td>
                             <td th:text="${e.label} ?: '—'"></td>
-                            <td th:text="${e.categoryName}"></td>
+                            <td>
+                                <span th:text="${e.categoryName}"></span>
+                                <i th:if="${e.restrictedCategory}" class="bi bi-lock-fill text-warning ms-1"
+                                   title="Restricted category — hidden from Therapist+ users"></i>
+                            </td>
                             <td class="text-end fw-semibold" th:text="|₹ ${#numbers.formatDecimal(e.amount, 1, 2)}|"></td>
                             <td th:text="${e.vendorName} ?: '—'"></td>
                             <td th:text="${e.paymentMethod} ?: '—'"></td>

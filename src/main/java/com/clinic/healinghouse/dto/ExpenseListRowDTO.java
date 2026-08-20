@@ -17,7 +17,8 @@ public record ExpenseListRowDTO(
         PaymentMethod paymentMethod,
         ExpenseStatus status,
         String recordedByUsername,
-        boolean recurring
+        boolean recurring,
+        boolean restrictedCategory
 ) {
     public static ExpenseListRowDTO from(Expense e) {
         return new ExpenseListRowDTO(
@@ -30,7 +31,8 @@ public record ExpenseListRowDTO(
                 e.getPaymentMethod(),
                 e.getStatus(),
                 e.getRecordedBy() != null ? e.getRecordedBy().getUsername() : null,
-                e.getSourceTemplate() != null
+                e.getSourceTemplate() != null,
+                e.getCategory().isRestrictedVisibility()
         );
     }
 }

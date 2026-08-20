@@ -177,13 +177,14 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
-    public byte[] generateComparisonReportPdf(ComparisonReportDTO report) throws Exception {
+    public byte[] generateComparisonReportPdf(ComparisonReportDTO report, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Therapist Comparison", "From " + report.dateFrom().format(displayDateFormatter()) +
                     "  to  " + report.dateTo().format(displayDateFormatter()));
+            addInfoBlocks(document, infoBlocks);
             addTherapistEarningsTable(document, report.therapistEarnings(), false);
         } finally {
             finish(document, pdfDoc);
@@ -224,6 +225,7 @@ public class PdfExportUtil {
         try {
             addLetterhead(document, "Product/Service Performance", "From " + report.dateFrom().format(displayDateFormatter()) +
                     "  to  " + report.dateTo().format(displayDateFormatter()));
+            addPerformanceSummaryTable(document, report);
 
             if (report.services() != null && !report.services().isEmpty()) {
                 addSection(document, "Service Performance", buildServicePerformanceTable(report.services()));
@@ -238,13 +240,14 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
-    public byte[] generateRevenueReportPdf(RevenueReportDTO report) throws Exception {
+    public byte[] generateRevenueReportPdf(RevenueReportDTO report, ExportInfoBlock filters) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Actual Revenue Report", "From " + report.dateFrom().format(displayDateFormatter()) +
                     "  to  " + report.dateTo().format(displayDateFormatter()));
+            addInfoBlock(document, filters);
             addRevenueSummaryTable(document, report.summary());
 
             if (report.byPaymentMethod() != null && !report.byPaymentMethod().isEmpty()) {
@@ -272,18 +275,86 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
-    public byte[] generateExpenseListPdf(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo) throws Exception {
+    public byte[] generateExpenseListPdf(List<ExpenseListRowDTO> rows, LocalDate dateFrom, LocalDate dateTo,
+                                         ExpenseExportFilterDTO filterInfo, ExpenseSummaryDTO summary) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Expense List", "From " + dateFrom.format(displayDateFormatter()) +
                     "  to  " + dateTo.format(displayDateFormatter()));
-            document.add(buildExpenseListTable(rows));
+            Table filtersTable = buildExpenseFiltersTable(filterInfo);
+            if (filtersTable != null) {
+                addSection(document, "Filters Applied", filtersTable);
+            }
+            addSection(document, "Summary", buildExpenseSummaryTable(summary));
+            addSection(document, "Expenses", buildExpenseListTable(rows));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
+    }
+
+    /** Returns null (no section rendered) when no filter deviates from its default — "no need to
+     *  show All", per the export's own convention of only surfacing what staff actually selected. */
+    private Table buildExpenseFiltersTable(ExpenseExportFilterDTO filterInfo) {
+        Table table = newTable(new float[]{1, 2}, 9.5f);
+        boolean any = false;
+        if (filterInfo.categoryName() != null) {
+            addLabelCell(table, "Category", TextAlignment.LEFT);
+            addDataCell(table, filterInfo.categoryName(), TextAlignment.LEFT, false);
+            any = true;
+        }
+        if (filterInfo.vendorName() != null && !filterInfo.vendorName().isBlank()) {
+            addLabelCell(table, "Vendor", TextAlignment.LEFT);
+            addDataCell(table, filterInfo.vendorName(), TextAlignment.LEFT, false);
+            any = true;
+        }
+        if (filterInfo.paymentMethod() != null) {
+            addLabelCell(table, "Payment Method", TextAlignment.LEFT);
+            addDataCell(table, filterInfo.paymentMethod().name(), TextAlignment.LEFT, false);
+            any = true;
+        }
+        if (filterInfo.showVoided()) {
+            addLabelCell(table, "Status", TextAlignment.LEFT);
+            addDataCell(table, "Active + Voided", TextAlignment.LEFT, false);
+            any = true;
+        }
+        return any ? table : null;
+    }
+
+    /** Category breakdown first, "Total Expenses" last as a distinct grand-total row (bold, shaded,
+     *  ruled off from the breakdown above it — same treatment as {@link #buildCashFlowSummaryTable}'s
+     *  Net Cash Flow row) — it's the sum of every row above it, not just another category, so it
+     *  shouldn't read as one more line among equals. */
+    private Table buildExpenseSummaryTable(ExpenseSummaryDTO summary) {
+        Table table = newTable(new float[]{2, 1}, 9.5f);
+        for (ExpenseSummaryDTO.CategoryTotal ct : summary.restrictedCategoryTotals()) {
+            addLabelCell(table, ct.categoryName() + " (Restricted)", TextAlignment.LEFT);
+            addDataCell(table, formatCurrency(ct.amount()), TextAlignment.RIGHT, false);
+        }
+        addLabelCell(table, "Non-Restricted Total", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.nonRestrictedTotal()), TextAlignment.RIGHT, false);
+
+        Cell totalLabelCell = new Cell().add(new Paragraph("Total Expenses (All Categories)").setFont(boldFont()).setFontColor(BRAND_DARK));
+        totalLabelCell.setTextAlignment(TextAlignment.LEFT);
+        totalLabelCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        totalLabelCell.setBorder(Border.NO_BORDER);
+        totalLabelCell.setBorderTop(new SolidBorder(BRAND_DARK, 1f));
+        totalLabelCell.setBackgroundColor(ROW_SHADE);
+        totalLabelCell.setPadding(5f);
+        table.addCell(totalLabelCell);
+
+        Cell totalValueCell = new Cell().add(new Paragraph(formatCurrency(summary.totalAmount())).setFont(boldFont()).setFontColor(BRAND_DARK));
+        totalValueCell.setTextAlignment(TextAlignment.RIGHT);
+        totalValueCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        totalValueCell.setBorder(Border.NO_BORDER);
+        totalValueCell.setBorderTop(new SolidBorder(BRAND_DARK, 1f));
+        totalValueCell.setBackgroundColor(ROW_SHADE);
+        totalValueCell.setPadding(5f);
+        table.addCell(totalValueCell);
+
+        return table;
     }
 
     private Table buildExpenseListTable(List<ExpenseListRowDTO> rows) {
@@ -460,78 +531,84 @@ public class PdfExportUtil {
         return table;
     }
 
-    public byte[] generateProductListPdf(List<Product> products) throws Exception {
+    public byte[] generateProductListPdf(List<Product> products, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Product List", products.size() + " product(s)");
-            document.add(buildProductListTable(products));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Products", buildProductListTable(products));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
     }
 
-    public byte[] generateServiceListPdf(List<ClinicService> services) throws Exception {
+    public byte[] generateServiceListPdf(List<ClinicService> services, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Service List", services.size() + " service(s)");
-            document.add(buildServiceListTable(services));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Services", buildServiceListTable(services));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
     }
 
-    public byte[] generateComboListPdf(List<ComboExportRowDTO> rows) throws Exception {
+    public byte[] generateComboListPdf(List<ComboExportRowDTO> rows, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Combo List", rows.size() + " combo(s)");
-            document.add(buildComboListTable(rows));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Combos", buildComboListTable(rows));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
     }
 
-    public byte[] generatePackageTemplateListPdf(List<PackageTemplateExportRowDTO> rows) throws Exception {
+    public byte[] generatePackageTemplateListPdf(List<PackageTemplateExportRowDTO> rows, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Package Template List", rows.size() + " template(s)");
-            document.add(buildPackageTemplateListTable(rows));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Package Templates", buildPackageTemplateListTable(rows));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
     }
 
-    public byte[] generatePatientListPdf(List<Patient> patients) throws Exception {
+    public byte[] generatePatientListPdf(List<Patient> patients, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Patient List", patients.size() + " patient(s)");
-            document.add(buildPatientListTable(patients));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Patients", buildPatientListTable(patients));
         } finally {
             finish(document, pdfDoc);
         }
         return baos.toByteArray();
     }
 
-    public byte[] generateAppointmentListPdf(List<Appointment> appointments) throws Exception {
+    public byte[] generateAppointmentListPdf(List<Appointment> appointments, List<ExportInfoBlock> infoBlocks) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
         Document document = newDocument(pdfDoc, true);
         try {
             addLetterhead(document, "Appointment List", appointments.size() + " appointment(s)");
-            document.add(buildAppointmentListTable(appointments));
+            addInfoBlocks(document, infoBlocks);
+            addSection(document, "Appointments", buildAppointmentListTable(appointments));
         } finally {
             finish(document, pdfDoc);
         }
@@ -865,6 +942,27 @@ public class PdfExportUtil {
         return table;
     }
 
+    /** Renders a "Filters Applied"/"Summary"-style block (see {@link ExportInfoBlock}) as a titled
+     *  two-column label/value table — the same visual treatment every other summary grid in this
+     *  class uses (newTable + addLabelCell/addDataCell), so every export's filter/summary section
+     *  looks consistent regardless of report type. */
+    private void addInfoBlock(Document document, ExportInfoBlock block) {
+        if (block == null || block.lines().isEmpty()) return;
+        Table table = newTable(new float[]{1, 2}, 9.5f);
+        for (ExportInfoBlock.Line line : block.lines()) {
+            addLabelCell(table, line.label(), TextAlignment.LEFT);
+            addDataCell(table, line.value(), TextAlignment.LEFT, false);
+        }
+        addSection(document, block.title(), table);
+    }
+
+    private void addInfoBlocks(Document document, List<ExportInfoBlock> blocks) {
+        if (blocks == null) return;
+        for (ExportInfoBlock block : blocks) {
+            addInfoBlock(document, block);
+        }
+    }
+
     private void addPeriodSummaryTable(Document document, PeriodSummaryDTO summary) {
         Table table = newTable(new float[]{2, 1, 2, 1, 2, 1}, 9.5f);
 
@@ -1004,6 +1102,33 @@ public class PdfExportUtil {
         }
 
         return table;
+    }
+
+    private void addPerformanceSummaryTable(Document document, PerformanceReportDTO report) {
+        List<ServicePerformanceDTO> services = report.services() != null ? report.services() : List.of();
+        List<ProductPerformanceDTO> products = report.products() != null ? report.products() : List.of();
+        BigDecimal serviceRevenue = services.stream().map(ServicePerformanceDTO::revenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal productRevenue = products.stream().map(ProductPerformanceDTO::revenue).reduce(BigDecimal.ZERO, BigDecimal::add);
+        long totalBookings = services.stream().mapToLong(ServicePerformanceDTO::bookingsCount).sum();
+        long totalUnitsSold = products.stream().mapToLong(ProductPerformanceDTO::unitsSold).sum();
+
+        Table table = newTable(new float[]{2, 1, 2, 1}, 9.5f);
+        addLabelCell(table, "Services Tracked", TextAlignment.LEFT);
+        addDataCell(table, String.valueOf(services.size()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Total Service Bookings", TextAlignment.LEFT);
+        addDataCell(table, String.valueOf(totalBookings), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Total Service Revenue", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(serviceRevenue), TextAlignment.RIGHT, true);
+        addLabelCell(table, "Products Tracked", TextAlignment.LEFT);
+        addDataCell(table, String.valueOf(products.size()), TextAlignment.RIGHT, true);
+
+        addLabelCell(table, "Total Units Sold", TextAlignment.LEFT);
+        addDataCell(table, String.valueOf(totalUnitsSold), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Total Product Revenue", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(productRevenue), TextAlignment.RIGHT, false);
+
+        document.add(table);
     }
 
     private void addRevenueSummaryTable(Document document, RevenueSummaryDTO summary) {
@@ -1201,14 +1326,6 @@ public class PdfExportUtil {
         table.addHeaderCell(labelStyledCell(content, align));
     }
 
-    /** Styled like a header cell, but added as a normal body cell — for label:value summary
-     * grids where labels and values are interleaved within a row rather than forming a
-     * standalone header row (using table.addHeaderCell there would misregister a repeating
-     * page header and corrupt the row layout). */
-    private void addLabelCell(Table table, String content, TextAlignment align) {
-        table.addCell(labelStyledCell(content, align));
-    }
-
     private Cell labelStyledCell(String content, TextAlignment align) {
         Cell cell = new Cell().add(new Paragraph(content).setFont(boldFont()).setFontColor(ColorConstants.WHITE));
         cell.setBackgroundColor(BRAND_PRIMARY);
@@ -1217,6 +1334,20 @@ public class PdfExportUtil {
         cell.setBorder(Border.NO_BORDER);
         cell.setPadding(5);
         return cell;
+    }
+
+    /** Label column for label:value summary grids (Filters Applied / Summary blocks) — a muted tint
+     * rather than the solid brand-red {@link #labelStyledCell}, which reads fine as a single header
+     * row but stacks into one loud, oversized red block when repeated down a column across many rows. */
+    private void addLabelCell(Table table, String content, TextAlignment align) {
+        Cell cell = new Cell().add(new Paragraph(content).setFont(boldFont()).setFontColor(BRAND_DARK));
+        cell.setBackgroundColor(ROW_SHADE);
+        cell.setTextAlignment(align);
+        cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        cell.setBorder(Border.NO_BORDER);
+        cell.setBorderBottom(new SolidBorder(BORDER_COLOR, 0.5f));
+        cell.setPadding(4.5f);
+        table.addCell(cell);
     }
 
     private void addBlankCell(Table table) {
