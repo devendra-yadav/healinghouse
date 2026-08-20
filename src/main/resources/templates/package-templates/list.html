@@ -65,14 +65,14 @@
                             </td>
                             <td class="small text-muted" th:text="${packageTemplateService.toSuggestion(t).itemsSummary}"></td>
                             <td class="text-end"
-                                th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(t), 1, 2)}|"></td>
+                                th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(t), 1, 2)}|"></td>
                             <td class="text-end fw-semibold"
                                 th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeSuggestedPrice(t), 1, 2)}|"></td>
                             <td class="text-center">
-                                <span th:if="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeOriginalPrice(t)) &lt; 0}"
+                                <span th:if="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeCatalogPrice(t)) &lt; 0}"
                                       class="badge bg-success"
-                                      th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(t).subtract(packageTemplateService.computeSuggestedPrice(t)), 1, 2)} off|"></span>
-                                <span th:unless="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeOriginalPrice(t)) &lt; 0}"
+                                      th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(t).subtract(packageTemplateService.computeSuggestedPrice(t)), 1, 2)} off|"></span>
+                                <span th:unless="${packageTemplateService.computeSuggestedPrice(t).compareTo(packageTemplateService.computeCatalogPrice(t)) &lt; 0}"
                                       class="text-muted">—</span>
                             </td>
                             <td class="text-center text-nowrap">

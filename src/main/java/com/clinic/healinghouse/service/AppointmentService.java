@@ -7,6 +7,7 @@ import com.clinic.healinghouse.dto.RescheduleResponseDTO;
 import com.clinic.healinghouse.dto.TherapistConflictDTO;
 import com.clinic.healinghouse.entity.*;
 import com.clinic.healinghouse.repository.*;
+import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.util.ProportionalAllocator;
 import com.clinic.healinghouse.util.TherapistColorUtil;
 import jakarta.annotation.PostConstruct;
@@ -52,7 +53,9 @@ public class AppointmentService {
     private final WalletService                    walletService;
     private final PackageService                   packageService;
     private final ComboRepository                  comboRepository;
+    private final AppointmentPaymentTransactionRepository appointmentPaymentTransactionRepository;
     private final HealingHouseProperties           properties;
+    private final PermissionService                permissionService;
 
     private static final Sort DATE_DESC =
             Sort.by(Sort.Direction.DESC, "appointmentDateTime");
@@ -449,7 +452,10 @@ public class AppointmentService {
 
         appt.setAppointmentDateTime(newStart);
         appt.setDurationMinutes(newDuration);
-        appointmentRepository.save(appt);
+        // saveWithConflictCheck (not a plain save()) so a double drag-drop racing another edit on
+        // the same appointment surfaces the app's usual friendly "updated by someone else" message
+        // instead of a raw Hibernate optimistic-lock exception (Bug_Report_v7.md Finding 19).
+        saveWithConflictCheck(appt);
         log.info("Appointment id={} rescheduled to start={} duration={}min", id, newStart, newDuration);
         return new RescheduleResponseDTO(true, "Rescheduled.", List.of());
     }
@@ -481,6 +487,7 @@ public class AppointmentService {
                 .orElseThrow(() -> new EntityNotFoundException("Patient not found"));
         Therapist therapist = therapistRepository.findById(form.getTherapistId())
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
+        boolean canOverridePrice = canOverrideLinePrice(therapist);
 
         // 2. Must have at least one service
         List<AppointmentForm.ServiceLineForm> rawServices = form.getServiceLines().stream()
@@ -535,8 +542,10 @@ public class AppointmentService {
             // quantity here would credit packageAmountApplied with N× the line's value while only
             // 1 session is actually deducted from the patient's package.
             int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
-            BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+            BigDecimal catalogCeiling = resolveComboServiceCeiling(lineCombo, cs);
+            BigDecimal price = resolveLinePrice(catalogCeiling, slf.getPrice(), null, canOverridePrice);
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageServiceItem packageItem = null;
             if (slf.getPackageItemId() != null) {
@@ -549,7 +558,8 @@ public class AppointmentService {
                             .appointment(appointment)
                             .service(cs)
                             .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
-                            .priceAtTime(cs.getPrice())
+                            .priceAtTime(price)
+                            .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                             .quantity(qty)
                             .appointmentCombo(lineCombo)
                             .packageServiceItem(packageItem)
@@ -570,8 +580,10 @@ public class AppointmentService {
                     .orElseThrow(() -> new EntityNotFoundException(
                             "Product not found: " + plf.getProductId()));
 
-            BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
             AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+            BigDecimal catalogCeiling = resolveComboProductCeiling(lineCombo, product);
+            BigDecimal price = resolveLinePrice(catalogCeiling, plf.getPrice(), null, canOverridePrice);
+            BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
             PatientPackageProductItem packageItem = null;
             if (plf.getPackageItemId() != null) {
@@ -585,7 +597,8 @@ public class AppointmentService {
                             .product(product)
                             .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                             .quantity(qty)
-                            .priceAtTime(product.getPrice())
+                            .priceAtTime(price)
+                            .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                             .lineTotal(lineTotal)
                             .appointmentCombo(lineCombo)
                             .packageProductItem(packageItem)
@@ -636,6 +649,19 @@ public class AppointmentService {
         }
 
         Appointment saved = appointmentRepository.save(appointment);
+
+        // Cash-flow ledger: the fresh (non-wallet, non-package) portion actually collected at
+        // booking — mirrors WalletTransaction.TOP_UP/PackageTransaction.PURCHASE as the third real-
+        // money-in event type. newPaymentAmount is already validated non-negative above.
+        if (newPaymentAmount.signum() > 0) {
+            appointmentPaymentTransactionRepository.save(AppointmentPaymentTransaction.builder()
+                    .appointment(saved)
+                    .patient(patient)
+                    .type(AppointmentPaymentTransactionType.RECEIVED)
+                    .amount(newPaymentAmount)
+                    .paymentMethod(paymentMethod)
+                    .build());
+        }
 
         // Debited/consumed last so they're the only steps that can still fail after every other
         // validation passed — @Transactional rolls the whole method back on an insufficient-balance
@@ -772,10 +798,28 @@ public class AppointmentService {
 
     /**
      * Updates a SCHEDULED appointment in full (lines + stock management).
-     * For non-SCHEDULED appointments only notes and payment info are updated.
+     * Once an appointment leaves SCHEDULED ("closed"), only OWNER may still update it — and OWNER can
+     * update everything, not just notes/payment — every other role is rejected outright, since a
+     * closed appointment's record (including per-line therapist attribution) should be immutable to
+     * anyone but the Owner from that point on.
      */
     public Appointment updateAppointment(Long id, AppointmentForm form) {
         Appointment existing = getById(id); // loads both collections
+
+        boolean isOwner = permissionService.currentRole() == AppRole.OWNER;
+        if (existing.getStatus() != AppointmentStatus.SCHEDULED && !isOwner) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can update it now.");
+        }
+
+        // Snapshot the cash portion (amountPaid minus wallet/package-funded amounts) before any
+        // mutation below, so it can be diffed against the same figure after save — see the
+        // cash-flow ledger write further down for why this before/after diff (rather than hand-
+        // tracking prepaidBase/newPayment/corrections individually) is the only formula that stays
+        // correct across both the plain-new-payment path and the prepaidCorrection pencil-edit path.
+        BigDecimal cashPortionBefore = nz(existing.getAmountPaid())
+                .subtract(nz(existing.getWalletAmountApplied()))
+                .subtract(nz(existing.getPackageAmountApplied()));
 
         // Reject a stale form: the edit page baked amountPaid/walletAmountApplied into hidden fields at
         // load time, and the client computes prepaidCorrection/walletAmountApplied as targets built on
@@ -796,12 +840,10 @@ public class AppointmentService {
                     + "Please refresh and try again.");
         }
 
-        // Once an appointment leaves SCHEDULED, only notes/payment-info stay editable — everything
-        // else (who/when/lines/discount/wallet) is frozen, matching this method's own contract
-        // ("For non-SCHEDULED appointments only notes and payment info are updated"). Previously this
-        // was only enforced for the line-item rebuild below; patient/therapist/date/duration/wallet
-        // were silently editable via this endpoint on any COMPLETED/CANCELLED/NO_SHOW appointment too.
-        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED;
+        // Once an appointment leaves SCHEDULED, everything (who/when/lines/discount/wallet) is
+        // frozen for every role except OWNER, who reaches here having already passed the closed+
+        // non-owner guard above — for OWNER a non-SCHEDULED appointment is still fully editable.
+        boolean editable = existing.getStatus() == AppointmentStatus.SCHEDULED || isOwner;
 
         Patient patient = existing.getPatient();
         Therapist therapist = existing.getTherapist();
@@ -873,9 +915,17 @@ public class AppointmentService {
                 throw new IllegalArgumentException("At least one service must be selected.");
             }
             validateNoComboPackageOverlap(rawServices, form.getProductLines());
+            boolean canOverridePrice = canOverrideLinePrice(therapist);
 
             oldServiceItemCounts = tallyServicePackageItemCounts(existing.getServiceLines());
             oldProductItemCounts = tallyProductPackageItemCounts(existing.getProductLines());
+
+            // See resolveLinePrice's javadoc — a non-privileged caller's rebuild must carry forward
+            // each line's already-applied price rather than resetting it to the catalog price.
+            Map<Long, java.util.Deque<BigDecimal>> priorServicePrices = canOverridePrice ? Map.of()
+                    : buildPriceHistory(existing.getServiceLines(), sl -> sl.getService().getId(), AppointmentServiceLine::getPriceAtTime);
+            Map<Long, java.util.Deque<BigDecimal>> priorProductPrices = canOverridePrice ? Map.of()
+                    : buildPriceHistory(existing.getProductLines(), pl -> pl.getProduct().getId(), AppointmentProductLine::getPriceAtTime);
 
             existing.getServiceLines().clear();
             existing.getProductLines().clear();
@@ -891,8 +941,12 @@ public class AppointmentService {
                 ClinicService cs = clinicServiceRepository.findById(slf.getServiceId())
                         .orElseThrow(() -> new EntityNotFoundException("Service not found: " + slf.getServiceId()));
                 int qty = slf.getPackageItemId() != null ? 1 : Math.max(1, slf.getQuantity());
-                BigDecimal lineTotal = cs.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = slf.getComboGroupKey() != null ? comboByGroupKey.get(slf.getComboGroupKey()) : null;
+                BigDecimal catalogCeiling = resolveComboServiceCeiling(lineCombo, cs);
+                java.util.Deque<BigDecimal> priorQueue = priorServicePrices.get(cs.getId());
+                BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
+                BigDecimal price = resolveLinePrice(catalogCeiling, slf.getPrice(), carryForward, canOverridePrice);
+                BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageServiceItem packageItem = null;
                 if (slf.getPackageItemId() != null) {
@@ -907,7 +961,8 @@ public class AppointmentService {
                                 .appointment(existing)
                                 .service(cs)
                                 .therapist(resolveLineTherapist(slf.getTherapistId(), therapist))
-                                .priceAtTime(cs.getPrice())
+                                .priceAtTime(price)
+                                .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                                 .quantity(qty)
                                 .appointmentCombo(lineCombo)
                                 .packageServiceItem(packageItem)
@@ -926,8 +981,12 @@ public class AppointmentService {
                 int qty = plf.getPackageItemId() != null ? 1 : Math.max(1, plf.getQuantity());
                 Product product = productRepository.findById(plf.getProductId())
                         .orElseThrow(() -> new EntityNotFoundException("Product not found: " + plf.getProductId()));
-                BigDecimal lineTotal = product.getPrice().multiply(BigDecimal.valueOf(qty));
                 AppointmentCombo lineCombo = plf.getComboGroupKey() != null ? comboByGroupKey.get(plf.getComboGroupKey()) : null;
+                BigDecimal catalogCeiling = resolveComboProductCeiling(lineCombo, product);
+                java.util.Deque<BigDecimal> priorQueue = priorProductPrices.get(product.getId());
+                BigDecimal carryForward = priorQueue != null && !priorQueue.isEmpty() ? priorQueue.pollFirst() : null;
+                BigDecimal price = resolveLinePrice(catalogCeiling, plf.getPrice(), carryForward, canOverridePrice);
+                BigDecimal lineTotal = price.multiply(BigDecimal.valueOf(qty));
 
                 PatientPackageProductItem packageItem = null;
                 if (plf.getPackageItemId() != null) {
@@ -943,7 +1002,8 @@ public class AppointmentService {
                                 .product(product)
                                 .therapist(resolveLineTherapist(plf.getTherapistId(), therapist))
                                 .quantity(qty)
-                                .priceAtTime(product.getPrice())
+                                .priceAtTime(price)
+                                .originalPriceAtTime(originalPriceIfDiscounted(catalogCeiling, price))
                                 .lineTotal(lineTotal)
                                 .appointmentCombo(lineCombo)
                                 .packageProductItem(packageItem)
@@ -1000,6 +1060,32 @@ public class AppointmentService {
         }
 
         Appointment saved = saveWithConflictCheck(existing);
+
+        // Cash-flow ledger: record only the fresh-cash delta, whichever path produced it (a plain
+        // "New Payment" entry, a prepaidCorrection pencil-edit, or both combined in one submit).
+        // Wallet/package reversal never reaches here with a non-zero delta, since those move
+        // amountPaid and their own applied field by the same amount (see saved's post-reconciliation
+        // values below being read fresh, after every setter above already ran).
+        BigDecimal cashPortionAfter = nz(saved.getAmountPaid())
+                .subtract(nz(saved.getWalletAmountApplied()))
+                .subtract(nz(saved.getPackageAmountApplied()));
+        BigDecimal cashDelta = cashPortionAfter.subtract(cashPortionBefore);
+        if (cashDelta.signum() != 0) {
+            // A downward correction is ambiguous — fixing a typo vs. cash actually handed back —
+            // so only count it as real outflow when staff explicitly confirmed the latter. Positive
+            // deltas (new payment, or an upward correction) are unambiguously real cash in either way.
+            boolean cashPhysicallyReturned = cashDelta.signum() < 0 && form.isPrepaidCorrectionCashReturned();
+            appointmentPaymentTransactionRepository.save(AppointmentPaymentTransaction.builder()
+                    .appointment(saved)
+                    .patient(saved.getPatient())
+                    .type(form.getPrepaidCorrection() != null
+                            ? AppointmentPaymentTransactionType.CORRECTED
+                            : AppointmentPaymentTransactionType.RECEIVED)
+                    .amount(cashDelta)
+                    .paymentMethod(saved.getPaymentMethod())
+                    .cashPhysicallyReturned(cashPhysicallyReturned)
+                    .build());
+        }
 
         if (walletDelta.signum() > 0) {
             walletService.applyToAppointment(existing.getPatient().getId(), saved.getId(), walletDelta);
@@ -1065,9 +1151,11 @@ public class AppointmentService {
     private record PendingPackageConsumption(Long serviceItemId, Long productItemId, BigDecimal amount) {}
 
     // ── Per-line therapist reassignment ──────────────────────────────────────
-    // Allowed regardless of appointment status: only the line's therapist changes,
-    // price/quantity/stock are untouched, so commission/revenue recalculates live
-    // even for COMPLETED appointments. Still subject to the same double-booking check as the
+    // OWNER may reassign regardless of appointment status: only the line's therapist changes,
+    // price/quantity/stock are untouched, so commission/revenue recalculates live even for a
+    // COMPLETED appointment. Every other role may only reassign while still SCHEDULED — once an
+    // appointment is closed, its per-line therapist attribution is frozen for anyone but the Owner,
+    // same as the rest of updateAppointment. Still subject to the same double-booking check as the
     // main create/update flow (warn, never hard-block) — see findConflictsForTherapist.
 
     /**
@@ -1084,10 +1172,14 @@ public class AppointmentService {
         if (!line.getAppointment().getId().equals(appointmentId)) {
             throw new IllegalArgumentException("Service line does not belong to this appointment.");
         }
+        Appointment appt = line.getAppointment();
+        if (appt.getStatus() != AppointmentStatus.SCHEDULED && permissionService.currentRole() != AppRole.OWNER) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can reassign therapists on it now.");
+        }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
 
-        Appointment appt = line.getAppointment();
         List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
                 newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
         if (!conflicts.isEmpty() && !forceReassign) {
@@ -1110,10 +1202,14 @@ public class AppointmentService {
         if (!line.getAppointment().getId().equals(appointmentId)) {
             throw new IllegalArgumentException("Product line does not belong to this appointment.");
         }
+        Appointment appt = line.getAppointment();
+        if (appt.getStatus() != AppointmentStatus.SCHEDULED && permissionService.currentRole() != AppRole.OWNER) {
+            throw new IllegalStateException(
+                    "This appointment is no longer SCHEDULED. Only the Owner can reassign therapists on it now.");
+        }
         Therapist therapist = therapistRepository.findById(newTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found"));
 
-        Appointment appt = line.getAppointment();
         List<TherapistConflictDTO> conflicts = findConflictsForTherapist(
                 newTherapistId, appt.getAppointmentDateTime(), appt.getEndDateTime(), appointmentId);
         if (!conflicts.isEmpty() && !forceReassign) {
@@ -1346,6 +1442,93 @@ public class AppointmentService {
         if (lineTherapistId == null) return defaultTherapist;
         return therapistRepository.findById(lineTherapistId)
                 .orElseThrow(() -> new EntityNotFoundException("Therapist not found: " + lineTherapistId));
+    }
+
+    /**
+     * Per-line price override rights: OWNER (any appointment), or this appointment's own main
+     * therapist — not a therapist only reassigned to a specific line, and not ADMIN/RECEPTIONIST
+     * despite their general APPOINTMENTS/EDIT grant, since this directly moves commission payout.
+     */
+    private boolean canOverrideLinePrice(Therapist mainTherapist) {
+        if (permissionService.currentRole() == AppRole.OWNER) return true;
+        Long ownTherapistId = permissionService.currentTherapistId();
+        return ownTherapistId != null && ownTherapistId.equals(mainTherapist.getId());
+    }
+
+    /**
+     * Resolves the price actually charged for one line — also what commission is calculated on,
+     * since every commission query reads priceAtTime directly. Applies uniformly to standalone,
+     * combo, and package lines: a combo/package line's service/product/quantity identity stays
+     * locked (enforced client-side and by the clear-and-rebuild flow itself), but its price is
+     * editable by this same rule. That's a deliberate layering, not a special case — a combo's own
+     * discount (applyComboDiscount) and the whole-appointment discount both already work off
+     * whatever a line's raw lineTotal resolves to, so a per-line override here composes under them
+     * exactly like it already does for a standalone line.
+     *   - A caller allowed to override (see canOverrideLinePrice) gets their submitted price,
+     *     clamped to [0, catalogPrice] — discount only, never a markup.
+     *   - A caller NOT allowed to override never has their submitted price trusted at all — every
+     *     appointment update clears and rebuilds every line from scratch (see updateAppointment),
+     *     so blindly falling back to the catalog price here would silently erase an already-applied
+     *     therapist discount (and restore full commission) the moment ADMIN/RECEPTIONIST saves an
+     *     unrelated field like notes or payment. Instead it carries forward whatever price the
+     *     matching pre-existing line already had (re-clamped to the current catalog price, in case
+     *     the catalog changed since), or the catalog price if this is a genuinely new line.
+     */
+    private BigDecimal resolveLinePrice(BigDecimal catalogPrice, BigDecimal requestedPrice, BigDecimal carryForwardPrice,
+                                        boolean canOverride) {
+        if (canOverride) {
+            return requestedPrice != null ? requestedPrice.max(BigDecimal.ZERO).min(catalogPrice) : catalogPrice;
+        }
+        return carryForwardPrice != null ? carryForwardPrice.min(catalogPrice) : catalogPrice;
+    }
+
+    /**
+     * The "catalogPrice" ceiling fed into resolveLinePrice for a combo line: the matching
+     * ComboServiceItem's own priceOverride (staff-set at combo-definition time, see
+     * ComboService.save/computeOriginalPrice), or the plain catalog price if this line isn't part
+     * of a combo, or the combo has no override for this exact item. This is what lets a combo's own
+     * item-level discount actually reach the appointment being charged — applyComboDiscount's own
+     * bundle-level distribution needs no change since it already works off whatever raw lineTotal
+     * results from this ceiling.
+     */
+    private BigDecimal resolveComboServiceCeiling(AppointmentCombo lineCombo, ClinicService cs) {
+        if (lineCombo == null) return cs.getPrice();
+        return lineCombo.getCombo().getServiceItems().stream()
+                .filter(si -> si.getService().getId().equals(cs.getId()))
+                .map(si -> si.getPriceOverride() != null ? si.getPriceOverride() : cs.getPrice())
+                .findFirst().orElse(cs.getPrice());
+    }
+
+    /** Product mirror of {@link #resolveComboServiceCeiling}. */
+    private BigDecimal resolveComboProductCeiling(AppointmentCombo lineCombo, Product product) {
+        if (lineCombo == null) return product.getPrice();
+        return lineCombo.getCombo().getProductItems().stream()
+                .filter(pi -> pi.getProduct().getId().equals(product.getId()))
+                .map(pi -> pi.getPriceOverride() != null ? pi.getPriceOverride() : product.getPrice())
+                .findFirst().orElse(product.getPrice());
+    }
+
+    /**
+     * Non-null iff resolvedPrice undercuts catalogPrice — what detail.html strikes the catalog
+     * price through to show alongside a staff-overridden priceAtTime. See resolveLinePrice and
+     * AppointmentServiceLine.originalPriceAtTime's javadoc.
+     */
+    private static BigDecimal originalPriceIfDiscounted(BigDecimal catalogPrice, BigDecimal resolvedPrice) {
+        return resolvedPrice.compareTo(catalogPrice) < 0 ? catalogPrice : null;
+    }
+
+    /** Builds a serviceId/productId -> queue-of-priceAtTime map from an appointment's pre-rebuild
+     *  lines, consumed one-at-a-time (oldest-added first) as resolveLinePrice's carryForwardPrice
+     *  for a non-privileged caller's rebuild — see resolveLinePrice's javadoc. */
+    private static <T> Map<Long, java.util.Deque<BigDecimal>> buildPriceHistory(
+            List<T> oldLines,
+            java.util.function.Function<T, Long> keyFn,
+            java.util.function.Function<T, BigDecimal> priceFn) {
+        Map<Long, java.util.Deque<BigDecimal>> map = new LinkedHashMap<>();
+        for (T line : oldLines) {
+            map.computeIfAbsent(keyFn.apply(line), k -> new java.util.ArrayDeque<>()).addLast(priceFn.apply(line));
+        }
+        return map;
     }
 
 

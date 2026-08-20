@@ -136,6 +136,102 @@
         </div>
     </div>
 
+    <!-- ── Employment Contract ─────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-3" th:if="${@perm.has('CONTRACTS','VIEW')}">
+        <div class="card-header py-2 fw-semibold">
+            <i class="bi bi-file-earmark-text me-1"></i>Employment Contract
+        </div>
+        <div class="card-body">
+            <div th:if="${currentContract == null}">
+                <p class="text-muted small mb-2">No contract has been generated for this therapist yet.</p>
+                <a th:if="${@perm.has('CONTRACTS','CREATE')}"
+                   th:href="@{/therapists/{id}/contracts/new(id=${therapist.id})}" class="btn btn-sm btn-hh">
+                    <i class="bi bi-file-earmark-plus me-1"></i>Generate Contract
+                </a>
+            </div>
+
+            <div th:if="${currentContract != null and currentContract.status.name() == 'DRAFT'}">
+                <p class="small mb-2">
+                    <span class="badge bg-warning text-dark">Draft</span>
+                    Contract <span th:text="${currentContract.contractNumber}"></span> is in progress — not yet approved.
+                </p>
+                <div class="d-flex gap-2">
+                    <a th:if="${@perm.has('CONTRACTS','EDIT')}"
+                       th:href="@{/contracts/{id}/review(id=${currentContract.id})}" class="btn btn-sm btn-hh">
+                        <i class="bi bi-pencil-square me-1"></i>Continue Draft
+                    </a>
+                    <form th:if="${@perm.has('CONTRACTS','DELETE')}"
+                          th:action="@{/contracts/{id}/delete(id=${currentContract.id})}" method="post"
+                          onsubmit="return confirm('Discard this draft contract? This cannot be undone.');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-trash me-1"></i>Discard Draft
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <div th:if="${currentContract != null and currentContract.status.name() == 'APPROVED'}">
+                <table class="table table-sm table-borderless mb-2 small">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted ps-0" style="width:160px">Contract No.</td>
+                            <td th:text="${currentContract.contractNumber}"></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-0">Position</td>
+                            <td th:text="${currentContract.position}"></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-0">Joining Date</td>
+                            <td th:text="${#temporals.format(currentContract.joiningDate, 'dd MMM yyyy')}"></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted ps-0">Status</td>
+                            <td>
+                                <span class="badge bg-success">Approved</span>
+                                <span th:if="${currentContract.acknowledgedAt == null}" class="badge bg-warning text-dark ms-1">Acknowledgement Pending</span>
+                                <span th:if="${currentContract.acknowledgedAt != null}" class="badge bg-info text-dark ms-1">Acknowledged</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div class="d-flex gap-2">
+                    <a th:href="@{/contracts/{id}(id=${currentContract.id})}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-eye me-1"></i>View
+                    </a>
+                    <a th:if="${@perm.has('CONTRACTS','CREATE')}"
+                       th:href="@{/therapists/{id}/contracts/renew(id=${therapist.id})}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-repeat me-1"></i>Renew
+                    </a>
+                </div>
+            </div>
+
+            <div th:if="${contractHistory != null and !contractHistory.isEmpty()}" class="mt-3">
+                <a class="small" data-bs-toggle="collapse" href="#contractHistoryCollapse" role="button">
+                    <i class="bi bi-clock-history me-1"></i>Contract History
+                </a>
+                <div class="collapse mt-2" id="contractHistoryCollapse">
+                    <table class="table table-sm small">
+                        <thead>
+                            <tr><th>Contract No.</th><th>Position</th><th>Status</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="row : ${contractHistory}"
+                                th:if="${row.status.name() == 'CANCELLED' or row.status.name() == 'SUPERSEDED'}">
+                                <td th:text="${row.contractNumber}"></td>
+                                <td th:text="${row.position}"></td>
+                                <td th:text="${row.status}"></td>
+                                <td>
+                                    <a th:href="@{/contracts/{id}(id=${row.id})}" class="btn btn-sm btn-outline-secondary">View</a>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ── Shared date-range + filters (drives Section B and Section C) ──── -->
     <form th:action="@{/therapists/{id}(id=${therapist.id})}" method="get" class="card shadow-sm mb-3">
         <div class="card-body py-2">

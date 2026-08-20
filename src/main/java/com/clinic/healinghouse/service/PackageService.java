@@ -415,6 +415,14 @@ public class PackageService {
         return packageTransactionRepository.findByPatientPackage_Patient_IdOrderByCreatedAtDesc(patientId, pageable);
     }
 
+    /** The PURCHASE transaction recorded at sale time — carries the payment method the package invoice shows. */
+    @Transactional(readOnly = true)
+    public PackageTransaction getPurchaseTransaction(Long patientPackageId) {
+        return packageTransactionRepository
+                .findFirstByPatientPackageIdAndTypeOrderByCreatedAtAsc(patientPackageId, PackageTransactionType.PURCHASE)
+                .orElseThrow(() -> new EntityNotFoundException("No purchase record found for package: " + patientPackageId));
+    }
+
     private void recordTransaction(PatientPackage pkg, PackageTransactionType type, BigDecimal amount,
                                     PaymentMethod method, PatientPackageServiceItem serviceItem,
                                     PatientPackageProductItem productItem,

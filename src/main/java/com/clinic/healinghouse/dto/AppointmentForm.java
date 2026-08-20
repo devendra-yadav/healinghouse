@@ -41,6 +41,15 @@ public class AppointmentForm {
     private BigDecimal prepaidCorrection;
 
     /**
+     * Only meaningful alongside a prepaidCorrection that lowers the total — staff's explicit
+     * confirmation that cash was physically handed back to the patient, as opposed to the
+     * correction just fixing a data-entry mistake (no cash moved). Defaults false (assume a
+     * data-entry fix) since that's the far more common reason staff use this pencil-edit; only a
+     * checked box makes AppointmentService/CashFlowReportAggregator count it as real cash outflow.
+     */
+    private boolean prepaidCorrectionCashReturned;
+
+    /**
      * Total wallet-sourced amount this appointment should carry — a target, not a delta
      * (unlike newPaymentAmount). Null/absent on create means 0; on edit it is pre-populated
      * from the appointment's current walletAmountApplied. AppointmentService computes the
@@ -103,6 +112,7 @@ public class AppointmentForm {
             s.setServiceId(sl.getService().getId());
             s.setQuantity(sl.getQuantity());
             s.setTherapistId(sl.getTherapist().getId());
+            s.setPrice(sl.getPriceAtTime());
             if (sl.getAppointmentCombo() != null) {
                 s.setComboGroupKey(groupKeyByComboId.get(sl.getAppointmentCombo().getId()));
             }
@@ -116,6 +126,7 @@ public class AppointmentForm {
             p.setProductId(pl.getProduct().getId());
             p.setQuantity(pl.getQuantity());
             p.setTherapistId(pl.getTherapist().getId());
+            p.setPrice(pl.getPriceAtTime());
             if (pl.getAppointmentCombo() != null) {
                 p.setComboGroupKey(groupKeyByComboId.get(pl.getAppointmentCombo().getId()));
             }
@@ -141,6 +152,13 @@ public class AppointmentForm {
          * server-side at save time (never trusted blindly) — see AppointmentService.
          */
         private Long packageItemId;
+        /**
+         * Staff-entered price override for this line, capped server-side to the live catalog price
+         * (discount only, never a markup) and only honored for OWNER or this appointment's main
+         * therapist — see AppointmentService.resolveLinePrice/canOverrideLinePrice. Null (or any
+         * other caller/line type) falls back to the catalog price, same as before this field existed.
+         */
+        private BigDecimal price;
     }
 
     @Data
@@ -153,6 +171,8 @@ public class AppointmentForm {
         private String comboGroupKey;
         /** Product-item mirror of ServiceLineForm.packageItemId. */
         private Long packageItemId;
+        /** Product mirror of ServiceLineForm.price — see that field's javadoc. */
+        private BigDecimal price;
     }
 
     @Data

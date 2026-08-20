@@ -4,11 +4,16 @@ import com.clinic.healinghouse.dto.PackageAvailabilityDTO;
 import com.clinic.healinghouse.dto.PackageRefundForm;
 import com.clinic.healinghouse.dto.PackageSaleForm;
 import com.clinic.healinghouse.entity.Module;
+import com.clinic.healinghouse.entity.PackageTransaction;
+import com.clinic.healinghouse.entity.PatientPackage;
 import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.PackageService;
+import com.clinic.healinghouse.util.InvoicePdfService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
@@ -21,6 +26,7 @@ import java.util.List;
 public class PackageController {
 
     private final PackageService packageService;
+    private final InvoicePdfService invoicePdfService;
 
     @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.CREATE)
     @PostMapping
@@ -46,6 +52,24 @@ public class PackageController {
             ra.addFlashAttribute("errorMessage", e.getMessage());
         }
         return "redirect:/patients/" + patientId;
+    }
+
+    /** Package sale invoice — always available (a package is paid in full at sale, unlike an
+     *  appointment which may still be SCHEDULED/unpriced), gated the same VIEW permission the
+     *  patient detail page's Packages card already requires. */
+    @RequiresPermission(module = Module.PATIENT_PACKAGES, action = PermissionAction.VIEW)
+    @GetMapping("/{packageId}/invoice/pdf")
+    public ResponseEntity<byte[]> invoicePdf(@PathVariable Long patientId, @PathVariable Long packageId) {
+        PatientPackage pkg = packageService.getById(packageId);
+        if (!pkg.getPatient().getId().equals(patientId)) {
+            throw new IllegalArgumentException("This package does not belong to the specified patient.");
+        }
+        PackageTransaction purchase = packageService.getPurchaseTransaction(packageId);
+        byte[] pdf = invoicePdfService.renderPackageInvoice(pkg, purchase.getPaymentMethod());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=invoice-package-" + packageId + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
     }
 
     /** JSON endpoint backing the appointment form's "Already Paid" section. */

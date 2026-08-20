@@ -27,6 +27,7 @@ public class HealingHouseProperties {
     private final Currency currency = new Currency();
     private final Export export = new Export();
     private final Security security = new Security();
+    private final Contracts contracts = new Contracts();
 
     @Getter
     @Setter
@@ -108,5 +109,16 @@ public class HealingHouseProperties {
          *  so it also covers an attacker spreading guesses across many usernames from one IP. */
         private int maxLoginAttemptsPerIp = 10;
         private int loginRateLimitWindowMinutes = 15;
+    }
+
+    /** Employment Contracts (requirements/Employment_Contracts_Requirements_v1.md §5.6, §10). */
+    @Getter
+    @Setter
+    public static class Contracts {
+        private String contractNumberPrefix = "HHC";
+        private String clinicName = "Healing House Clinic & Academy";
+        private String clinicAddress = "1st Floor, IOB Complex, 86 MG Road, Muthialpet, Puducherry - 605003";
+        private String clinicPhone = "+91-7540002470";
+        private String clinicEmail = "healinghouseclinic@gmail.com";
     }
 }

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "combo_service_item")
 @Data
@@ -30,4 +32,8 @@ public class ComboServiceItem {
     @Builder.Default
     @Column(nullable = false)
     private int quantity = 1;
+
+    /** Staff-set per-item discount off this service's catalog price; null = use catalog price as-is. */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal priceOverride;
 }

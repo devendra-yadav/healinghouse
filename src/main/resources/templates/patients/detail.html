@@ -243,11 +243,12 @@
                             <th>Method</th>
                             <th>Appointment</th>
                             <th>Note</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr th:if="${walletTransactions.empty}">
-                            <td colspan="6" class="text-center text-muted py-3">No wallet activity yet.</td>
+                            <td colspan="7" class="text-center text-muted py-3">No wallet activity yet.</td>
                         </tr>
                         <tr th:each="tx : ${walletTransactions}">
                             <td class="text-nowrap" th:text="${#temporals.format(tx.createdAt, 'dd MMM yyyy, HH:mm')}"></td>
@@ -273,6 +274,13 @@
                                 <span th:unless="${tx.appointment != null}">—</span>
                             </td>
                             <td class="small text-muted" th:text="${tx.note ?: '—'}"></td>
+                            <td>
+                                <a th:if="${tx.type.name() == 'TOP_UP' or tx.type.name() == 'REFUND'}"
+                                   th:href="@{/patients/{id}/wallet/transactions/{txId}/receipt/pdf(id=${patient.id},txId=${tx.id})}"
+                                   target="_blank" class="btn btn-sm btn-outline-primary" title="Print receipt">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -332,6 +340,10 @@
                         </div>
                         <div class="text-end">
                             <div class="fw-semibold" th:text="|₹ ${#numbers.formatDecimal(pkg.totalPrice, 1, 2)}|"></div>
+                            <a th:href="@{/patients/{id}/packages/{pkgId}/invoice/pdf(id=${patient.id},pkgId=${pkg.id})}"
+                               target="_blank" class="btn btn-sm btn-outline-primary mt-1">
+                                <i class="bi bi-printer me-1"></i>Invoice
+                            </a>
                             <button type="button" class="btn btn-sm btn-outline-warning mt-1"
                                     th:if="${pkg.status.name() == 'ACTIVE' or pkg.status.name() == 'EXPIRED'}"
                                     data-bs-toggle="modal" data-bs-target="#packageRefundModal"

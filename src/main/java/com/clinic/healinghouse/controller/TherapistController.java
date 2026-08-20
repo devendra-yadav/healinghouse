@@ -8,6 +8,7 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.AppointmentService;
 import com.clinic.healinghouse.service.CommissionCalculator;
+import com.clinic.healinghouse.service.ContractService;
 import com.clinic.healinghouse.service.TherapistService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ public class TherapistController {
     private final TherapistService therapistService;
     private final AppointmentService appointmentService;
     private final CommissionCalculator commissionCalculator;
+    private final ContractService contractService;
     private final PaginationUtil paginationUtil;
     private final PermissionService permissionService;
 
@@ -105,6 +107,10 @@ public class TherapistController {
                     statusEnum, id, effectiveDateFrom, effectiveDateTo, patientName, null);
 
             model.addAttribute("therapist", therapist);
+            if (permissionService.has(Module.CONTRACTS, PermissionAction.VIEW)) {
+                model.addAttribute("currentContract", contractService.findCurrentOrDraft(id).orElse(null));
+                model.addAttribute("contractHistory", contractService.findHistoryForTherapist(id));
+            }
             model.addAttribute("earnings",
                     commissionCalculator.calculateEarnings(therapist, effectiveDateFrom, effectiveDateTo));
             model.addAttribute("appointments", appointments);

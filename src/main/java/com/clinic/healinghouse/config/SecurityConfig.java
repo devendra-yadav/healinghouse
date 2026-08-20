@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
@@ -68,6 +69,14 @@ public class SecurityConfig {
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/webjars/**").permitAll()
                 .requestMatchers("/login").permitAll()
                 .anyRequest().authenticated()
+            )
+            // Spring Security's default X-Frame-Options is DENY, which blocks contracts/detail.html's
+            // same-origin <embed> of GET /contracts/{id}/pdf (a browser's built-in PDF viewer loads an
+            // <embed>/<object> resource through a framing context subject to this header) — surfaced as
+            // a frame-load failure the browser renders like a connection error. sameOrigin() keeps
+            // cross-origin clickjacking protection for the rest of the app while allowing this.
+            .headers(headers -> headers
+                .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
             )
             .formLogin(form -> form
                 .loginPage("/login")

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.Min;
 import lombok.*;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "package_template_service_item")
 @Data
@@ -30,4 +32,8 @@ public class PackageTemplateServiceItem {
     @Min(1)
     @Column(nullable = false)
     private int sessionCount;
+
+    /** Staff-set per-item discount off this service's catalog price; null = use catalog price as-is. */
+    @Column(precision = 10, scale = 2)
+    private BigDecimal priceOverride;
 }

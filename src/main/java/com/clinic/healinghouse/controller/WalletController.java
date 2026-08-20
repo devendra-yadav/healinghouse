@@ -5,10 +5,14 @@ import com.clinic.healinghouse.dto.WalletTopUpForm;
 import com.clinic.healinghouse.entity.Module;
 import com.clinic.healinghouse.entity.PaymentMethod;
 import com.clinic.healinghouse.entity.PermissionAction;
+import com.clinic.healinghouse.entity.WalletTransaction;
+import com.clinic.healinghouse.entity.WalletTransactionType;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.WalletService;
+import com.clinic.healinghouse.util.InvoicePdfService;
 import com.clinic.healinghouse.util.SafeRedirectUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
@@ -23,6 +27,7 @@ import java.util.Map;
 public class WalletController {
 
     private final WalletService walletService;
+    private final InvoicePdfService invoicePdfService;
 
     @RequiresPermission(module = Module.WALLET, action = PermissionAction.VIEW)
     @GetMapping("/balance")
@@ -89,6 +94,22 @@ public class WalletController {
             String msg = e.getMessage() != null && !e.getMessage().isBlank() ? e.getMessage() : "Refund failed.";
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", msg));
         }
+    }
+
+    /** Receipt PDF — TOP_UP/REFUND only, since those are the only wallet transaction types where
+     *  real money physically moved (USAGE/REVERSAL are internal transfers against an appointment). */
+    @RequiresPermission(module = Module.WALLET, action = PermissionAction.VIEW)
+    @GetMapping("/transactions/{transactionId}/receipt/pdf")
+    public ResponseEntity<byte[]> receiptPdf(@PathVariable Long patientId, @PathVariable Long transactionId) {
+        WalletTransaction txn = walletService.getTransactionForPatient(patientId, transactionId);
+        if (txn.getType() != WalletTransactionType.TOP_UP && txn.getType() != WalletTransactionType.REFUND) {
+            throw new IllegalStateException("A receipt is only available for a top-up or refund.");
+        }
+        byte[] pdf = invoicePdfService.renderWalletReceipt(txn);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=receipt-wallet-" + transactionId + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
     }
 
     private PaymentMethod parsePaymentMethod(String raw) {

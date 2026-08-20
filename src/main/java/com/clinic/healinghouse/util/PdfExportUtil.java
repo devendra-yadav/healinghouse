@@ -337,6 +337,129 @@ public class PdfExportUtil {
         return baos.toByteArray();
     }
 
+    public byte[] generateCashFlowReportPdf(CashFlowReportDTO report) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));
+        Document document = newDocument(pdfDoc, true);
+        try {
+            addLetterhead(document, "Cash Flow Report", "From " + report.dateFrom().format(displayDateFormatter()) +
+                    "  to  " + report.dateTo().format(displayDateFormatter()));
+            addCashFlowSummaryTable(document, report.summary());
+
+            if (report.inflowByPaymentMethod() != null && !report.inflowByPaymentMethod().isEmpty()) {
+                addSection(document, "Total Inflow by Payment Method", buildCashFlowPaymentMethodTable(report.inflowByPaymentMethod()));
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                addSection(document, "Daily Trend", buildCashFlowTrendTable(report.trend()));
+            }
+
+            if (report.ledger() != null && !report.ledger().isEmpty()) {
+                addSection(document, "Ledger", buildCashFlowLedgerTable(report.ledger().getContent()));
+            }
+        } finally {
+            finish(document, pdfDoc);
+        }
+        return baos.toByteArray();
+    }
+
+    private void addCashFlowSummaryTable(Document document, CashFlowSummaryDTO summary) {
+        Table table = newTable(new float[]{2, 1, 2, 1}, 9.5f);
+
+        addLabelCell(table, "Appointment Cash Payments", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.appointmentCashInflow()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Package Sales", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.packageSales()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Wallet Top-ups", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.walletTopUps()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Total Inflow", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.totalInflow()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Expenses", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.expenses()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Wallet Refunds", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.walletRefunds()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Package Refunds", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.packageRefunds()), TextAlignment.RIGHT, false);
+        addLabelCell(table, "Appointment Payment Corrections", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.appointmentPaymentCorrections()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Total Outflow", TextAlignment.LEFT);
+        addDataCell(table, formatCurrency(summary.totalOutflow()), TextAlignment.RIGHT, false);
+
+        addLabelCell(table, "Net Cash Flow", TextAlignment.LEFT);
+        Cell netCell = new Cell().add(new Paragraph(formatCurrency(summary.netCashFlow()))
+                .setFont(boldFont()).setFontColor(summary.netCashFlow().signum() < 0 ? NEGATIVE : POSITIVE));
+        netCell.setTextAlignment(TextAlignment.RIGHT);
+        netCell.setVerticalAlignment(VerticalAlignment.MIDDLE);
+        netCell.setBorder(Border.NO_BORDER);
+        netCell.setBorderBottom(new SolidBorder(BORDER_COLOR, 0.5f));
+        netCell.setBackgroundColor(ROW_SHADE);
+        netCell.setPadding(4.5f);
+        table.addCell(netCell);
+
+        document.add(table);
+    }
+
+    private Table buildCashFlowPaymentMethodTable(List<CashFlowByPaymentMethodDTO> items) {
+        Table table = newTable(new float[]{2, 1}, 9.5f);
+
+        addHeaderCell(table, "Method", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (CashFlowByPaymentMethodDTO item : items) {
+            addDataCell(table, item.label(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(item.amount()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildCashFlowTrendTable(List<CashFlowTrendPointDTO> trend) {
+        Table table = newTable(new float[]{1.3f, 1, 1, 1}, 9.5f);
+
+        addHeaderCell(table, "Date", TextAlignment.LEFT);
+        addHeaderCell(table, "Inflow", TextAlignment.RIGHT);
+        addHeaderCell(table, "Outflow", TextAlignment.RIGHT);
+        addHeaderCell(table, "Net", TextAlignment.RIGHT);
+
+        boolean shaded = false;
+        for (CashFlowTrendPointDTO point : trend) {
+            addDataCell(table, point.periodLabel(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(point.inflow()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.outflow()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, formatCurrency(point.net()), TextAlignment.RIGHT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
+    private Table buildCashFlowLedgerTable(List<CashLedgerEntryDTO> rows) {
+        Table table = newTable(new float[]{1.4f, 1.3f, 0.7f, 2, 1, 1.1f}, 8.5f);
+
+        addHeaderCell(table, "Date", TextAlignment.LEFT);
+        addHeaderCell(table, "Source", TextAlignment.LEFT);
+        addHeaderCell(table, "Dir.", TextAlignment.CENTER);
+        addHeaderCell(table, "Description", TextAlignment.LEFT);
+        addHeaderCell(table, "Amount", TextAlignment.RIGHT);
+        addHeaderCell(table, "Method", TextAlignment.LEFT);
+
+        boolean shaded = false;
+        for (CashLedgerEntryDTO row : rows) {
+            addDataCell(table, row.date().format(rowDateTimeFormatter()), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.source(), TextAlignment.LEFT, shaded);
+            addDataCell(table, row.direction(), TextAlignment.CENTER, shaded);
+            addDataCell(table, row.description(), TextAlignment.LEFT, shaded);
+            addDataCell(table, formatCurrency(row.amount()), TextAlignment.RIGHT, shaded);
+            addDataCell(table, row.paymentMethod() != null ? row.paymentMethod().name() : "N/A", TextAlignment.LEFT, shaded);
+            shaded = !shaded;
+        }
+        return table;
+    }
+
     public byte[] generateProductListPdf(List<Product> products) throws Exception {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         PdfDocument pdfDoc = new PdfDocument(new PdfWriter(baos));

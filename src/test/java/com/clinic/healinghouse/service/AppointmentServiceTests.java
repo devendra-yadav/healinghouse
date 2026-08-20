@@ -3,10 +3,13 @@ package com.clinic.healinghouse.service;
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.AppointmentForm;
 import com.clinic.healinghouse.entity.Appointment;
+import com.clinic.healinghouse.entity.AppointmentPaymentTransaction;
+import com.clinic.healinghouse.entity.AppointmentPaymentTransactionType;
 import com.clinic.healinghouse.entity.AppointmentServiceLine;
 import com.clinic.healinghouse.entity.AppointmentStatus;
 import com.clinic.healinghouse.entity.ClinicService;
 import com.clinic.healinghouse.entity.Combo;
+import com.clinic.healinghouse.entity.ComboServiceItem;
 import com.clinic.healinghouse.entity.DiscountType;
 import com.clinic.healinghouse.entity.Patient;
 import com.clinic.healinghouse.entity.PatientPackage;
@@ -14,6 +17,7 @@ import com.clinic.healinghouse.entity.PatientPackageServiceItem;
 import com.clinic.healinghouse.entity.PatientPackageStatus;
 import com.clinic.healinghouse.entity.Product;
 import com.clinic.healinghouse.entity.Therapist;
+import com.clinic.healinghouse.repository.AppointmentPaymentTransactionRepository;
 import com.clinic.healinghouse.repository.AppointmentProductLineRepository;
 import com.clinic.healinghouse.repository.AppointmentRepository;
 import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
@@ -22,12 +26,14 @@ import com.clinic.healinghouse.repository.ComboRepository;
 import com.clinic.healinghouse.repository.PatientRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
 import com.clinic.healinghouse.repository.TherapistRepository;
+import com.clinic.healinghouse.security.PermissionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -64,6 +70,8 @@ class AppointmentServiceTests {
     @Mock private WalletService walletService;
     @Mock private PackageService packageService;
     @Mock private ComboRepository comboRepository;
+    @Mock private AppointmentPaymentTransactionRepository appointmentPaymentTransactionRepository;
+    @Mock private PermissionService permissionService;
 
     private AppointmentService appointmentService;
 
@@ -74,7 +82,8 @@ class AppointmentServiceTests {
     void setUp() {
         appointmentService = new AppointmentService(appointmentRepository, patientRepository, therapistRepository,
                 clinicServiceRepository, productRepository, appointmentServiceLineRepository,
-                appointmentProductLineRepository, walletService, packageService, comboRepository, new HealingHouseProperties());
+                appointmentProductLineRepository, walletService, packageService, comboRepository,
+                appointmentPaymentTransactionRepository, new HealingHouseProperties(), permissionService);
         // lenient: markAsCompleted and updateAppointment's stale-baseline guard-throws-before-lookup
         // tests never reach these patient/therapist lookups.
         lenient().when(patientRepository.findById(PATIENT_ID)).thenReturn(Optional.of(patient()));
@@ -89,6 +98,21 @@ class AppointmentServiceTests {
     private Combo combo(Long id, DiscountType discountType, BigDecimal discountValue) {
         return Combo.builder().id(id).name("Combo " + id)
                 .discountType(discountType).discountValue(discountValue).build();
+    }
+
+    /**
+     * Combo fixture carrying one ComboServiceItem with its own priceOverride (staff-set at
+     * combo-definition time — see ComboService.save/computeOriginalPrice) — for asserting the
+     * override actually reaches the booked appointment line (AppointmentService.
+     * resolveComboServiceCeiling), with the combo's own bundle discount still layering on top.
+     */
+    private Combo comboWithServiceOverride(Long id, DiscountType discountType, BigDecimal discountValue,
+                                            ClinicService service, BigDecimal itemPriceOverride) {
+        Combo combo = Combo.builder().id(id).name("Combo " + id)
+                .discountType(discountType).discountValue(discountValue).build();
+        combo.getServiceItems().add(ComboServiceItem.builder()
+                .combo(combo).service(service).quantity(1).priceOverride(itemPriceOverride).build());
+        return combo;
     }
 
     private AppointmentForm.ComboSelectionForm comboSelection(Long comboId, String groupKey) {
@@ -384,6 +408,10 @@ class AppointmentServiceTests {
         verify(walletService).applyToAppointment(eq(PATIENT_ID), anyLong(), appliedAmount.capture());
         assertThat(appliedAmount.getValue()).isEqualByComparingTo("200");
         verify(walletService, never()).reverseForAppointment(any(), anyLong(), any());
+        // A wallet-sourced delta is a change of payment source, not fresh cash — the cash-portion
+        // formula (amountPaid - walletApplied - packageApplied) must net to zero here, so no
+        // AppointmentPaymentTransaction row should be written (Bug_Report_v7.md Finding 9).
+        verify(appointmentPaymentTransactionRepository, never()).save(any());
     }
 
     // ── 6b. Package-covered lines ─────────────────────────────────────────────
@@ -455,6 +483,9 @@ class AppointmentServiceTests {
         assertThat(saved.getPackageAmountApplied()).isEqualByComparingTo("1000");
         verify(packageService, never()).consumeServiceItem(any(), any(), any());
         verify(packageService, never()).reverseServiceItem(any(), any());
+        // Same invariant as the wallet-only case above: package-sourced amountPaid nets to zero in
+        // the cash-portion formula, so no cash-ledger row should be written (Bug_Report_v7.md Finding 9).
+        verify(appointmentPaymentTransactionRepository, never()).save(any());
     }
 
     @Test
@@ -584,6 +615,30 @@ class AppointmentServiceTests {
         assertThat(saved.getDiscountAmount()).isEqualByComparingTo("0"); // manual (whole-appointment) discount untouched
         assertThat(saved.getTotalComboDiscount()).isEqualByComparingTo("100");
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("900");
+    }
+
+    // ── 8b. Combo with a per-item price override — the override must reach the booked line, and
+    // the combo's own bundle discount must layer on top of the overridden (not catalog) price ────
+    @Test
+    void createAppointment_comboWithItemPriceOverride_appliesOverrideThenBundleDiscount() {
+        ClinicService cs = clinicService(1L, BigDecimal.valueOf(1000));
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(cs));
+        when(comboRepository.findById(1L)).thenReturn(Optional.of(
+                comboWithServiceOverride(1L, DiscountType.FLAT, BigDecimal.valueOf(50), cs, BigDecimal.valueOf(800))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getComboSelections().add(comboSelection(1L, "combo-1"));
+        form.getServiceLines().add(serviceLine(1L, 1, "combo-1"));
+
+        Appointment saved = appointmentService.createAppointment(form);
+
+        // priceAtTime reflects the combo item's own override (800), not the raw catalog price (1000)
+        assertThat(saved.getServiceLines().get(0).getPriceAtTime()).isEqualByComparingTo("800");
+        // the combo's own FLAT 50 bundle discount applies on top of the overridden 800, not raw 1000
+        assertThat(saved.getCombos().get(0).getDiscountAmount()).isEqualByComparingTo("50");
+        assertThat(saved.getServiceLines().get(0).getDiscountedLineTotal()).isEqualByComparingTo("750");
+        assertThat(saved.getGrandTotal()).isEqualByComparingTo("750");
     }
 
     // ── 9. Single combo + manual whole-appointment discount layered on top ───
@@ -825,5 +880,153 @@ class AppointmentServiceTests {
 
         assertThat(saved.getCombos()).isEmpty();
         assertThat(saved.getGrandTotal()).isEqualByComparingTo("500");
+    }
+
+    // ── Cash-flow ledger writes (Bug_Report_v7.md Finding 9) ──────────────────
+    // Previously untested: the invariant that wallet/package-sourced amountPaid changes never
+    // reach AppointmentPaymentTransaction (covered above, added to the existing wallet/package
+    // tests), that a plain cash payment writes exactly one RECEIVED row for the right amount, that
+    // a prepaid-correction pencil-edit writes CORRECTED with the right signed delta and correctly
+    // threads the cashPhysicallyReturned flag (Finding 8's fix), and that mixing a fresh cash
+    // payment with a wallet change in one submit records only the cash portion.
+
+    @Test
+    void createAppointment_cashPayment_writesReceivedLedgerRowForExactAmount() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setNewPaymentAmount(BigDecimal.valueOf(400));
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        appointmentService.createAppointment(form);
+
+        ArgumentCaptor<AppointmentPaymentTransaction> captor = ArgumentCaptor.forClass(AppointmentPaymentTransaction.class);
+        verify(appointmentPaymentTransactionRepository).save(captor.capture());
+        AppointmentPaymentTransaction txn = captor.getValue();
+        assertThat(txn.getType()).isEqualTo(AppointmentPaymentTransactionType.RECEIVED);
+        assertThat(txn.getAmount()).isEqualByComparingTo("400");
+    }
+
+    @Test
+    void createAppointment_zeroPayment_writesNoLedgerRow() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.getServiceLines().add(serviceLine(1L, 1));
+        // newPaymentAmount stays ZERO, from baseForm()
+
+        appointmentService.createAppointment(form);
+
+        verify(appointmentPaymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void updateAppointment_prepaidCorrectionDownwardWithoutCashReturnedFlag_recordsUnflaggedCorrection() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .totalServiceAmount(BigDecimal.valueOf(1000))
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setPrepaidCorrection(BigDecimal.valueOf(500)); // fixing a typo — cashReturned left unchecked
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        appointmentService.updateAppointment(10L, form);
+
+        ArgumentCaptor<AppointmentPaymentTransaction> captor = ArgumentCaptor.forClass(AppointmentPaymentTransaction.class);
+        verify(appointmentPaymentTransactionRepository).save(captor.capture());
+        AppointmentPaymentTransaction txn = captor.getValue();
+        assertThat(txn.getType()).isEqualTo(AppointmentPaymentTransactionType.CORRECTED);
+        assertThat(txn.getAmount()).isEqualByComparingTo("-500");
+        assertThat(txn.isCashPhysicallyReturned()).isFalse();
+    }
+
+    @Test
+    void updateAppointment_prepaidCorrectionDownwardFlaggedCashReturned_recordsFlaggedCorrection() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .totalServiceAmount(BigDecimal.valueOf(1000))
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(1000))
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setPrepaidCorrection(BigDecimal.valueOf(500)); // cash was physically handed back
+        form.setPrepaidCorrectionCashReturned(true);
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        appointmentService.updateAppointment(10L, form);
+
+        ArgumentCaptor<AppointmentPaymentTransaction> captor = ArgumentCaptor.forClass(AppointmentPaymentTransaction.class);
+        verify(appointmentPaymentTransactionRepository).save(captor.capture());
+        AppointmentPaymentTransaction txn = captor.getValue();
+        assertThat(txn.getType()).isEqualTo(AppointmentPaymentTransactionType.CORRECTED);
+        assertThat(txn.getAmount()).isEqualByComparingTo("-500");
+        assertThat(txn.isCashPhysicallyReturned()).isTrue();
+    }
+
+    @Test
+    void updateAppointment_newPaymentPlusWalletChangeInSameSubmit_onlyCashDeltaRecorded() {
+        when(clinicServiceRepository.findById(1L)).thenReturn(Optional.of(clinicService(1L, BigDecimal.valueOf(1000))));
+
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .totalServiceAmount(BigDecimal.valueOf(1000))
+                .grandTotal(BigDecimal.valueOf(1000))
+                .amountPaid(BigDecimal.valueOf(100))
+                .walletAmountApplied(BigDecimal.valueOf(100))
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+
+        AppointmentForm form = baseForm();
+        form.setDiscountType("NONE");
+        form.setNewPaymentAmount(BigDecimal.valueOf(150)); // fresh cash
+        form.setWalletAmountApplied(BigDecimal.valueOf(300)); // wallet target rises by 200 on top of that
+        form.getServiceLines().add(serviceLine(1L, 1));
+
+        appointmentService.updateAppointment(10L, form);
+
+        ArgumentCaptor<AppointmentPaymentTransaction> captor = ArgumentCaptor.forClass(AppointmentPaymentTransaction.class);
+        verify(appointmentPaymentTransactionRepository).save(captor.capture());
+        AppointmentPaymentTransaction txn = captor.getValue();
+        assertThat(txn.getType()).isEqualTo(AppointmentPaymentTransactionType.RECEIVED);
+        assertThat(txn.getAmount()).isEqualByComparingTo("150");
+    }
+
+    // ── rescheduleAppointment() conflict-check translation (Bug_Report_v7.md Finding 19) ──
+
+    @Test
+    void rescheduleAppointment_optimisticLockConflict_throwsFriendlyMessage() {
+        Appointment existing = Appointment.builder()
+                .id(10L).patient(patient()).therapist(therapist())
+                .status(AppointmentStatus.SCHEDULED)
+                .appointmentDateTime(LocalDateTime.now())
+                .durationMinutes(60)
+                .build();
+        when(appointmentRepository.findWithServiceLinesById(10L)).thenReturn(Optional.of(existing));
+        when(appointmentRepository.saveAndFlush(any(Appointment.class)))
+                .thenThrow(new ObjectOptimisticLockingFailureException(Appointment.class, 10L));
+
+        assertThatThrownBy(() -> appointmentService.rescheduleAppointment(10L, LocalDateTime.now().plusDays(1), 60, false))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("updated by someone else");
     }
 }

@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en" data-bs-theme="dark">
+<head>
+    <th:block th:replace="~{fragments/layout :: head(${pageTitle})}"/>
+</head>
+<body class="d-flex flex-column min-vh-100">
+
+<nav th:replace="~{fragments/layout :: navbar('Reports')}"></nav>
+
+<main class="container-fluid px-4 py-4 flex-grow-1">
+
+    <h4 class="section-header mb-3">Cash Flow</h4>
+    <p class="text-muted small mb-3">
+        Real money in vs. real money out — appointment cash payments, package sales, and wallet top-ups
+        as inflow; expenses, wallet refunds, and package refunds as outflow. Unlike the other reports,
+        this is cash-basis, not accrual: money already counted here (a package sale, a wallet top-up)
+        is never counted again when it's later drawn down against an appointment.
+    </p>
+
+    <!-- Filters -->
+    <form th:action="@{/reports/cash-flow}" method="get" class="card shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">From</label>
+                    <input type="date" name="dateFrom" class="form-control form-control-sm" th:value="${selectedDateFrom}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small mb-1">To</label>
+                    <input type="date" name="dateTo" class="form-control form-control-sm" th:value="${selectedDateTo}">
+                </div>
+                <div class="col-md-2 d-flex gap-1">
+                    <button type="submit" class="btn btn-sm btn-hh flex-fill">
+                        <i class="bi bi-search"></i> View
+                    </button>
+                    <a th:href="@{/reports/cash-flow}" class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+                <div class="col-md-4 d-flex gap-1 ms-auto">
+                    <a th:href="@{/reports/cash-flow/export-csv(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo})}"
+                       class="btn btn-sm btn-outline-download" title="Export as CSV">
+                        <i class="bi bi-file-earmark-csv"></i> CSV
+                    </a>
+                    <a th:href="@{/reports/cash-flow/export-pdf(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo})}"
+                       class="btn btn-sm btn-outline-download" title="Export as PDF">
+                        <i class="bi bi-file-earmark-pdf"></i> PDF
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-2">
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white border-success">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-success"><i class="bi bi-arrow-down-circle"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.totalInflow, 1, 2)}|">—</div>
+                        <small class="text-muted">Total Inflow</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="card-icon text-danger"><i class="bi bi-arrow-up-circle"></i></span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.totalOutflow, 1, 2)}|">—</div>
+                        <small class="text-muted">Total Outflow</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-sm-6 col-lg-3">
+            <div class="card card-kpi p-3 bg-white"
+                 th:classappend="${report.summary.netCashFlow.signum() lt 0} ? 'border-danger' : 'border-success'">
+                <div class="d-flex align-items-center gap-3">
+                    <span th:class="${report.summary.netCashFlow.signum() lt 0} ? 'card-icon text-danger' : 'card-icon text-success'">
+                        <i class="bi bi-graph-up-arrow"></i>
+                    </span>
+                    <div>
+                        <div class="fw-semibold fs-4" th:text="|₹ ${#numbers.formatDecimal(report.summary.netCashFlow, 1, 2)}|">—</div>
+                        <small class="text-muted">Net Cash Flow</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-1">
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Inflow</h6>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody>
+                            <tr>
+                                <td>Appointment Cash Payments</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.appointmentCashInflow, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td>Package Sales</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.packageSales, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td>Wallet Top-ups</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.walletTopUps, 1, 2)}|"></td>
+                            </tr>
+                            <tr class="fw-semibold">
+                                <td>Total Inflow</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.totalInflow, 1, 2)}|"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Outflow</h6>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <table class="table table-hover mb-0 align-middle">
+                        <tbody>
+                            <tr>
+                                <td>Expenses</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.expenses, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td>Wallet Refunds</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.walletRefunds, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td>Package Refunds</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.packageRefunds, 1, 2)}|"></td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    Appointment Payment Corrections
+                                    <i class="bi bi-info-circle text-muted small"
+                                       title="Downward corrections via the Amount Prepaid pencil-edit — e.g. cash physically handed back for a cancelled appointment."></i>
+                                </td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.appointmentPaymentCorrections, 1, 2)}|"></td>
+                            </tr>
+                            <tr class="fw-semibold">
+                                <td>Total Outflow</td>
+                                <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(report.summary.totalOutflow, 1, 2)}|"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Trend -->
+    <div class="row g-4 mb-1">
+        <div class="col-12">
+            <h6 class="section-header mb-3">Inflow vs. Outflow Trend</h6>
+            <div th:if="${report.trend.empty}" class="coming-soon-card">
+                <i class="bi bi-graph-up fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No data in this range.</span>
+            </div>
+            <div th:unless="${report.trend.empty}" class="card shadow-sm p-3">
+                <div style="position:relative; height:360px;">
+                    <canvas id="cashFlowTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Inflow by payment method -->
+    <div class="row g-4 mt-1 mb-1">
+        <div class="col-12 col-lg-6">
+            <h6 class="section-header mb-3">Total Inflow by Payment Method</h6>
+            <div th:if="${report.inflowByPaymentMethod.empty}" class="coming-soon-card">
+                <i class="bi bi-credit-card fs-2 text-secondary mb-2 d-block"></i>
+                <span class="text-muted">No inflow in this range.</span>
+            </div>
+            <div th:unless="${report.inflowByPaymentMethod.empty}" class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead><tr><th>Method</th><th class="text-end">Amount</th></tr></thead>
+                            <tbody>
+                                <tr th:each="m : ${report.inflowByPaymentMethod}">
+                                    <td th:text="${m.label}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(m.amount, 1, 2)}|"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ledger -->
+    <div class="row g-4 mt-1">
+        <div class="col-12">
+            <h6 class="section-header mb-3">Ledger</h6>
+            <div class="card shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Source</th>
+                                    <th class="text-center">Dir.</th>
+                                    <th>Description</th>
+                                    <th class="text-end">Amount</th>
+                                    <th>Method</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:if="${report.ledger.empty}">
+                                    <td colspan="6" class="text-center text-muted py-4">No cash movement found.</td>
+                                </tr>
+                                <tr th:each="row : ${report.ledger}">
+                                    <td class="text-nowrap" th:text="${#temporals.format(row.date, 'dd MMM yyyy, HH:mm')}"></td>
+                                    <td th:text="${row.source}"></td>
+                                    <td class="text-center">
+                                        <span class="badge" th:text="${row.direction}"
+                                              th:classappend="${row.direction == 'IN'} ? 'bg-success' : 'bg-danger'"></span>
+                                    </td>
+                                    <td th:text="${row.description}"></td>
+                                    <td class="text-end" th:text="|₹ ${#numbers.formatDecimal(row.amount, 1, 2)}|"></td>
+                                    <td th:text="${row.paymentMethod ?: '—'}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <span class="text-muted small" th:text="${report.ledger.totalElements} + ' entr(y/ies) total'"></span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span th:if="${report.ledger.totalPages > 1}" class="text-muted small"
+                              th:text="'Page ' + (${report.ledger.number} + 1) + ' of ' + ${report.ledger.totalPages}">
+                        </span>
+                        <div th:if="${report.ledger.totalPages > 1}" class="btn-group btn-group-sm">
+                            <a class="btn btn-outline-secondary"
+                               th:classappend="${!report.ledger.hasPrevious()} ? 'disabled'"
+                               th:href="@{/reports/cash-flow(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, size=${report.ledger.size}, page=${report.ledger.number - 1})}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                            <a class="btn btn-outline-secondary"
+                               th:classappend="${!report.ledger.hasNext()} ? 'disabled'"
+                               th:href="@{/reports/cash-flow(dateFrom=${selectedDateFrom}, dateTo=${selectedDateTo}, size=${report.ledger.size}, page=${report.ledger.number + 1})}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+<th:block th:replace="~{fragments/layout :: scripts}"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+    Chart.defaults.color = '#ad9fa4';
+    Chart.defaults.borderColor = 'rgba(255,255,255,0.08)';
+</script>
+<script th:inline="javascript">
+    const trendLabels = [];
+    const trendInflow = [];
+    const trendOutflow = [];
+    const trendNet = [];
+    /*[# th:each="point : ${report.trend}"]*/
+    trendLabels.push(/*[[${point.periodLabel}]]*/ '');
+    trendInflow.push(/*[[${point.inflow}]]*/ 0);
+    trendOutflow.push(/*[[${point.outflow}]]*/ 0);
+    trendNet.push(/*[[${point.net}]]*/ 0);
+    /*[/]*/
+
+    if (trendLabels.length > 0) {
+        new Chart(document.getElementById('cashFlowTrendChart'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    { label: 'Inflow', data: trendInflow, borderColor: '#4fae82', backgroundColor: 'rgba(79,174,130,0.15)', tension: 0.3, fill: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 },
+                    { label: 'Outflow', data: trendOutflow, borderColor: '#e0625f', backgroundColor: 'rgba(224,98,95,0.15)', tension: 0.3, fill: true, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2 },
+                    { label: 'Net', data: trendNet, borderColor: '#5b8def', backgroundColor: 'rgba(91,141,239,0.15)', tension: 0.3, fill: false, pointRadius: 3, pointHoverRadius: 5, borderWidth: 2, borderDash: [5, 3] }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: { legend: { display: true, position: 'top' } },
+                scales: {
+                    y: { beginAtZero: true },
+                    x: { ticks: { maxRotation: 0, autoSkip: true } }
+                }
+            }
+        });
+    }
+</script>
+</body>
+</html>

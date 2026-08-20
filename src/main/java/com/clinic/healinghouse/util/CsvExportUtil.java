@@ -237,6 +237,70 @@ public class CsvExportUtil {
         return sw.toString();
     }
 
+    public String generateCashFlowReportCsv(CashFlowReportDTO report) throws IOException {
+        StringWriter sw = new StringWriter();
+        try (CSVWriter writer = new CSVWriter(sw)) {
+            writeHeaders(writer, "Cash Flow Report - " + report.dateFrom().format(dateFormatter()) +
+                    " to " + report.dateTo().format(dateFormatter()));
+            writeCashFlowSummary(writer, report.summary());
+
+            if (report.inflowByPaymentMethod() != null && !report.inflowByPaymentMethod().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Total Inflow by Payment Method"});
+                writer.writeNext(new String[]{"Method", "Amount"});
+                for (CashFlowByPaymentMethodDTO m : report.inflowByPaymentMethod()) {
+                    writer.writeNext(new String[]{m.label(), formatCurrency(m.amount())});
+                }
+            }
+
+            if (report.trend() != null && !report.trend().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Daily Trend"});
+                writer.writeNext(new String[]{"Date", "Inflow", "Outflow", "Net"});
+                for (CashFlowTrendPointDTO point : report.trend()) {
+                    writer.writeNext(new String[]{
+                            sanitize(point.periodLabel()), formatCurrency(point.inflow()),
+                            formatCurrency(point.outflow()), formatCurrency(point.net())
+                    });
+                }
+            }
+
+            if (report.ledger() != null && !report.ledger().isEmpty()) {
+                writer.writeNext(new String[]{});
+                writer.writeNext(new String[]{"Ledger"});
+                writer.writeNext(new String[]{"Date", "Source", "Direction", "Description", "Amount", "Payment Method"});
+                for (CashLedgerEntryDTO row : report.ledger()) {
+                    writer.writeNext(new String[]{
+                            row.date().format(dateTimeFormatter()),
+                            row.source(),
+                            row.direction(),
+                            sanitize(row.description()),
+                            formatCurrency(row.amount()),
+                            row.paymentMethod() != null ? row.paymentMethod().name() : "N/A"
+                    });
+                }
+            }
+        }
+        return sw.toString();
+    }
+
+    private void writeCashFlowSummary(CSVWriter writer, CashFlowSummaryDTO summary) throws IOException {
+        writer.writeNext(new String[]{"Inflow"});
+        writer.writeNext(new String[]{"Appointment Cash Payments", formatCurrency(summary.appointmentCashInflow())});
+        writer.writeNext(new String[]{"Package Sales", formatCurrency(summary.packageSales())});
+        writer.writeNext(new String[]{"Wallet Top-ups", formatCurrency(summary.walletTopUps())});
+        writer.writeNext(new String[]{"Total Inflow", formatCurrency(summary.totalInflow())});
+        writer.writeNext(new String[]{});
+        writer.writeNext(new String[]{"Outflow"});
+        writer.writeNext(new String[]{"Expenses", formatCurrency(summary.expenses())});
+        writer.writeNext(new String[]{"Wallet Refunds", formatCurrency(summary.walletRefunds())});
+        writer.writeNext(new String[]{"Package Refunds", formatCurrency(summary.packageRefunds())});
+        writer.writeNext(new String[]{"Appointment Payment Corrections", formatCurrency(summary.appointmentPaymentCorrections())});
+        writer.writeNext(new String[]{"Total Outflow", formatCurrency(summary.totalOutflow())});
+        writer.writeNext(new String[]{});
+        writer.writeNext(new String[]{"Net Cash Flow", formatCurrency(summary.netCashFlow())});
+    }
+
     public String generateProductListCsv(List<Product> products) throws IOException {
         StringWriter sw = new StringWriter();
         try (CSVWriter writer = new CSVWriter(sw)) {

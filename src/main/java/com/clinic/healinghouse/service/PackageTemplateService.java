@@ -14,7 +14,10 @@ import com.clinic.healinghouse.repository.AppointmentServiceLineRepository;
 import com.clinic.healinghouse.repository.ClinicServiceRepository;
 import com.clinic.healinghouse.repository.PackageTemplateRepository;
 import com.clinic.healinghouse.repository.ProductRepository;
+import jakarta.persistence.EntityManager;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -44,6 +47,7 @@ public class PackageTemplateService {
     private final ProductRepository productRepository;
     private final AppointmentServiceLineRepository appointmentServiceLineRepository;
     private final AppointmentProductLineRepository appointmentProductLineRepository;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public List<PackageTemplate> findAllActive() {
@@ -100,6 +104,7 @@ public class PackageTemplateService {
                             .packageTemplate(template)
                             .service(cs)
                             .sessionCount(Math.max(1, item.getSessionCount()))
+                            .priceOverride(clampOverride(item.getPrice(), cs.getPrice()))
                             .build());
         }
 
@@ -116,6 +121,7 @@ public class PackageTemplateService {
                             .packageTemplate(template)
                             .product(product)
                             .sessionCount(Math.max(1, item.getSessionCount()))
+                            .priceOverride(clampOverride(item.getPrice(), product.getPrice()))
                             .build());
         }
 
@@ -216,6 +222,18 @@ public class PackageTemplateService {
         return removeFromTemplates(templates, t -> t.getProductItems().removeIf(pi -> pi.getProduct().getId().equals(productId)));
     }
 
+    /**
+     * The "empty after removal" check below reads each template's in-transaction collection state,
+     * which two concurrent deactivations (one removing the template's last service, the other its
+     * last product) can both evaluate against stale data under MySQL's default REPEATABLE READ —
+     * each sees the other item still present, so neither trips the auto-deactivate branch and the
+     * template silently ends up with zero items while still active. This mirrors exactly the race
+     * Bug_Report_v6.md Finding 10 fixed for Combo — that fix was never applied here even though
+     * this method already mirrored ComboService.removeFromCombos in every other respect
+     * (Bug_Report_v7.md Finding 10). lockAndPersist force-increments the version on every template
+     * touched here, so the second concurrent call to reach it always loses with a clear "just
+     * updated" error instead of silently completing.
+     */
     private CatalogItemRemovalResult removeFromTemplates(List<PackageTemplate> templates, java.util.function.Consumer<PackageTemplate> removeItem) {
         int autoDeactivated = 0;
         for (PackageTemplate template : templates) {
@@ -226,14 +244,52 @@ public class PackageTemplateService {
                 log.info("Auto-deactivated package template id={} name='{}' — no items left after catalog removal",
                         template.getId(), template.getName());
             }
-            packageTemplateRepository.save(template);
+            lockAndPersist(template);
             log.info("Removed deactivated catalog item from package template id={} name='{}'", template.getId(), template.getName());
         }
         return new CatalogItemRemovalResult(templates.size(), autoDeactivated);
     }
 
-    /** Live sum of current catalog prices x session count across every item — never stored. */
+    private void lockAndPersist(PackageTemplate template) {
+        try {
+            packageTemplateRepository.save(template);
+            entityManager.lock(template, LockModeType.OPTIMISTIC_FORCE_INCREMENT);
+            entityManager.flush();
+        } catch (OptimisticLockException ex) {
+            throw new IllegalStateException(
+                    "This package template was just updated by someone else. Please refresh and try again.", ex);
+        }
+    }
+
+    /**
+     * Sum of each item's effective unit price (its own priceOverride if staff set one — discount
+     * only, clamped to catalog price at save time — else the live catalog price) x session count,
+     * across every item. Never stored. Already reflects any per-item discount; the template's own
+     * whole-bundle discount (computeDiscountAmount/computeSuggestedPrice) layers on top of this,
+     * mirroring ComboService.computeOriginalPrice's identical two-phase reasoning.
+     */
     public BigDecimal computeOriginalPrice(PackageTemplate template) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (PackageTemplateServiceItem si : template.getServiceItems()) {
+            BigDecimal rate = si.getPriceOverride() != null ? si.getPriceOverride() : si.getService().getPrice();
+            total = total.add(rate.multiply(BigDecimal.valueOf(si.getSessionCount())));
+        }
+        for (PackageTemplateProductItem pi : template.getProductItems()) {
+            BigDecimal rate = pi.getPriceOverride() != null ? pi.getPriceOverride() : pi.getProduct().getPrice();
+            total = total.add(rate.multiply(BigDecimal.valueOf(pi.getSessionCount())));
+        }
+        return total;
+    }
+
+    /**
+     * True catalog total — session count x each item's live catalog price, ignoring any
+     * priceOverride. Used only where "Savings" needs to mean "everything saved vs. buying each
+     * session separately at list price" — a per-item priceOverride is a real discount exactly like
+     * the template-level one, so it must count towards Savings too. computeOriginalPrice deliberately
+     * stays as-is (it's the base computeSuggestedPrice/computeDiscountAmount resolve the template-level
+     * discount against), so per-item discounts don't get silently netted out of the displayed savings.
+     */
+    public BigDecimal computeCatalogPrice(PackageTemplate template) {
         BigDecimal total = BigDecimal.ZERO;
         for (PackageTemplateServiceItem si : template.getServiceItems()) {
             total = total.add(si.getService().getPrice().multiply(BigDecimal.valueOf(si.getSessionCount())));
@@ -242,6 +298,19 @@ public class PackageTemplateService {
             total = total.add(pi.getProduct().getPrice().multiply(BigDecimal.valueOf(pi.getSessionCount())));
         }
         return total;
+    }
+
+    /**
+     * Clamps a staff-entered per-item price to [0, catalogPrice] — discount only, never a markup.
+     * Null/blank input, or a clamped value equal to the catalog price, both mean "no override" (the
+     * form's rate input always carries a numeric value — defaulting to catalog price on an untouched
+     * row — so treating "equals catalog price" as null here is what stops every row from showing a
+     * strikethrough on the detail page just because the form always submits a price).
+     */
+    private BigDecimal clampOverride(BigDecimal requested, BigDecimal catalogPrice) {
+        if (requested == null) return null;
+        BigDecimal clamped = requested.max(BigDecimal.ZERO).min(catalogPrice);
+        return clamped.compareTo(catalogPrice) == 0 ? null : clamped;
     }
 
     /** Original price minus the template's own resolved (capped) discount — a starting point only, never binding. */

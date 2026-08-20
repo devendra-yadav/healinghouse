@@ -84,6 +84,28 @@ class RecurringExpenseTemplateServiceTests {
         assertThat(saved.getRecordedBy()).isEqualTo(t.getCreatedBy());
     }
 
+    /** Bug_Report_v7.md Finding 11: a template anchored to the 31st must recover to the 31st the
+     *  very next month long enough to hold it, rather than staying permanently pinned at whatever
+     *  shorter day it first landed on (the old bug: chaining plusMonths off the previous, already-
+     *  clamped nextDueDate instead of always re-deriving the day from startDate). */
+    @Test
+    void generateAdvancesToClampedDayThenRecoversOriginalDayOnceMonthIsLongEnough() {
+        LocalDate startDate = LocalDate.of(2026, 1, 31); // 2026 is not a leap year — Feb has 28 days
+        RecurringExpenseTemplate t = template(startDate, null);
+        when(recurringExpenseTemplateRepository.findByActiveTrueAndNextDueDateLessThanEqual(startDate))
+                .thenReturn(List.of(t));
+
+        service.generateDueExpenses(startDate);
+        assertThat(t.getNextDueDate()).isEqualTo(LocalDate.of(2026, 2, 28));
+
+        LocalDate secondDueDate = t.getNextDueDate();
+        when(recurringExpenseTemplateRepository.findByActiveTrueAndNextDueDateLessThanEqual(secondDueDate))
+                .thenReturn(List.of(t));
+
+        service.generateDueExpenses(secondDueDate);
+        assertThat(t.getNextDueDate()).isEqualTo(LocalDate.of(2026, 3, 31)); // recovered — March has 31 days
+    }
+
     @Test
     void generateDueExpensesIsANoOpWhenNothingIsDue() {
         when(recurringExpenseTemplateRepository.findByActiveTrueAndNextDueDateLessThanEqual(any())).thenReturn(List.of());

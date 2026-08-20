@@ -12,6 +12,7 @@ import com.clinic.healinghouse.security.PermissionService;
 import com.clinic.healinghouse.security.RequiresPermission;
 import com.clinic.healinghouse.service.*;
 import com.clinic.healinghouse.util.CsvExportUtil;
+import com.clinic.healinghouse.util.InvoicePdfService;
 import com.clinic.healinghouse.util.PaginationUtil;
 import com.clinic.healinghouse.util.PdfExportUtil;
 import com.clinic.healinghouse.util.SafeRedirectUtil;
@@ -52,6 +53,7 @@ public class AppointmentController {
     private final PermissionService  permissionService;
     private final CsvExportUtil      csvExportUtil;
     private final PdfExportUtil      pdfExportUtil;
+    private final InvoicePdfService  invoicePdfService;
 
     // ── List ──────────────────────────────────────────────────────────────
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
@@ -183,7 +185,15 @@ public class AppointmentController {
                 therapistIds, parseCalendarBound(start), parseCalendarBound(end));
     }
 
-    /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date. */
+    /** FullCalendar sends range bounds as ISO-8601, with or without an offset, or as a plain date.
+     *  Reviewed for Bug_Report_v7.md Finding 18 ("trusts a client-supplied UTC offset"): confirmed
+     *  {@code OffsetDateTime.toLocalDateTime()} discards whatever offset accompanied the string
+     *  rather than converting by it — the wall-clock digits are taken as-is regardless of offset, so
+     *  a skewed client-supplied offset has no effect on the resulting bound either way. Kept as
+     *  {@code OffsetDateTime.parse} rather than {@code LocalDateTime.parse} purely so an
+     *  offset-suffixed string still parses at all; do not "fix" this into an actual zone conversion
+     *  (e.g. via {@code toInstant()}/{@code atZone()}) without re-deriving this against the app's
+     *  forced Asia/Kolkata JVM default first. */
     private LocalDateTime parseCalendarBound(String raw) {
         try {
             return OffsetDateTime.parse(raw).toLocalDateTime();
@@ -282,6 +292,22 @@ public class AppointmentController {
         }
     }
 
+    // ── Invoice (COMPLETED only — an appointment that hasn't happened yet has nothing to invoice) ──
+    @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.VIEW)
+    @GetMapping("/{id}/invoice/pdf")
+    public ResponseEntity<byte[]> invoicePdf(@PathVariable Long id) {
+        enforceOwnAppointmentForTherapist(id);
+        Appointment appt = appointmentService.getById(id);
+        if (appt.getStatus() != AppointmentStatus.COMPLETED) {
+            throw new IllegalStateException("An invoice is only available once the appointment is completed.");
+        }
+        byte[] pdf = invoicePdfService.renderAppointmentInvoice(appt);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline;filename=invoice-appointment-" + id + ".pdf")
+                .header(HttpHeaders.CONTENT_TYPE, "application/pdf")
+                .body(pdf);
+    }
+
     // ── Edit form ─────────────────────────────────────────────────────────
     @RequiresPermission(module = Module.APPOINTMENTS, action = PermissionAction.EDIT)
     @GetMapping("/{id}/edit")
@@ -302,6 +328,7 @@ public class AppointmentController {
                         m.put("therapistId", sl.getTherapist().getId());
                         m.put("comboGroupKey", sl.getAppointmentCombo() != null ? "combo-" + sl.getAppointmentCombo().getId() : null);
                         m.put("packageItemId", sl.getPackageServiceItem() != null ? sl.getPackageServiceItem().getId() : null);
+                        m.put("price", sl.getPriceAtTime());
                         return m;
                     }).toList();
             List<Map<String, Object>> existingProductLines = appt.getProductLines().stream()
@@ -312,6 +339,7 @@ public class AppointmentController {
                         m.put("therapistId", pl.getTherapist().getId());
                         m.put("comboGroupKey", pl.getAppointmentCombo() != null ? "combo-" + pl.getAppointmentCombo().getId() : null);
                         m.put("packageItemId", pl.getPackageProductItem() != null ? pl.getPackageProductItem().getId() : null);
+                        m.put("price", pl.getPriceAtTime());
                         return m;
                     }).toList();
 
@@ -412,7 +440,7 @@ public class AppointmentController {
         return "redirect:" + SafeRedirectUtil.sanitize(returnUrl, "/appointments/" + id);
     }
 
-    // ── Per-line therapist reassignment (allowed on any status) ──────────────
+    // ── Per-line therapist reassignment (OWNER: any status; other roles: SCHEDULED only) ──
     // Subject to the same double-booking check as create/update (warn, never hard-block): if the
     // new therapist is already busy elsewhere during this appointment's window, the reassignment
     // is NOT applied and the conflict is flashed back for the detail page's warning banner to show,
@@ -489,6 +517,16 @@ public class AppointmentController {
         if (ownTherapistId != null && !appointmentService.involvesTherapist(appointmentId, ownTherapistId)) {
             throw new AccessDeniedException("You don't have access to this appointment.");
         }
+    }
+
+    /**
+     * Just an optimistic UI hint (renders the per-line price box editable at all) — AppointmentService
+     * is the actual authority, re-checking OWNER-or-main-therapist against the appointment's real main
+     * therapist at save time before honoring any submitted price override.
+     */
+    private boolean canEditLinePrice() {
+        AppRole role = permissionService.currentRole();
+        return role == AppRole.OWNER || role == AppRole.THERAPIST || role == AppRole.THERAPIST_PLUS;
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────
@@ -588,6 +626,7 @@ public class AppointmentController {
 
         model.addAttribute("patients",       patientService.findAll());
         model.addAttribute("therapists",     therapistService.findAll());
+        model.addAttribute("canEditLinePrice", canEditLinePrice());
         model.addAttribute("serviceData",    serviceData);
         model.addAttribute("productData",    productData);
         model.addAttribute("therapistData",  therapistData);

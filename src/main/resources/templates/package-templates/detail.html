@@ -55,7 +55,7 @@
                                 <td class="text-muted ps-0">
                                     <i class="bi bi-cash-coin me-1"></i>Original Price
                                 </td>
-                                <td th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template), 1, 2)}|"></td>
+                                <td th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(template), 1, 2)}|"></td>
                             </tr>
                             <tr>
                                 <td class="text-muted ps-0">
@@ -68,10 +68,10 @@
                                     <i class="bi bi-piggy-bank me-1"></i>Savings
                                 </td>
                                 <td>
-                                    <span th:if="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                    <span th:if="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeCatalogPrice(template)) < 0}"
                                           class="badge bg-success"
-                                          th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeOriginalPrice(template).subtract(packageTemplateService.computeSuggestedPrice(template)), 1, 2)} off|"></span>
-                                    <span th:unless="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeOriginalPrice(template)) < 0}"
+                                          th:text="|₹ ${#numbers.formatDecimal(packageTemplateService.computeCatalogPrice(template).subtract(packageTemplateService.computeSuggestedPrice(template)), 1, 2)} off|"></span>
+                                    <span th:unless="${packageTemplateService.computeSuggestedPrice(template).compareTo(packageTemplateService.computeCatalogPrice(template)) < 0}"
                                           class="text-muted">—</span>
                                 </td>
                             </tr>
@@ -110,17 +110,33 @@
                             <td><span class="badge bg-success bg-opacity-75">Service</span></td>
                             <td th:text="${si.service.name}"></td>
                             <td class="text-center" th:text="${si.sessionCount}"></td>
-                            <td class="text-end" th:text="${#numbers.formatDecimal(si.service.price, 1, 2)}"></td>
+                            <td class="text-end">
+                                <span th:if="${si.priceOverride != null}">
+                                    <span class="text-muted text-decoration-line-through d-block"
+                                          th:text="${#numbers.formatDecimal(si.service.price, 1, 2)}"></span>
+                                    <span class="text-success" th:text="${#numbers.formatDecimal(si.priceOverride, 1, 2)}"></span>
+                                </span>
+                                <span th:unless="${si.priceOverride != null}"
+                                      th:text="${#numbers.formatDecimal(si.service.price, 1, 2)}"></span>
+                            </td>
                             <td class="text-end fw-semibold"
-                                th:text="${#numbers.formatDecimal(si.service.price.multiply(new java.math.BigDecimal(si.sessionCount)), 1, 2)}"></td>
+                                th:text="${#numbers.formatDecimal((si.priceOverride != null ? si.priceOverride : si.service.price).multiply(new java.math.BigDecimal(si.sessionCount)), 1, 2)}"></td>
                         </tr>
                         <tr th:each="pi : ${template.productItems}">
                             <td><span class="badge bg-info text-dark">Product</span></td>
                             <td th:text="${pi.product.name}"></td>
                             <td class="text-center" th:text="${pi.sessionCount}"></td>
-                            <td class="text-end" th:text="${#numbers.formatDecimal(pi.product.price, 1, 2)}"></td>
+                            <td class="text-end">
+                                <span th:if="${pi.priceOverride != null}">
+                                    <span class="text-muted text-decoration-line-through d-block"
+                                          th:text="${#numbers.formatDecimal(pi.product.price, 1, 2)}"></span>
+                                    <span class="text-success" th:text="${#numbers.formatDecimal(pi.priceOverride, 1, 2)}"></span>
+                                </span>
+                                <span th:unless="${pi.priceOverride != null}"
+                                      th:text="${#numbers.formatDecimal(pi.product.price, 1, 2)}"></span>
+                            </td>
                             <td class="text-end fw-semibold"
-                                th:text="${#numbers.formatDecimal(pi.product.price.multiply(new java.math.BigDecimal(pi.sessionCount)), 1, 2)}"></td>
+                                th:text="${#numbers.formatDecimal((pi.priceOverride != null ? pi.priceOverride : pi.product.price).multiply(new java.math.BigDecimal(pi.sessionCount)), 1, 2)}"></td>
                         </tr>
                     </tbody>
                 </table>

@@ -36,12 +36,14 @@ public class ComboForm {
             ComboItemForm item = new ComboItemForm();
             item.setItemId(si.getService().getId());
             item.setQuantity(si.getQuantity());
+            item.setPrice(si.getPriceOverride());
             form.getServiceItems().add(item);
         });
         combo.getProductItems().forEach(pi -> {
             ComboItemForm item = new ComboItemForm();
             item.setItemId(pi.getProduct().getId());
             item.setQuantity(pi.getQuantity());
+            item.setPrice(pi.getPriceOverride());
             form.getProductItems().add(item);
         });
         return form;
@@ -51,5 +53,7 @@ public class ComboForm {
     public static class ComboItemForm {
         private Long itemId;
         private int quantity = 1;
+        /** Optional per-item price override; null/blank = use catalog price. */
+        private BigDecimal price;
     }
 }
