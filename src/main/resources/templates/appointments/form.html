@@ -13,6 +13,15 @@
         .service-row .choices__list--dropdown .choices__item, .product-row .choices__list--dropdown .choices__item {
             font-size: .875rem;
         }
+        .service-row .choices__list--dropdown .opt-row, .product-row .choices__list--dropdown .opt-row {
+            display: flex; justify-content: space-between; align-items: center; gap: .75rem; width: 100%;
+        }
+        .service-row .choices__list--dropdown .opt-price, .product-row .choices__list--dropdown .opt-price {
+            flex: 0 0 auto; color: var(--bs-secondary-color); font-variant-numeric: tabular-nums; white-space: nowrap;
+        }
+        .service-row .choices__list--single .opt-price, .product-row .choices__list--single .opt-price {
+            display: none;
+        }
         .combo-line-row { border-left: 3px solid #4fae82; padding-left: 6px; }
         .combo-group-header { border-left: 3px solid #4fae82; }
     </style>
@@ -533,19 +542,44 @@ function buildOptions(data, idField, nameField) {
     ).join('');
 }
 
+// Name + right-aligned price label for a catalog item dropdown row. HTML (not plain option
+// text) because native <option> tags can't lay out flex content — Choices.js renders its own
+// dropdown list from these labels instead, via allowHTML + setChoices below.
+function itemChoiceLabel(name, price) {
+    const priceHtml = price != null ? `<span class="opt-price">${fmt(price)}</span>` : '';
+    return `<span class="opt-row"><span class="opt-name">${escHtml(name)}</span>${priceHtml}</span>`;
+}
+
 // ── Searchable service/product select (Choices.js) — used on dynamically ──
 // added, non-locked service/product rows so staff can type-to-filter instead
-// of scrolling a long catalog list.
-function initItemSelect(sel, placeholder) {
-    return new Choices(sel, {
+// of scrolling a long catalog list. priceData (SERVICE_DATA/PRODUCT_DATA), when given, replaces
+// the plain-text <option> choices with name+price labels via setChoices — going through the
+// choices array (not raw <option> innerHTML) because browsers strip child markup pasted into
+// <option> tags. searchFields is pinned to the plain name (not the HTML label) so price digits
+// and markup don't dilute the fuzzy match.
+function initItemSelect(sel, placeholder, priceData) {
+    const instance = new Choices(sel, {
         searchEnabled: true,
         shouldSort: false,
         itemSelectText: '',
         placeholderValue: placeholder,
         searchPlaceholderValue: 'Search…',
         searchResultLimit: 50,
-        fuseOptions: { threshold: 0.3 }
+        fuseOptions: { threshold: 0.3 },
+        searchFields: ['customProperties.name', 'value'],
+        allowHTML: true
     });
+    if (priceData) {
+        instance.setChoices(
+            priceData.map(d => ({
+                value: String(d.id),
+                label: itemChoiceLabel(d.name, d.price),
+                customProperties: { name: d.name, price: d.price }
+            })),
+            'value', 'label', true
+        );
+    }
+    return instance;
 }
 
 // ── Service rows ──────────────────────────────────────────────────────────
@@ -647,7 +681,7 @@ function addServiceRow(preselectId, preselectQty, preselectTherapistId, comboGro
         }
     } else {
         const sel = row.querySelector('.s-select');
-        const choicesInstance = initItemSelect(sel, '— Service —');
+        const choicesInstance = initItemSelect(sel, '— Service —', SERVICE_DATA);
         if (preselectId) {
             choicesInstance.setChoiceByValue(String(preselectId));
             onServiceChange(sel);
@@ -774,7 +808,7 @@ function addProductRow(preselectId, preselectQty, preselectTherapistId, comboGro
         }
     } else {
         const sel = row.querySelector('.p-select');
-        const choicesInstance = initItemSelect(sel, '— Product —');
+        const choicesInstance = initItemSelect(sel, '— Product —', PRODUCT_DATA);
         if (preselectId) {
             choicesInstance.setChoiceByValue(String(preselectId));
             onProductChange(sel);
