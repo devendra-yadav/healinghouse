@@ -6,6 +6,7 @@ target/
 .claude
 #CLAUDE.md
 app.log
+logs/
 healinghouse.log*
 healinghouse*.log
 .mvn

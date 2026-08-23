@@ -2,6 +2,7 @@ package com.clinic.healinghouse.service;
 
 import com.clinic.healinghouse.config.HealingHouseProperties;
 import com.clinic.healinghouse.dto.CashFlowReportDTO;
+import com.clinic.healinghouse.entity.Appointment;
 import com.clinic.healinghouse.entity.AppointmentPaymentTransaction;
 import com.clinic.healinghouse.entity.AppointmentPaymentTransactionType;
 import com.clinic.healinghouse.entity.Expense;
@@ -72,9 +73,9 @@ class CashFlowReportAggregatorTests {
                 .amount(BigDecimal.valueOf(1000))
                 .paymentMethod(PaymentMethod.CASH)
                 .patient(patient("Jane Doe"))
-                .createdAt(LocalDateTime.of(2026, 7, 10, 9, 0))
+                .appointment(appointmentAt(2026, 7, 10, 9, 0))
                 .build();
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any()))
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any()))
                 .thenReturn(List.of(cashPayment));
 
         WalletTransaction topUp = WalletTransaction.builder()
@@ -118,10 +119,10 @@ class CashFlowReportAggregatorTests {
                 .amount(BigDecimal.valueOf(-400))
                 .paymentMethod(PaymentMethod.CASH)
                 .patient(patient("John Roe"))
-                .createdAt(LocalDateTime.of(2026, 7, 15, 9, 0))
+                .appointment(appointmentAt(2026, 7, 15, 9, 0))
                 .cashPhysicallyReturned(true)
                 .build();
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any()))
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any()))
                 .thenReturn(List.of(correction));
         when(walletTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(packageTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
@@ -150,9 +151,9 @@ class CashFlowReportAggregatorTests {
                 .amount(BigDecimal.valueOf(-4500))
                 .paymentMethod(PaymentMethod.CASH)
                 .patient(patient("John Roe"))
-                .createdAt(LocalDateTime.of(2026, 7, 15, 9, 0))
+                .appointment(appointmentAt(2026, 7, 15, 9, 0))
                 .build();
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any()))
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any()))
                 .thenReturn(List.of(typoFix));
         when(walletTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(packageTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
@@ -179,9 +180,9 @@ class CashFlowReportAggregatorTests {
                 .amount(BigDecimal.valueOf(300))
                 .paymentMethod(PaymentMethod.CASH)
                 .patient(patient("Jane Doe"))
-                .createdAt(LocalDateTime.of(2026, 7, 15, 9, 0))
+                .appointment(appointmentAt(2026, 7, 15, 9, 0))
                 .build();
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any()))
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any()))
                 .thenReturn(List.of(upwardCorrection));
         when(walletTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(packageTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
@@ -197,7 +198,7 @@ class CashFlowReportAggregatorTests {
 
     @Test
     void refundsAndExpensesAreOutflowAndReduceNetCashFlow() {
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any())).thenReturn(List.of());
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any())).thenReturn(List.of());
 
         WalletTransaction refund = WalletTransaction.builder()
                 .type(WalletTransactionType.REFUND)
@@ -240,7 +241,7 @@ class CashFlowReportAggregatorTests {
     void ledgerIsPaginatedInMemory() {
         List<AppointmentPaymentTransaction> txns = List.of(
                 paymentAt(2026, 7, 1), paymentAt(2026, 7, 2), paymentAt(2026, 7, 3));
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any())).thenReturn(txns);
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any())).thenReturn(txns);
         when(walletTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(packageTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(expenseRepository.findByStatusAndExpenseDateBetween(ExpenseStatus.ACTIVE, FROM, TO)).thenReturn(List.of());
@@ -257,7 +258,7 @@ class CashFlowReportAggregatorTests {
     void unpagedRequestReturnsEveryLedgerEntry() {
         List<AppointmentPaymentTransaction> txns = List.of(
                 paymentAt(2026, 7, 1), paymentAt(2026, 7, 2), paymentAt(2026, 7, 3));
-        when(appointmentPaymentTransactionRepository.findByCreatedAtBetween(any(), any())).thenReturn(txns);
+        when(appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(any(), any())).thenReturn(txns);
         when(walletTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(packageTransactionRepository.findByTypeInAndCreatedAtBetween(any(), any(), any())).thenReturn(List.of());
         when(expenseRepository.findByStatusAndExpenseDateBetween(ExpenseStatus.ACTIVE, FROM, TO)).thenReturn(List.of());
@@ -273,7 +274,11 @@ class CashFlowReportAggregatorTests {
                 .amount(BigDecimal.valueOf(100))
                 .paymentMethod(PaymentMethod.CASH)
                 .patient(patient("Jane Doe"))
-                .createdAt(LocalDateTime.of(y, m, d, 9, 0))
+                .appointment(appointmentAt(y, m, d, 9, 0))
                 .build();
+    }
+
+    private Appointment appointmentAt(int y, int m, int d, int h, int min) {
+        return Appointment.builder().appointmentDateTime(LocalDateTime.of(y, m, d, h, min)).build();
     }
 }

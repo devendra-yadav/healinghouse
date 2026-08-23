@@ -24,7 +24,10 @@ import java.math.BigDecimal;
  * Approximation, not a reconstruction: only {@code createdAt} is known for old rows, not the actual
  * date(s) money changed hands across possibly-multiple edits, so this seeds exactly one RECEIVED row
  * per appointment (dated at its createdAt) for the appointment's cash portion as it stands today —
- * amountPaid minus whatever wallet/package amount is currently applied.
+ * amountPaid minus whatever wallet/package amount is currently applied. (Cash Flow itself now dates
+ * this ledger off the appointment's {@code appointmentDateTime}, not this row's {@code createdAt} —
+ * see CashFlowReportAggregator's javadoc — so the back-dating below is no longer load-bearing for the
+ * report's date-range filter/trend, just for keeping the row's own createdAt an honest timestamp.)
  * <p>
  * Idempotency is checked per-appointment ({@link AppointmentPaymentTransactionRepository#existsByAppointment_Id}),
  * not via a single table-wide {@code count() > 0} guard. Spring Boot's embedded server can start
@@ -72,8 +75,8 @@ public class AppointmentPaymentTransactionBackfill implements CommandLineRunner 
             // createdAt is @CreationTimestamp-managed and `updatable = false` at the column level, so
             // Hibernate's own UPDATE would silently ignore a Java-side field mutation here — a direct
             // native UPDATE is the only way to back-date it to the appointment's own createdAt instead
-            // of "now", which matters since the whole point of this backfill is realistic historical
-            // dates for the Cash Flow report's date-range filter and trend chart.
+            // of "now". Kept for an honest audit timestamp even though Cash Flow itself no longer reads
+            // this row's createdAt (see the class javadoc above).
             entityManager.createNativeQuery(
                             "update appointment_payment_transaction set created_at = :d where id = :id")
                     .setParameter("d", appt.getCreatedAt())

@@ -56,6 +56,18 @@ import java.util.Map;
  * moves. A wallet-top-up-funded or package-funded appointment line is therefore never double-counted:
  * it was already recognized as inflow at top-up/purchase time, and AppointmentPaymentTransaction only
  * ever records the fresh-cash delta on top of that (see AppointmentService's ledger-writing comments).
+ * <p>
+ * <b>Date basis per ledger</b> — every source in this report is filtered/bucketed by whichever field
+ * actually represents "when did this belong," not always the row's own {@code createdAt}:
+ * AppointmentPaymentTransaction rows are dated by their appointment's {@code appointmentDateTime} (the
+ * visit/service date staff enters, same convention every other report already uses via
+ * {@code AppointmentRepository.findByStatusAndDateRange}), not the payment row's insert timestamp —
+ * fixed 2026-08-24, since staff entering a walk-in's payment into the system a day or more after the
+ * actual visit previously made that day's cash show as zero and the (wrong) later entry-date show
+ * inflow instead. Expense rows use their own staff-set {@code expenseDate} (unchanged, already
+ * correct). WalletTransaction (TOP_UP/REFUND) and PackageTransaction (PURCHASE/REFUND) rows have no
+ * associated appointment/visit at all — top-up and package sale are their own standalone actions — so
+ * {@code createdAt} genuinely *is* the moment the money moved for those two, and stays as-is.
  */
 @Service
 @RequiredArgsConstructor
@@ -73,7 +85,7 @@ public class CashFlowReportAggregator {
         LocalDateTime end = dateTo.atTime(LocalTime.MAX);
 
         List<AppointmentPaymentTransaction> appointmentPayments =
-                appointmentPaymentTransactionRepository.findByCreatedAtBetween(start, end);
+                appointmentPaymentTransactionRepository.findByAppointment_AppointmentDateTimeBetween(start, end);
         List<WalletTransaction> walletTxns = walletTransactionRepository.findByTypeInAndCreatedAtBetween(
                 List.of(WalletTransactionType.TOP_UP, WalletTransactionType.REFUND), start, end);
         List<PackageTransaction> packageTxns = packageTransactionRepository.findByTypeInAndCreatedAtBetween(
@@ -171,7 +183,7 @@ public class CashFlowReportAggregator {
         Map<LocalDate, BigDecimal> outflowByDay = new HashMap<>();
 
         for (AppointmentPaymentTransaction t : appointmentPayments) {
-            LocalDate day = t.getCreatedAt().toLocalDate();
+            LocalDate day = t.getAppointment().getAppointmentDateTime().toLocalDate();
             if (t.getAmount().signum() >= 0) {
                 inflowByDay.merge(day, t.getAmount(), BigDecimal::add);
             } else if (t.isCashPhysicallyReturned()) {
@@ -227,7 +239,7 @@ public class CashFlowReportAggregator {
             // consulted, letting a positive CORRECTED row be mislabeled here).
             String label = t.getType() == AppointmentPaymentTransactionType.CORRECTED
                     ? "Appointment Correction" : "Appointment Payment";
-            entries.add(new CashLedgerEntryDTO(t.getCreatedAt(),
+            entries.add(new CashLedgerEntryDTO(t.getAppointment().getAppointmentDateTime(),
                     label,
                     isOutflow ? "OUT" : "IN",
                     t.getPatient().getFullName(),

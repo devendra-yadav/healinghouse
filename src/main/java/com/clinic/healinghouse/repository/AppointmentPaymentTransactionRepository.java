@@ -12,7 +12,10 @@ public interface AppointmentPaymentTransactionRepository extends JpaRepository<A
 
     Page<AppointmentPaymentTransaction> findByAppointment_IdOrderByCreatedAtDesc(Long appointmentId, Pageable pageable);
 
-    List<AppointmentPaymentTransaction> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+    // Cash Flow report date basis for this ledger — the appointment's own service date/time
+    // (appointmentDateTime), not this row's createdAt (data-entry timestamp). See
+    // CashFlowReportAggregator's javadoc for why.
+    List<AppointmentPaymentTransaction> findByAppointment_AppointmentDateTimeBetween(LocalDateTime start, LocalDateTime end);
 
     // Per-appointment idempotency check for AppointmentPaymentTransactionBackfill — see that class's
     // javadoc for why a single table-wide count() guard isn't safe here.
